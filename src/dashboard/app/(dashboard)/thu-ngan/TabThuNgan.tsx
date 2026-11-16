@@ -26,7 +26,13 @@ export default function TabThuNgan({ quay, chiXem = false }: { quay: "dich_vu" |
   const laHomNay = ngayXem === homNay;
   const khoa = `${ngayXem}:${phamVi.ca ?? ""}:${phamVi.coSo ?? ""}`;
   const thaoTac = !chiXem && phamVi.thaoTac && laHomNay;
-  const tabXem = tab === "cho" && !thaoTac ? "lich_su" : tab;
+  // QUẦY THUỐC theo NGÀY (Tuyền 16/11/2026): tab "Chờ thanh toán" hiện khách của
+  // đúng ngày đang chọn — kể cả ngày cũ, để thu nốt khách cuối tuần. Quyền thu vẫn
+  // là ca đang trực (máy chủ kiểm lúc bấm). Quầy dịch vụ giữ nguyên: chỉ hôm nay.
+  const theoNgay = quay === "thuoc";
+  const coTabCho = theoNgay ? !chiXem && phamVi.thaoTac : thaoTac;
+  const ngayCho = theoNgay ? ngay : homNay;
+  const tabXem = tab === "cho" && !coTabCho ? "lich_su" : tab;
   const [coSoDangTruc, setCoSoDangTruc] = useState("");
   const activeCoSoIds = [...new Set(phamVi.dangTruc.map(d => d.co_so_id))];
   const activeCoSo = activeCoSoIds.includes(coSoDangTruc) ? coSoDangTruc : activeCoSoIds[0];
@@ -41,7 +47,7 @@ export default function TabThuNgan({ quay, chiXem = false }: { quay: "dich_vu" |
         onChon={(k) => chonNgay(k?.den ?? homNay)}
       /> : <NgayTruc state={phamVi} onChon={chonNgay} />}
       <div role="tablist" aria-label="Quầy thu ngân" className="flex flex-wrap gap-1">
-        {TAB.filter(t => t.ma !== "cho" || thaoTac).map((t) => (
+        {TAB.filter(t => t.ma !== "cho" || coTabCho).map((t) => (
           <button
             key={t.ma}
             type="button"
@@ -52,15 +58,31 @@ export default function TabThuNgan({ quay, chiXem = false }: { quay: "dich_vu" |
               tabXem === t.ma ? "bg-brand-600 text-white" : "bg-surface-muted text-ink-soft hover:bg-surface-sunken"
             }`}
           >
-            {t.ma === "hom_nay" && !laHomNay ? `Đã thanh toán ngày ${ngayNgan(ngayXem)}` : t.nhan}
+            {t.ma === "hom_nay" && !laHomNay
+              ? `Đã thanh toán ngày ${ngayNgan(ngayXem)}`
+              : t.ma === "cho" && ngayCho !== homNay
+                ? `Chờ thanh toán ngày ${ngayNgan(ngayCho)}`
+                : t.nhan}
           </button>
         ))}
       </div>
       {tabXem === "cho" && activeCoSoIds.length > 1 ? <select aria-label="Cơ sở đang trực" value={activeCoSo} onChange={e => setCoSoDangTruc(e.target.value)} className="min-h-10 rounded-control bg-surface px-3 ring-1 ring-line-strong">
         {activeCoSoIds.map((id, i) => <option key={id} value={id}>{phamVi.ds?.items.flatMap(d => d.co_so ?? []).find(c => c.id === id)?.ten ?? `Cơ sở trực ${i + 1}`}</option>)}
       </select> : null}
+      {tabXem === "cho" && ngayCho !== homNay ? (
+        <p role="status" className="text-meta text-ink-soft">
+          Đang xem khách chờ thanh toán ngày {ngayNgan(ngayCho)}.{" "}
+          <button type="button" className="min-h-10 font-medium text-brand-700 underline" onClick={() => chonNgay(homNay)}>
+            Về hôm nay
+          </button>
+        </p>
+      ) : null}
       {phamVi.ready && (tabXem === "cho" ? (
-        <QuayThuNgan key={`${khoa}:${activeCoSo ?? ""}`} quay={quay} ngay={homNay} coSo={activeCoSo} />
+        <QuayThuNgan
+          key={`${khoa}:${ngayCho}:${activeCoSo ?? ""}`}
+          quay={quay} ngay={ngayCho} coSo={activeCoSo}
+          onChonNgay={theoNgay ? chonNgay : undefined}
+        />
       ) : tabXem === "lich_su" ? (
         <LichSuThu key={khoa} quay={quay} ngay={ngayXem} ca={phamVi.ca} coSo={phamVi.coSo} restricted={phamVi.restricted} thaoTac={thaoTac} />
       ) : (

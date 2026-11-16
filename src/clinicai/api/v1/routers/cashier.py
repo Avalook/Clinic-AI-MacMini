@@ -86,7 +86,9 @@ async def cashier_board(
     return await CashierBoardService(pool).board(
         identity=scope.identity,
         modes=wanted,
-        ngay=None,
+        # Quầy THUỐC lọc theo ngày đang chọn (Tuyền 16/11/2026); quầy dịch vụ /
+        # gộp vẫn luôn là quầy hôm nay. Ghi (thu) vẫn kiểm ca đang trực lúc bấm.
+        ngay=ngay if wanted == ["thuoc"] else None,
         scope_starts=scope.starts,
         scope_ends=scope.ends,
         scope_actor=scope.actor_id,

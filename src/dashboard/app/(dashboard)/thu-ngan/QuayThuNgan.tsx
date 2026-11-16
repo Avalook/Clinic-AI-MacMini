@@ -213,13 +213,30 @@ const TONE_DV: Record<DichVuLamTruoc["trang_thai"], ChipTone> = {
   KHONG_LAM: "neutral",
 };
 
-export default function QuayThuNgan({ quay, ngay, ca, coSo }: { quay: Quay; ngay?: string; ca?: string; coSo?: string }) {
+/** Ngày khác còn khách chờ thu thuốc — máy chủ đếm (`ngay_khac_con_cho`). */
+type NgayKhac = { ngay: string; nhan: string; so: number };
+
+export default function QuayThuNgan({
+  quay,
+  ngay,
+  ca,
+  coSo,
+  onChonNgay,
+}: {
+  quay: Quay;
+  ngay?: string;
+  ca?: string;
+  coSo?: string;
+  /** Quầy thuốc lọc theo ngày: bấm một ngày trong "Còn N khách…" để nhảy sang. */
+  onChonNgay?: (ngay: string) => void;
+}) {
   // THUỐC VÀ DỊCH VỤ THU RIÊNG HẲN (Tuyền 01/10/2026): mọi lệnh gửi kèm quầy
   // đang đứng — máy chủ từ chối (409 QUAY_KHAC_LOAI) nếu loại tiền không thuộc quầy.
   const quayThu = quay === "ca_hai" ? undefined : quay;
   const [ds, setDs] = useState<Luot[] | null>(null);
   const [daThu, setDaThu] = useState<DaThu[]>([]);
   const [cho, setCho] = useState<ChoXacMinh[]>([]);
+  const [ngayKhac, setNgayKhac] = useState<NgayKhac[]>([]);
   const [loi, setLoi] = useState<string | null>(null);
   const [xong, setXong] = useState<string | null>(null);
   const [dangThu, setDangThu] = useState<string | null>(null);
@@ -265,28 +282,47 @@ export default function QuayThuNgan({ quay, ngay, ca, coSo }: { quay: Quay; ngay
         cache: "no-store",
       });
       const d = (await r.json().catch(() => null)) as
-        | { items?: Luot[]; paid?: DaThu[]; cho_xac_minh?: ChoXacMinh[]; error?: string }
+        | {
+            items?: Luot[];
+            paid?: DaThu[];
+            cho_xac_minh?: ChoXacMinh[];
+            ngay_khac_con_cho?: NgayKhac[];
+            error?: string;
+          }
         | null;
       if (!r.ok) return { loi: d?.error ?? "Không đọc được danh sách chờ thu." };
-      return { items: d?.items ?? [], paid: d?.paid ?? [], cho: d?.cho_xac_minh ?? [] };
+      return {
+        items: d?.items ?? [],
+        paid: d?.paid ?? [],
+        cho: d?.cho_xac_minh ?? [],
+        ngayKhac: d?.ngay_khac_con_cho ?? [],
+      };
     } catch {
       return { loi: "Mất kết nối tới máy chủ." };
     }
   }, [quay, ngay, ca, coSo]);
 
   const nhan = useCallback(
-    (kq: { items?: Luot[]; paid?: DaThu[]; cho?: ChoXacMinh[]; loi?: string }) => {
+    (kq: {
+      items?: Luot[];
+      paid?: DaThu[];
+      cho?: ChoXacMinh[];
+      ngayKhac?: NgayKhac[];
+      loi?: string;
+    }) => {
       if (kq.loi) {
         setLoi(kq.loi);
         setDs(null);
         setDaThu([]);
         setCho([]);
+        setNgayKhac([]);
         return;
       }
       setLoi(null);
       setDs(kq.items ?? []);
       setDaThu(kq.paid ?? []);
       setCho(kq.cho ?? []);
+      setNgayKhac(kq.ngayKhac ?? []);
     },
     [],
   );
@@ -629,6 +665,25 @@ export default function QuayThuNgan({ quay, ngay, ca, coSo }: { quay: Quay; ngay
 
   return (
     <section className="space-y-3">
+      {/* Quầy thuốc lọc theo NGÀY (Tuyền 16/11/2026): ngày khác còn khách chờ thu
+          — máy chủ đếm sẵn, bấm để nhảy sang ngày đó xử lý. */}
+      {ngayKhac.length > 0 ? (
+        <div role="status" className="flex flex-wrap items-center gap-1 rounded-control bg-warning-bg px-3 py-2 text-meta text-ink">
+          <span>
+            Còn {ngayKhac.reduce((s, d) => s + d.so, 0)} khách chờ thu ở ngày khác:
+          </span>
+          {ngayKhac.map((d) => (
+            <button
+              key={d.ngay}
+              type="button"
+              onClick={() => onChonNgay?.(d.ngay)}
+              className="min-h-10 rounded-control px-2 font-medium text-brand-700 underline"
+            >
+              {d.nhan} ({d.so})
+            </button>
+          ))}
+        </div>
+      ) : null}
       <p className="text-body font-semibold text-ink">
         {conCho.length} khách đang chờ thu
         {daXong > 0 ? (

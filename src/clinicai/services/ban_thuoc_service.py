@@ -25,7 +25,7 @@ from __future__ import annotations
 
 import unicodedata
 from dataclasses import dataclass
-from datetime import datetime, time
+from datetime import datetime, time, timedelta
 from decimal import Decimal
 from typing import Any
 
@@ -35,7 +35,12 @@ from clinicai.api.identity import ClinicRole, StaffIdentity
 from clinicai.core.clock import CLINIC_TZ, now_vn
 from clinicai.core.tran import canh_bao_neu_day
 from clinicai.permissions.can import can
-from clinicai.services.ban_le_service import QUYEN_THU_THUOC, co_quyen_mo
+from clinicai.services.ban_le_service import (
+    QUYEN_THU_THUOC,
+    chuan_tu_khoa,
+    co_quyen_mo,
+    tim_khach_conn,
+)
 from clinicai.services.don_vi_thuoc import (
     BangDonVi,
     QuyDoiDong,
@@ -219,87 +224,185 @@ def thao_tac_phan_lo(
     return {k: v and co_quyen_ghi for k, v in nut.items()}
 
 
+#: DÒNG ĐƠN CÒN VIỆC ở quầy ($2 = đầu ngày VN). Một điều kiện, dùng cho cả câu
+#: chọn lượt lẫn câu đọc dòng — hai câu không được lệch nhau.
+_CON_VIEC = """
+    ((r.removed_at IS NULL AND (r.closed_at IS NULL OR r.closed_at >= $2))
+     -- CP6: dòng bác sĩ đã đính chính (lịch sử) chỉ hiện khi còn việc đối
+     -- soát ở quầy: đính chính hôm nay, còn phần đã bán chưa giao, hoặc lô
+     -- còn gắn lần thu đang chờ.
+     OR (r.removed_at IS NOT NULL
+         AND (r.removed_at >= $2
+              OR EXISTS (
+                  SELECT 1 FROM public.prescription_allocation a
+                    JOIN public.inventory_txn s
+                      ON s.allocation_id = a.id
+                     AND s.clinic_id = a.clinic_id
+                     AND s.txn_type = 'SALE'
+                   WHERE a.clinic_id = r.clinic_id
+                     AND a.prescription_id = r.id
+                     AND NOT EXISTS (
+                         SELECT 1 FROM public.inventory_txn x
+                          WHERE x.txn_type = 'SALE_REVERSAL'
+                            AND x.reverses_txn_id = s.id)
+                     AND -s.quantity > coalesce((
+                         SELECT -sum(d.quantity)
+                           FROM public.inventory_txn d
+                          WHERE d.txn_type IN ('DISPENSE', 'DISPENSE_REVERSAL')
+                            AND d.allocation_id = a.id), 0))
+              OR EXISTS (
+                  SELECT 1 FROM public.prescription_allocation a
+                    JOIN public.payment_cycle c
+                      ON c.payment_cycle_id = a.payment_cycle_id
+                     AND c.clinic_id = a.clinic_id
+                   WHERE a.clinic_id = r.clinic_id
+                     AND a.prescription_id = r.id
+                     AND a.released_at IS NULL
+                     AND c.status = 'PENDING_VERIFICATION'))))
+"""
+
+#: CỬA SỔ của màn (lượt cũ hơn tìm bằng ô tìm `tim`; màn nói còn bao nhiêu lượt
+#: cũ — `luot_cu_an`):
+#:  · ĐÃ THU chờ giao: lần thu trong CUA_SO_SO_NGAY ngày (cùng hạn "đơn thuốc chưa
+#:    mua" của quầy thu — `cashier_board_service.CU_DON_THUOC_SO_NGAY`);
+#:  · còn lại (chưa thu): lượt / dòng tạo từ hôm qua. Đơn chưa thu cũ hơn là khách
+#:    không mua — quầy thu vẫn giữ 7 ngày để thu, thu xong lượt về lại đây.
+#:  · CHUYỂN KHOẢN CHỜ XÁC MINH: mọi tuổi (tiền đang treo, lô đang giữ).
+CUA_SO_SO_NGAY = 7
+CUA_SO_CHUA_THU_NGAY = 1
+#: Trần số LƯỢT dựng một lần; chạm trần thì `bi_cat` + `tong` (màn nói ra).
+TRAN_LUOT = 200
+#: Ô tìm: số khách khớp tối đa; hơn thì `tim_bi_cat` (màn: "gõ thêm").
+TRAN_TIM_KHACH = 50
+
+#: LƯỢT CÒN VIỆC, mỗi lượt một dòng, việc mới nhất lên đầu (16/11/2026).
+#:
+#: Bản cũ lấy mọi DÒNG còn mở bất kể tuổi rồi `LIMIT 300` theo dòng: prod 16/11
+#: có 6.951 dòng mở (đơn chờ thu từ hàng tháng trước), 300 dòng mới nhất chỉ còn
+#: 56 lượt — lượt hôm nay đông thì lượt chờ giao hôm qua rơi khỏi màn, không ai
+#: biết (log `bang_bi_cat`, màn không nói). Nay: chọn LƯỢT trước; `trong` = lượt
+#: nằm trong cửa sổ ở trên ($4 = mốc đã thu, $6 = mốc chưa thu) hoặc có việc
+#: hôm nay (kê / chốt / đính chính). `$5` (khách khớp ô tìm) bỏ cửa sổ.
+_UNG_VIEN_SQL = (
+    """
+WITH hien AS (
+    SELECT r.visit_id, r.created_at, r.closed_at, r.removed_at
+      FROM public.prescription r
+      /* rx:gom-ca-lich-su: dòng đính chính còn đối soát (_CON_VIEC) */
+     WHERE r.clinic_id = $1::uuid
+       AND ($5::uuid[] IS NULL OR r.clinic_patient_id = ANY($5::uuid[]))
+       AND """
+    + _CON_VIEC
+    + """
+), luot AS (
+    SELECT h.visit_id, max(h.created_at) AS moi_nhat,
+           bool_or(h.created_at >= $2 OR h.closed_at >= $2
+                   OR h.removed_at >= $2) AS hom_nay
+      FROM hien h
+     GROUP BY h.visit_id
+)
+SELECT l.visit_id::text AS visit_id,
+       ($5::uuid[] IS NOT NULL OR l.hom_nay
+        OR v.created_at >= $6 OR l.moi_nhat >= $6
+        OR EXISTS (
+            SELECT 1 FROM public.payment_cycle pc
+             WHERE pc.clinic_id = $1::uuid AND pc.visit_id = l.visit_id
+               AND pc.kind = 'thuoc'
+               AND (pc.status = 'PENDING_VERIFICATION'
+                    OR (pc.status = 'PAID'
+                        AND coalesce(pc.paid_at, pc.created_at) >= $4))))
+           AS trong
+  FROM luot l
+  JOIN public.visit v ON v.visit_id = l.visit_id AND v.clinic_id = $1::uuid
+  LEFT JOIN public.appointment ap
+    ON ap.id = v.appointment_id AND ap.clinic_id = v.clinic_id
+ -- Chỉ đơn của cơ sở đang đứng ($3 NULL = không lọc).
+ WHERE coalesce(v.location_id, ap.location_id, $3::uuid)
+       IS NOT DISTINCT FROM coalesce($3::uuid, v.location_id, ap.location_id)
+ ORDER BY l.moi_nhat DESC, l.visit_id
+"""
+)
+
+#: Dòng đơn còn việc của các lượt đã chọn ($3).
+_DONG_SQL = (
+    """
+SELECT r.id::text, r.visit_id::text, r.drug_name_raw, r.quantity,
+       r.quantity_num, r.unit, r.purchased_qty, r.dispensed_qty,
+       r.dispense_status, r.closed_at, r.refusal_reason,
+       r.dosage_instructions, r.drug_catalog_id::text,
+       c.name_base AS ten_thuoc_kho, r.created_at,
+       p.full_name AS ten_khach, p.patient_code, p.phone_primary,
+       ap.so_booking, ap.so_tiep_don,
+       """
+    + kham_xong_sql("v")
+    + """ AS kham_xong,
+       r.removed_at, r.removal_reason,
+       r.superseded_by_id::text AS thay_boi_id, v.ban_le,
+       coalesce(v.location_id, ap.location_id)::text AS co_so_id
+  FROM public.prescription r
+  /* rx:gom-ca-lich-su: dòng đính chính còn đối soát (_CON_VIEC) */
+  JOIN public.visit v
+    ON v.visit_id = r.visit_id AND v.clinic_id = r.clinic_id
+  LEFT JOIN public.patient p
+    ON p.clinic_patient_id = r.clinic_patient_id
+   AND p.clinic_id = r.clinic_id
+  LEFT JOIN public.drug_catalog c
+    ON c.id = r.drug_catalog_id AND c.clinic_id = r.clinic_id
+  LEFT JOIN public.appointment ap
+    ON ap.id = v.appointment_id AND ap.clinic_id = v.clinic_id
+ WHERE r.clinic_id = $1::uuid AND r.visit_id = ANY($3::uuid[])
+   AND """
+    + _CON_VIEC
+    + """
+ ORDER BY r.created_at DESC, r.id
+"""
+)
+
+
 async def man_nha_thuoc(
-    pool: asyncpg.Pool, *, identity: StaffIdentity
+    pool: asyncpg.Pool, *, identity: StaffIdentity, tim: Any = None
 ) -> dict[str, Any]:
+    """Màn Nhà thuốc. ``tim`` (tên / mã khách / SĐT, ≥ 2 ký tự — cùng câu tìm
+    với quầy bán lẻ): bỏ cửa sổ ngày, chỉ lượt còn việc của các khách khớp —
+    để tìm lượt CŨ. Rỗng / rác = màn thường."""
     hom_nay = now_vn().date()
     dau_ngay = datetime.combine(hom_nay, time.min, tzinfo=CLINIC_TZ)
     co_so = identity.location_id or None
+    tu_khoa = chuan_tu_khoa(tim)
     async with pool.acquire() as conn:
         # Nút ghi hiện theo QUYỀN "Nhà thuốc" (24/09), cùng câu hỏi với router.
         co_quyen_ghi = await can(conn, identity, "pharmacy.dispense")
-        dong = await conn.fetch(
-            f"""
-            SELECT r.id::text, r.visit_id::text, r.drug_name_raw, r.quantity,
-                   r.quantity_num, r.unit, r.purchased_qty, r.dispensed_qty,
-                   r.dispense_status, r.closed_at, r.refusal_reason,
-                   r.dosage_instructions, r.drug_catalog_id::text,
-                   c.name_base AS ten_thuoc_kho, r.created_at,
-                   p.full_name AS ten_khach, p.patient_code, p.phone_primary,
-                   ap.so_booking, ap.so_tiep_don,
-                   {kham_xong_sql("v")} AS kham_xong,
-                   r.removed_at, r.removal_reason,
-                   r.superseded_by_id::text AS thay_boi_id, v.ban_le,
-                   coalesce(v.location_id, ap.location_id)::text AS co_so_id
-              FROM public.prescription r
-              JOIN public.visit v
-                ON v.visit_id = r.visit_id AND v.clinic_id = r.clinic_id
-              LEFT JOIN public.patient p
-                ON p.clinic_patient_id = r.clinic_patient_id
-               AND p.clinic_id = r.clinic_id
-              LEFT JOIN public.drug_catalog c
-                ON c.id = r.drug_catalog_id AND c.clinic_id = r.clinic_id
-              LEFT JOIN public.appointment ap
-                ON ap.id = v.appointment_id AND ap.clinic_id = v.clinic_id
-             WHERE r.clinic_id = $1::uuid
-               AND ((r.removed_at IS NULL
-                     AND (r.closed_at IS NULL OR r.closed_at >= $2))
-                    -- CP6: dòng bác sĩ đã đính chính (lịch sử) chỉ hiện khi
-                    -- còn việc đối soát ở quầy: đính chính hôm nay, còn phần
-                    -- đã bán chưa giao, hoặc lô còn gắn lần thu đang chờ.
-                    OR (r.removed_at IS NOT NULL
-                        AND (r.removed_at >= $2
-                             OR EXISTS (
-                                 SELECT 1 FROM public.prescription_allocation a
-                                   JOIN public.inventory_txn s
-                                     ON s.allocation_id = a.id
-                                    AND s.clinic_id = a.clinic_id
-                                    AND s.txn_type = 'SALE'
-                                  WHERE a.clinic_id = r.clinic_id
-                                    AND a.prescription_id = r.id
-                                    AND NOT EXISTS (
-                                        SELECT 1 FROM public.inventory_txn x
-                                         WHERE x.txn_type = 'SALE_REVERSAL'
-                                           AND x.reverses_txn_id = s.id)
-                                    AND -s.quantity > coalesce((
-                                        SELECT -sum(d.quantity)
-                                          FROM public.inventory_txn d
-                                         WHERE d.txn_type IN
-                                               ('DISPENSE', 'DISPENSE_REVERSAL')
-                                           AND d.allocation_id = a.id), 0))
-                             OR EXISTS (
-                                 SELECT 1 FROM public.prescription_allocation a
-                                   JOIN public.payment_cycle c
-                                     ON c.payment_cycle_id = a.payment_cycle_id
-                                    AND c.clinic_id = a.clinic_id
-                                  WHERE a.clinic_id = r.clinic_id
-                                    AND a.prescription_id = r.id
-                                    AND a.released_at IS NULL
-                                    AND c.status = 'PENDING_VERIFICATION'))))
-               -- Chỉ đơn của cơ sở đang đứng ($3 NULL = không lọc).
-               AND coalesce(v.location_id, ap.location_id, $3::uuid)
-                   IS NOT DISTINCT FROM
-                   coalesce($3::uuid, v.location_id, ap.location_id)
-             ORDER BY r.created_at DESC, r.id
-             LIMIT 300
-            """,
+        khach_tim: list[str] | None = None
+        tim_bi_cat = False
+        if len(tu_khoa) >= 2:
+            khach_tim = [
+                k["clinic_patient_id"]
+                for k in await tim_khach_conn(
+                    conn, identity.clinic_id, tu_khoa, tran=TRAN_TIM_KHACH + 1
+                )
+            ]
+            # Khớp quá nhiều khách ("nguyen"): không cắt im lặng — màn bảo gõ thêm.
+            tim_bi_cat = canh_bao_neu_day(
+                "nha_thuoc.tim_khach", len(khach_tim), TRAN_TIM_KHACH + 1
+            )
+            khach_tim = khach_tim[:TRAN_TIM_KHACH]
+        ung_vien = await conn.fetch(
+            _UNG_VIEN_SQL,
             identity.clinic_id,
             dau_ngay,
             co_so,
+            dau_ngay - timedelta(days=CUA_SO_SO_NGAY),
+            khach_tim,
+            dau_ngay - timedelta(days=CUA_SO_CHUA_THU_NGAY),
         )
-        # Trần 300 đơn/ngày. Chạm trần là quầy thuốc đang nhìn một bảng THIẾU
-        # đơn — phải nói ra, không để im.
-        don_bi_cat = canh_bao_neu_day("nha_thuoc.don_hom_nay", len(dong), 300)
+        trong = [r["visit_id"] for r in ung_vien if r["trong"]]
+        # Trần theo LƯỢT, không theo dòng: cắt giữa một lượt là quầy thấy đơn
+        # thiếu thuốc. Chạm trần thì màn nói "đang xem N/M" (`tong`, `bi_cat`).
+        don_bi_cat = canh_bao_neu_day(
+            "nha_thuoc.luot_con_viec", len(trong), TRAN_LUOT + 1, tong=len(trong)
+        )
+        chon = trong[:TRAN_LUOT]
+        dong = await conn.fetch(_DONG_SQL, identity.clinic_id, dau_ngay, chon)
         luot_ids = sorted({r["visit_id"] for r in dong})
         rx_ids = [r["id"] for r in dong]
         lan_thu_rows = await conn.fetch(
@@ -485,7 +588,7 @@ async def man_nha_thuoc(
         ban_le_rows = await conn.fetch(
             """
             SELECT v.visit_id::text, p.full_name AS ten_khach, p.patient_code,
-                   p.phone_primary
+                   p.phone_primary, v.clinic_patient_id::text AS clinic_patient_id
               FROM public.visit v
               LEFT JOIN public.patient p
                 ON p.clinic_patient_id = v.clinic_patient_id
@@ -679,6 +782,7 @@ async def man_nha_thuoc(
         }
         for b in ban_le_rows
         if b["visit_id"] not in luot
+        and (khach_tim is None or b["clinic_patient_id"] in khach_tim)
     ]
     return {
         "luot": ban_le_trong + list(luot.values()),
@@ -688,8 +792,16 @@ async def man_nha_thuoc(
         # V8: nút "Khách mua thuốc" + khối kê / thu tại quầy — máy chủ quyết.
         "duoc_mo_ban_le": duoc_mo_ban_le,
         "duoc_thu_thuoc": duoc_thu_thuoc,
+        # Trần theo LƯỢT: `bi_cat` = còn lượt trong cửa sổ không dựng ("đang
+        # xem `tran`/`tong`"). `luot_cu_an` = lượt còn việc CŨ hơn cửa sổ — màn
+        # mời tìm theo tên / mã / SĐT. Đang tìm (`tim`) thì không có cửa sổ.
         "bi_cat": don_bi_cat,
-        "tran": 300,
+        "tran": TRAN_LUOT,
+        "tong": len(trong),
+        "luot_cu_an": len(ung_vien) - len(trong),
+        "cua_so_ngay": CUA_SO_SO_NGAY,
+        "tim": tu_khoa if khach_tim is not None else None,
+        "tim_bi_cat": tim_bi_cat,
     }
 
 

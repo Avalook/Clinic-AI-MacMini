@@ -242,8 +242,17 @@ WITH v AS (
        -- tháng) và ước chi phí ~1 triệu — đủ bật JIT, 3s mỗi lần tải (09/10/2026).
        AND vi.visit_id IN (
             SELECT d.visit_id FROM public.visit d
-             WHERE d.clinic_id = $1::uuid
+             WHERE NOT $7::boolean AND d.clinic_id = $1::uuid
                AND d.created_at >= $2 AND d.created_at < $3
+            UNION ALL
+            -- QUẦY THUỐC THEO NGÀY ($7, Tuyền 16/11/2026): chỉ lượt của đúng
+            -- ngày đang xem — ngày check-in (không có thì ngày tạo lượt: lượt
+            -- bán lẻ / nhập tay chưa check-in). Không kéo lượt ngày khác; nơi
+            -- gọi tắt mọi vế "cũ" ($4) và trả `ngay_khac_con_cho` để nhảy ngày.
+            SELECT d.visit_id FROM public.visit d
+             WHERE $7::boolean AND d.clinic_id = $1::uuid
+               AND coalesce(d.checked_in_at, d.created_at) >= $2
+               AND coalesce(d.checked_in_at, d.created_at) < $3
             UNION ALL
             -- THU NỢ (01/10/2026): lượt ngày trước đã GHI NỢ, còn chưa thu —
             -- khách quay lại trả ở quầy theo đúng đường thu có sẵn. Chỉ khi
@@ -654,6 +663,11 @@ class CashierBoardService:
         want_rx = "thuoc" in modes
         ngay_xem, start, end = khoang_ngay_xem(ngay)
         la_hom_nay = ngay_xem == hom_nay_vn()
+        # QUẦY THUỐC THEO NGÀY (Tuyền 16/11/2026): "ngày thứ 7 14/11 thì còn
+        # khách nào chờ thanh toán ngày đó thì … hiện ở ngày đó để xử lý đi, còn
+        # hôm nay chưa có thì phải trống". Chỉ quầy CHỈ thuốc; quầy dịch vụ / gộp
+        # giữ luật cũ (gom nợ, CK chờ, lượt cũ khi xem hôm nay).
+        theo_ngay = want_rx and not want_svc
 
         # JIT TẮT cho riêng câu này (29/10/2026): ước lượng chi phí ~4,6 triệu
         # (vế lượt cũ quét bảng visit) nên Postgres tự biên dịch — EXPLAIN
@@ -666,11 +680,21 @@ class CashierBoardService:
                 identity.clinic_id,
                 start,
                 end,
-                la_hom_nay,
+                # Quầy thuốc theo ngày: không vế "cũ" nào (nợ, CK chờ, sổ nợ,
+                # lượt ngày trước) — chúng hiện ở đúng ngày của lượt.
+                la_hom_nay and not theo_ngay,
                 identity.location_id or None,
                 # Lượt cũ chỉ còn ĐƠN THUỐC chưa mua là việc của quầy thuốc —
                 # quầy dịch vụ kéo chúng vào thì ~290 lượt thừa (staging 29/10).
                 want_rx,
+                theo_ngay,
+            )
+            ngay_khac = (
+                await ngay_khac_con_cho_thuoc(
+                    c, identity.clinic_id, ngay_xem, identity.location_id or None
+                )
+                if theo_ngay
+                else None
             )
         raw = json.loads(row) if isinstance(row, str) else row
         if len(raw.get("visits") or []) > CU_TRAN_CANH_BAO:
@@ -679,6 +703,9 @@ class CashierBoardService:
         out = build_rows(raw, want_svc=want_svc, want_rx=want_rx)
         out["ngay"] = ngay_xem.isoformat()
         out["hom_nay"] = hom_nay_vn().isoformat()
+        if ngay_khac is not None:
+            # Hợp đồng API: [{ngay, nhan, so}] — màn chỉ hiện + nhảy ngày.
+            out["ngay_khac_con_cho"] = ngay_khac
         # THUỐC VÀ DỊCH VỤ THU RIÊNG HẲN (Tuyền 01/10/2026): quầy nào chỉ thấy
         # sổ của loại tiền ấy — "đã thu" và "chờ xác minh" của loại kia không
         # trả về; quầy thuốc chỉ liệt kê lượt có đơn thuốc.
@@ -1260,6 +1287,64 @@ def build_rows(raw: dict[str, Any], *, want_svc: bool, want_rx: bool) -> dict[st
         if p.get("kind") in ("thuoc", "dich_vu")
     ]
     return {"items": items, "paid": paid}
+
+
+_THU_VN = ("T2", "T3", "T4", "T5", "T6", "T7", "CN")
+
+#: Ngày KHÁC (trong CU_DA_VE_SO_NGAY ngày tới hôm nay) còn khách chờ thu THUỐC:
+#: lượt còn dòng đơn mở (chưa gỡ, chưa chốt / "khách không mua") mà chưa có
+#: phiếu thu thuốc nào còn hiệu lực. Ngày của lượt = ngày check-in, không có thì
+#: ngày tạo — cùng luật với vế "quầy thuốc theo ngày" của `_SQL`. $5 = cơ sở.
+_NGAY_KHAC_CON_CHO_SQL = """
+SELECT (coalesce(v.checked_in_at, v.created_at) AT TIME ZONE 'Asia/Ho_Chi_Minh')::date
+           AS ngay,
+       count(*)::int AS so
+  FROM public.visit v
+  LEFT JOIN public.appointment a
+         ON a.id = v.appointment_id AND a.clinic_id = v.clinic_id
+ WHERE v.clinic_id = $1::uuid
+   AND coalesce(v.checked_in_at, v.created_at) >= $2
+   AND coalesce(v.checked_in_at, v.created_at) < $3
+   AND NOT (coalesce(v.checked_in_at, v.created_at) >= $4
+            AND coalesce(v.checked_in_at, v.created_at) < $4 + interval '1 day')
+   AND coalesce(v.location_id, a.location_id, $5::uuid)
+       IS NOT DISTINCT FROM coalesce($5::uuid, v.location_id, a.location_id)
+   AND EXISTS (SELECT 1 FROM public.prescription rx
+                WHERE rx.clinic_id = v.clinic_id AND rx.visit_id = v.visit_id
+                  AND rx.removed_at IS NULL AND rx.closed_at IS NULL)
+   AND NOT EXISTS (SELECT 1 FROM public.payment pay
+                    WHERE pay.visit_id = v.visit_id AND pay.kind = 'thuoc'
+                      AND pay.status = 'PAID' AND pay.voided_at IS NULL)
+ GROUP BY 1
+ ORDER BY 1
+"""
+
+
+async def ngay_khac_con_cho_thuoc(
+    conn: asyncpg.Connection, clinic_id: str, ngay_xem: date, co_so: str | None
+) -> list[dict[str, Any]]:
+    """[{ngay, nhan ("T7 14/11"), so}] — ngày khác ngày đang xem còn khách chờ
+    thu thuốc, cũ trước. Để quầy thuốc (lọc theo ngày) không quên khách cuối
+    tuần: màn hiện "Còn N khách chờ thu ở ngày khác: …" bấm để nhảy ngày."""
+    hom_nay = hom_nay_vn()
+    _, dau_hom_nay, cuoi_hom_nay = khoang_ngay_xem(hom_nay.isoformat())
+    _, dau_xem, _ = khoang_ngay_xem(ngay_xem.isoformat())
+    rows = await conn.fetch(
+        _NGAY_KHAC_CON_CHO_SQL,
+        clinic_id,
+        dau_hom_nay - timedelta(days=CU_DA_VE_SO_NGAY),
+        cuoi_hom_nay,
+        dau_xem,
+        co_so,
+    )
+    return [
+        {
+            "ngay": r["ngay"].isoformat(),
+            "nhan": f"{_THU_VN[r['ngay'].weekday()]} {r['ngay']:%d/%m}",
+            "so": r["so"],
+        }
+        for r in rows
+    ]
 
 
 def khoang_ngay_xem(ngay: Any) -> tuple[date, datetime, datetime]:

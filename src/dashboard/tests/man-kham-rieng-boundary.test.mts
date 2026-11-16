@@ -77,9 +77,11 @@ test("hai quầy thu ngân: mỗi màn cố định một quầy, cùng một th
     // Batch pilot 18/09: trang ghim quầy vào TabThuNgan (thêm hai tab chỉ
     // đọc), và TabThuNgan chuyển NGUYÊN quầy ấy xuống đúng một QuayThuNgan.
     assert.match(trang, new RegExp(`<TabThuNgan quay="${quay}" />`));
+    // 16/11/2026: ngày của tab Chờ = `ngayCho` (quầy thuốc: ngày đang chọn;
+    // quầy dịch vụ: hôm nay) — quầy vẫn chuyển NGUYÊN xuống một QuayThuNgan.
     assert.match(
       readFileSync(new URL("../app/(dashboard)/thu-ngan/TabThuNgan.tsx", import.meta.url), "utf8"),
-      /<QuayThuNgan[^>]*quay=\{quay\} ngay=\{homNay\}/,
+      /<QuayThuNgan[^>]*quay=\{quay\} ngay=\{ngayCho\}/,
     );
     assert.match(trang, new RegExp(`requireNavAccess\\("/thu-ngan/${duong}"\\)`));
     assert.match(nav, new RegExp(`href: "/thu-ngan/${duong}"`));
