@@ -38,14 +38,26 @@ logger = structlog.get_logger()
 #: Tên kênh, phải khớp hàm trigger trong migration.
 CHANNEL = "clinicai_changes"
 
-#: Hàng đợi mỗi màn hình. NHỎ CÓ CHỦ Ý: nội dung mỗi tin không quan trọng, màn
-#: hình chỉ cần biết "có gì đó đổi" rồi tự đọc lại. Đầy thì bỏ tin mới — một
-#: màn hình chậm không được phép làm nghẽn các màn khác, và bỏ tin ở đây vô hại
-#: vì tin sau cũng nói đúng điều ấy.
+#: Hàng đợi mỗi màn hình. NHỎ CÓ CHỦ Ý: một màn hình chậm không được phép làm
+#: nghẽn các màn khác. Đầy thì KHÔNG bỏ im tin mới nữa (16/11/2026): từ khi tin
+#: mang id lượt (`v`), bỏ một tin = phiếu của đúng lượt đó lỡ cập nhật. Thay vào
+#: đó xả hàng và đặt một tin "không rõ" — xem `_thay_bang_tin_khong_ro`.
 QUEUE_SIZE = 8
 
 #: Nối lại sau bao lâu khi kết nối nghe bị rớt.
 RECONNECT_DELAY_S = 3.0
+
+
+def _thay_bang_tin_khong_ro(q: asyncio.Queue[str], clinic_id: str) -> None:
+    """Hàng đầy → còn đúng MỘT tin `t: null` ("không rõ bảng nào, lượt nào").
+
+    Màn nhận tin này hỏi lại MỌI thứ nó vẽ — đúng hành vi an toàn của tin cũ —
+    nên không lượt nào bị bỏ sót, và hàng đợi có chỗ cho tin kế tiếp. Che luôn ca
+    một giao dịch ghi hàng trăm lượt (mỗi lượt một tin khác nhau).
+    """
+    while not q.empty():
+        q.get_nowait()
+    q.put_nowait(json.dumps({"t": None, "c": clinic_id}))
 
 
 class ChangeBroker:
@@ -132,7 +144,7 @@ class ChangeBroker:
             try:
                 q.put_nowait(payload)
             except asyncio.QueueFull:
-                pass
+                _thay_bang_tin_khong_ro(q, clinic_id)
 
     # -- đăng ký -----------------------------------------------------------
     def subscribe(self, clinic_id: str) -> asyncio.Queue[str]:
