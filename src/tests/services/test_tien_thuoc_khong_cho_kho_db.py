@@ -33,6 +33,8 @@ pytest_plugins = ["tests.services.test_luot_kham_service_db"]
 @pytest.fixture(autouse=True)
 def _tat_kho_thuoc(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("CLINICAI_DRUG_PAYMENT_REQUIRES_INVENTORY", "0")
+    # Bài kiểm nút Giao (còn sống cho lượt cũ / dòng bị bỏ qua) → tắt tự giao.
+    monkeypatch.setenv("CLINICAI_TU_GIAO_KHI_THU", "0")
 
 
 async def test_thu_khong_chon_lo_van_giao_duoc_va_tru_kho(q: Quay) -> None:

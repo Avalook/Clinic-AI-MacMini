@@ -55,7 +55,7 @@ async def tu_giao_khi_thu(
             ON r.id::text = b.source_id AND r.clinic_id = b.clinic_id
          WHERE b.clinic_id = $1::uuid AND b.payment_cycle_id = $2::uuid
            AND b.kind = 'thuoc' AND b.source_type = 'prescription'
-           AND r.closed_at IS NULL
+           AND r.closed_at IS NULL AND r.removed_at IS NULL
          ORDER BY r.created_at, r.id
         """,
         identity.clinic_id,
