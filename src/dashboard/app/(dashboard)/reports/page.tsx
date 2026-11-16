@@ -276,9 +276,11 @@ export default async function ReportsPage({
                   </td>
                 </tr>
               ) : (
-                doctorStats.map((d) => (
+                // Không có id trong dữ liệu; hai bác sĩ trùng họ tên là hai dòng cùng tên
+                // → key kèm thứ tự (hàng chỉ đọc, không giữ trạng thái riêng).
+                doctorStats.map((d, i) => (
                   <tr
-                    key={d.name}
+                    key={`${i}-${d.name}`}
                     className="border-b border-surface-sunken last:border-b-0"
                   >
                     <td className="px-4 py-2 text-ink">{d.name}</td>
@@ -342,9 +344,9 @@ export default async function ReportsPage({
                   </td>
                 </tr>
               ) : (
-                kpiRows.map((n) => (
+                kpiRows.map((n, i) => (
                   <tr
-                    key={n.ten}
+                    key={`${i}-${n.ten}`}
                     className="border-b border-surface-sunken last:border-b-0"
                   >
                     <td className="px-4 py-2 text-ink">

@@ -217,7 +217,8 @@ export default function ThuocTheoKhach({ data }: { data: ThuocTheoKhachData }) {
               </thead>
               <tbody>
                 {data.tieu_hao.map((t) => (
-                  <tr key={t.ten} className="border-b border-surface-sunken last:border-b-0">
+                  // Máy chủ gom theo tên + đơn vị (1 hộp + 3 gói là hai dòng) → key theo đúng hai trường đó.
+                  <tr key={`${t.ten}|${t.don_vi ?? ""}`} className="border-b border-surface-sunken last:border-b-0">
                     <td className={TD}>
                       {t.ten}
                       {t.don_vi ? <span className="ml-1 text-meta text-ink-muted">({t.don_vi})</span> : null}

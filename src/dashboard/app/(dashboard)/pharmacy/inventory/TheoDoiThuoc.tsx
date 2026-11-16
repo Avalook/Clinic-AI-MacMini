@@ -171,7 +171,8 @@ function DangODau({
             </thead>
             <tbody className={TBL_DIV}>
               {ds.lo.map((l) => (
-                <tr key={`${l.so_lo}|${l.don_vi ?? ""}`}>
+                // Máy chủ gom theo số lô + HSD + đơn vị: cùng số lô khác HSD (nhập sai) là hai dòng.
+                <tr key={`${l.so_lo}|${l.han_dung ?? ""}|${l.don_vi ?? ""}`}>
                   <td className="px-3 py-2">
                     <button
                       type="button"
@@ -359,7 +360,7 @@ function ChiTietThuoc({ id, loDau }: { id: string; loDau?: string | null }) {
             <OChon value={loc.lo} onChange={(e) => doiLoc({ lo: e.target.value })} className="w-full">
               <option value="">Tất cả</option>
               {kq.dang_o_dau.lo.map((l) => (
-                <option key={`${l.so_lo}|${l.don_vi ?? ""}`} value={l.so_lo}>{l.so_lo}</option>
+                <option key={`${l.so_lo}|${l.han_dung ?? ""}|${l.don_vi ?? ""}`} value={l.so_lo}>{l.so_lo}</option>
               ))}
             </OChon>
           </label>
