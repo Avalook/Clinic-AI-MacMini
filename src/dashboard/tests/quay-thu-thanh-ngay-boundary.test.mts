@@ -14,7 +14,10 @@ test("thanh ngày dùng chung (ThanhNgay một ngày) cho cả ba tab, ngày ở
   assert.match(tab, /<ThanhNgay\s+motNgay/);
   // Ngày nằm trên URL qua hook dùng chung với phòng dịch vụ / Bàn khám.
   assert.match(tab, /useNgayXem\(\)/);
-  assert.match(tab, /<QuayThuNgan[^>]*quay=\{quay\} ngay=\{homNay\}/);
+  // 16/11/2026 (Tuyền): tab Chờ của quầy THUỐC theo ngày đang chọn (thu nốt
+  // khách ngày cũ); quầy dịch vụ vẫn hôm nay.
+  assert.match(tab, /<QuayThuNgan[^>]*quay=\{quay\} ngay=\{ngayCho\}/);
+  assert.match(tab, /const ngayCho = theoNgay \? ngay : homNay;/);
   assert.match(tab, /<LichSuThu[^>]*quay=\{quay\} ngay=\{ngayXem\} ca=\{phamVi.ca\} coSo=\{phamVi.coSo\}/);
   assert.match(tab, /<GiaoDich[^>]*quay=\{quay\} ngay=\{ngayXem\} ca=\{phamVi.ca\} coSo=\{phamVi.coSo\}/);
   assert.match(tab, /Đã thanh toán ngày \$\{ngayNgan\(ngayXem\)\}/);

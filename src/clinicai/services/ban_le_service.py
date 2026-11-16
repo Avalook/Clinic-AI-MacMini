@@ -76,10 +76,11 @@ def nam_sinh(v: Any) -> int | None:
 
 
 async def tim_khach_conn(
-    conn: asyncpg.Connection, clinic_id: str, q: Any
+    conn: asyncpg.Connection, clinic_id: str, q: Any, *, tran: int = _TRAN_TIM
 ) -> list[dict[str, Any]]:
-    """Câu tìm khách dùng chung (quầy bán lẻ, nhập bù ở Kho vật tư). Người gọi tự
-    kiểm quyền. < 2 ký tự → rỗng."""
+    """Câu tìm khách dùng chung (quầy bán lẻ, nhập bù ở Kho vật tư, ô tìm Nhà
+    thuốc). Người gọi tự kiểm quyền. < 2 ký tự → rỗng. Trả tối đa ``tran`` khách
+    — người gọi cần biết đủ hay không thì so độ dài với ``tran``."""
     tu = chuan_tu_khoa(q)
     if len(tu) < 2:
         return []
@@ -102,7 +103,7 @@ async def tim_khach_conn(
         clinic_id,
         tu,
         re.sub(r"\D", "", tu),
-        _TRAN_TIM,
+        tran,
     )
     return [dict(r) for r in rows]
 

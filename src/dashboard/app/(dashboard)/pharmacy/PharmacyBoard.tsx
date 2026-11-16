@@ -14,6 +14,7 @@
 // đậm + chip "Vừa mở"; lời báo nối đơn nằm đầu khối bán lẻ (`BanLeThu`).
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import Button from "@/components/ui/Button";
 import Chip from "@/components/ui/Chip";
 import SoLuot from "@/components/ui/SoLuot";
@@ -68,7 +69,9 @@ export default function PharmacyBoard({
     [man.luot],
   );
   const danhSach = useMemo(() => {
-    const q = tim.trim().toLowerCase();
+    // Đang xem kết quả tìm của MÁY CHỦ (`?tim=`, khớp tên không dấu / SĐT):
+    // lọc chữ ở đây sẽ giấu mất kết quả đúng ("nguyen" ≠ "Nguyễn").
+    const q = man.tim ? "" : tim.trim().toLowerCase();
     return man.luot
       .filter((l) => (tab === "xong" ? xongHet(l) : !xongHet(l)))
       .filter(
@@ -78,7 +81,12 @@ export default function PharmacyBoard({
           l.patient_code?.toLowerCase().includes(q) ||
           l.dong.some((d) => d.drug_name_raw?.toLowerCase().includes(q)),
       );
-  }, [man.luot, tab, tim]);
+  }, [man.luot, man.tim, tab, tim]);
+  const router = useRouter();
+  const tuKhoa = tim.trim();
+  const timCaLuotCu = () => {
+    if (tuKhoa.length >= 2) router.push(`/pharmacy?${new URLSearchParams({ tim: tuKhoa })}`);
+  };
   const luot = man.luot.find((l) => l.visit_id === chon) ?? null;
 
   // Lượt vừa mở có thể chưa nằm trong `man.luot` (đang nạp lại) — cuộn khi nó xuất hiện.
@@ -167,10 +175,50 @@ export default function PharmacyBoard({
             <input
               value={tim}
               onChange={(e) => setTim(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") timCaLuotCu();
+              }}
               placeholder="Tìm tên / mã khách / thuốc…"
               aria-label="Tìm đơn thuốc"
               className={`${INPUT} mt-2`}
             />
+            {/* Màn chỉ dựng lượt GẦN ĐÂY (máy chủ quyết cửa sổ + trần) — lượt cũ
+                hơn tìm ở máy chủ; số lượt bị ẩn / bị cắt luôn nói ra. */}
+            {man.tim ? (
+              <p role="status" className="mt-2 text-meta text-ink-soft">
+                Kết quả tìm “{man.tim}” — mọi ngày.{" "}
+                {man.tim_bi_cat ? "Khớp quá nhiều khách, chỉ hiện một phần — gõ thêm tên / mã / SĐT. " : null}
+                <button
+                  type="button"
+                  className="min-h-10 underline"
+                  onClick={() => {
+                    setTim("");
+                    router.push("/pharmacy");
+                  }}
+                >
+                  Bỏ tìm
+                </button>
+              </p>
+            ) : (
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                {tuKhoa.length >= 2 ? (
+                  <Button className={CHAM} size="sm" variant="ghost" onClick={timCaLuotCu}>
+                    Tìm cả lượt cũ
+                  </Button>
+                ) : null}
+                {(man.luot_cu_an ?? 0) > 0 ? (
+                  <p className="text-meta text-ink-muted">
+                    Còn {man.luot_cu_an} lượt cũ chưa xong không hiện ở đây — gõ tên / mã / SĐT rồi
+                    bấm “Tìm cả lượt cũ”.
+                  </p>
+                ) : null}
+              </div>
+            )}
+            {man.bi_cat ? (
+              <p role="alert" className="mt-2 text-meta text-warning">
+                Đang xem {man.tran}/{man.tong} lượt mới nhất — tìm theo tên / mã để thấy lượt khác.
+              </p>
+            ) : null}
           </div>
           <div className="flex-1 overflow-y-auto">
             {danhSach.length === 0 ? (

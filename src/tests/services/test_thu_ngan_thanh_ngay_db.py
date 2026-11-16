@@ -190,6 +190,7 @@ async def test_more_than_300_candidates_keep_old_unpaid_and_day_candidates(
                 True,
                 q.thu_ngan.location_id or None,
                 True,
+                False,
             )
             raw = json.loads(value) if isinstance(value, str) else value
             visits = {v["visit_id"] for v in raw["visits"]}
@@ -203,6 +204,7 @@ async def test_more_than_300_candidates_keep_old_unpaid_and_day_candidates(
                 False,
                 q.thu_ngan.location_id or None,
                 True,
+                False,
             )
             selected_day = json.loads(value) if isinstance(value, str) else value
             assert q.visit_id not in {v["visit_id"] for v in selected_day["visits"]}
@@ -222,6 +224,7 @@ async def _tap_hom_nay(
         True,
         q.thu_ngan.location_id or None,
         want_rx,
+        False,  # $7 chỉ quầy thuốc: không bỏ lượt chỉ còn thuốc chưa giao
     )
     raw = json.loads(value) if isinstance(value, str) else value
     return {v["visit_id"] for v in raw["visits"]}
