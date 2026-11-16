@@ -14,6 +14,7 @@ import { useEffect, useState } from "react";
 
 import { fmtTime, VN_TZ } from "@/lib/datetime";
 import { SU_KIEN_BANG } from "../../../lib/nhip-lam-moi";
+import type { TinBang } from "../../../lib/tin-theo-luot";
 import { nhipKhiHien } from "@/lib/nhip-khi-hien";
 
 /** Một chỗ đang được người khác giữ — trả từ /api/appointments/slot-hold. */
@@ -114,9 +115,10 @@ export function useGiuCho(date: string | null): Map<string, string> {
     // GIỮ NHỊP 5 GIÂY LÀM LƯỚI AN TOÀN. Dòng SSE có thể rớt, và ở đúng màn này
     // thì im lặng là thứ tệ nhất: người trực tin rằng khung còn trống.
     const khiBangDoi = (ev: Event) => {
-      const bang = (ev as CustomEvent<string | null>).detail;
-      // `null` = tin méo hoặc không rõ bảng nào. Cứ hỏi lại — một lượt gọi
-      // 4,8ms rẻ hơn nhiều so với việc bỏ sót một chỗ vừa bị giữ.
+      // `detail` là `{t, v}` (16/11/2026). `null` / `t: null` = tin méo, tab vừa
+      // hiện lại, hoặc không rõ bảng nào. Cứ hỏi lại — một lượt gọi 4,8ms rẻ hơn
+      // nhiều so với việc bỏ sót một chỗ vừa bị giữ.
+      const bang = (ev as CustomEvent<TinBang | null>).detail?.t ?? null;
       if (bang === "slot_hold" || bang === null) void load();
     };
     window.addEventListener(SU_KIEN_BANG, khiBangDoi);

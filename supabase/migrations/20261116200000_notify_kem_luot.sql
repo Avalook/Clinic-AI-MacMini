@@ -33,6 +33,7 @@ DECLARE
     v_hang jsonb;
     v_clinic uuid;
     v_luot text;
+    v_luot_cu text;
 BEGIN
     -- DELETE thì dữ liệu nằm ở OLD. Không có dòng này, mọi lần xoá đều mất tin
     -- báo và màn hình giữ lại một hàng vừa biến mất.
@@ -44,6 +45,13 @@ BEGIN
     v_clinic := (v_hang ->> 'clinic_id')::uuid;
     v_luot := v_hang ->> 'visit_id';
 
+    -- HÀNG DỜI GIỮA HAI LƯỢT (nút "Làm hôm nay" / "Để lần sau" đổi
+    -- service_order.visit_id): phiếu của CẢ lượt cũ lẫn lượt mới phải hỏi lại.
+    -- Chỉ đọc OLD khi bảng có cột lượt — bảng khác không tốn thêm gì.
+    IF TG_OP = 'UPDATE' AND v_hang ? 'visit_id' THEN
+        v_luot_cu := to_jsonb(OLD) ->> 'visit_id';
+    END IF;
+
     IF v_clinic IS NOT NULL THEN
         IF v_luot IS NULL THEN
             PERFORM pg_notify(
@@ -54,6 +62,12 @@ BEGIN
             PERFORM pg_notify(
                 'clinicai_changes',
                 json_build_object('t', TG_TABLE_NAME, 'c', v_clinic, 'v', v_luot)::text
+            );
+        END IF;
+        IF v_luot_cu IS NOT NULL AND v_luot_cu IS DISTINCT FROM v_luot THEN
+            PERFORM pg_notify(
+                'clinicai_changes',
+                json_build_object('t', TG_TABLE_NAME, 'c', v_clinic, 'v', v_luot_cu)::text
             );
         END IF;
     END IF;

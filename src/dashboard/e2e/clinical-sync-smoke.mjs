@@ -44,7 +44,7 @@ export default function QA(){return <ClinicalRecordForm appt={appt} staffId="qa"
  await secretary.getByPlaceholder('VD: Khám thai').fill('Thư ký đã nhập');
  await secretary.getByRole('button',{name:/Lưu hồ sơ/}).click();
  await secretary.waitForFunction(()=>document.body.textContent.includes('Đã lưu nháp'));
- await doctor.evaluate(()=>window.dispatchEvent(new CustomEvent('clinicai:bang-doi',{detail:'clinical_record'})));
+ await doctor.evaluate(()=>window.dispatchEvent(new CustomEvent('clinicai:bang-doi',{detail:{t:'clinical_record',v:null}})));
  await doctor.waitForFunction(()=>document.querySelector('input[placeholder="VD: Khám thai"]')?.value==='Thư ký đã nhập');
  assert.equal(posts.length,1);
  await doctor.getByPlaceholder('VD: Khám thai').fill('Bác sĩ đang sửa');
@@ -52,13 +52,13 @@ export default function QA(){return <ClinicalRecordForm appt={appt} staffId="qa"
  await doctor.waitForFunction(()=>document.body.textContent.includes('Bạn còn nội dung chưa lưu'));
  assert.equal(completionRequests.length,0,'unsaved doctor typing cannot end the appointment');
  record={...record,revision:3,draft:{...record.draft,chief_complaint:'Bản mới của thư ký'}};
- await doctor.evaluate(()=>window.dispatchEvent(new CustomEvent('clinicai:bang-doi',{detail:'clinical_record'})));
+ await doctor.evaluate(()=>window.dispatchEvent(new CustomEvent('clinicai:bang-doi',{detail:{t:'clinical_record',v:null}})));
  await doctor.getByRole('status').waitFor();
  assert.equal(await doctor.getByPlaceholder('VD: Khám thai').inputValue(),'Bác sĩ đang sửa');
  await doctor.getByRole('button',{name:'Tải bản mới và bỏ nội dung chưa lưu'}).click();
  await doctor.waitForFunction(()=>document.querySelector('input[placeholder="VD: Khám thai"]')?.value==='Bản mới của thư ký');
  record={...record,revision:4,prescription_draft:{recorded_by:'qa-secretary',items:[{drug_name:'QA Drug',quantity:'2 viên',dosage:'QA instructions',caution:''}]}};
- await doctor.evaluate(()=>window.dispatchEvent(new CustomEvent('clinicai:bang-doi',{detail:'clinical_record'})));
+ await doctor.evaluate(()=>window.dispatchEvent(new CustomEvent('clinicai:bang-doi',{detail:{t:'clinical_record',v:null}})));
  await doctor.getByRole('button',{name:/^Chẩn đoán & Xử trí/}).click();
  await doctor.getByRole('button',{name:'Duyệt đơn thuốc đang xem'}).waitFor();
  await doctor.getByRole('button',{name:'Kết thúc khám',exact:true}).click();
