@@ -25,6 +25,7 @@ import { dinhDanhThaoTac, khoaThaoTac, xongThaoTac } from "../customers/khoa-mot
 import { useNgheBang } from "../dung-nghe-bang";
 import ChinhDonQuay, { type TheoDonDong } from "../thu-ngan/ChinhDonQuay";
 import { nhanPhan } from "@/lib/hinh-thuc-thu";
+import { taoMotLuot } from "@/lib/mot-luot";
 import { taiAnhChuyenKhoan } from "../thu-ngan/AnhChuyenKhoan";
 import type { KetQuaChia } from "../thu-ngan/ChiaHinhThuc";
 import type { GiamGiaResult } from "../thu-ngan/GiamGia";
@@ -65,44 +66,57 @@ export default function BanLeThu({ visitId }: { visitId: string }) {
   const [goiYThuoc, setGoiYThuoc] = useState<{ ten: string; lan: number } | null>(null);
   const noiDon = useNoiDon(visitId);
 
-  const tai = useCallback(async () => {
-    try {
-      const r = await fetch(`/api/pharmacy/ban-le?${new URLSearchParams({ id: visitId })}`, {
-        cache: "no-store",
-      });
-      const d = (await r.json().catch(() => null)) as
-        | (DocBanLe & { message?: string; error?: string })
-        | null;
-      if (!r.ok || !d) {
-        setLoi(d?.message ?? d?.error ?? "Không đọc được hoá đơn thuốc.");
-        return;
-      }
-      setDoc(d);
-      setLanTai((n) => n + 1);
-    } catch {
-      setLoi("Mất kết nối tới máy chủ.");
-    }
-  }, [visitId]);
+  // MỘT LƯỢT NẠP MỘT LÚC (lib/mot-luot). Mỗi lần tick/bỏ tick có HAI lượt nạp
+  // chồng nhau — tin bảng `prescription` (useNgheBang) và `onDoi` của khối chỉnh
+  // đơn — lượt nào về sau ghi đè `doc`: lượt cũ về sau thì tổng tiền đứng ở số
+  // trước khi bỏ tick. Đi chung một hàng thì lượt cuối luôn đọc SAU thao tác cuối.
+  const [motLuot] = useState(taoMotLuot);
+  const tai = useCallback(
+    () =>
+      motLuot(async () => {
+        try {
+          const r = await fetch(`/api/pharmacy/ban-le?${new URLSearchParams({ id: visitId })}`, {
+            cache: "no-store",
+          });
+          const d = (await r.json().catch(() => null)) as
+            | (DocBanLe & { message?: string; error?: string })
+            | null;
+          if (!r.ok || !d) {
+            setLoi(d?.message ?? d?.error ?? "Không đọc được hoá đơn thuốc.");
+            return;
+          }
+          setDoc(d);
+          setLanTai((n) => n + 1);
+        } catch {
+          setLoi("Mất kết nối tới máy chủ.");
+        }
+      }),
+    [motLuot, visitId],
+  );
 
   // Người khác thu / sửa đơn / nối – gỡ đơn gốc → hoá đơn và đơn ở đây tự cập nhật.
   useNgheBang(["payment_cycle", "prescription", "visit"], () => void tai());
 
+  // Nạp lần đầu cũng đi chung hàng: không để lượt đầu về muộn đè lượt sau.
   useEffect(() => {
     let bo = false;
-    fetch(`/api/pharmacy/ban-le?${new URLSearchParams({ id: visitId })}`, { cache: "no-store" })
-      .then(async (r) => ({ ok: r.ok, d: (await r.json().catch(() => null)) as DocBanLe | null }))
-      .then(({ ok, d }) => {
+    void motLuot(async () => {
+      try {
+        const r = await fetch(`/api/pharmacy/ban-le?${new URLSearchParams({ id: visitId })}`, {
+          cache: "no-store",
+        });
+        const d = (await r.json().catch(() => null)) as DocBanLe | null;
         if (bo) return;
-        if (ok && d) setDoc(d);
+        if (r.ok && d) setDoc(d);
         else setLoi("Không đọc được hoá đơn thuốc.");
-      })
-      .catch(() => {
+      } catch {
         if (!bo) setLoi("Mất kết nối tới máy chủ.");
-      });
+      }
+    });
     return () => {
       bo = true;
     };
-  }, [visitId]);
+  }, [motLuot, visitId]);
 
   const gui = async (
     than: Record<string, unknown>,
