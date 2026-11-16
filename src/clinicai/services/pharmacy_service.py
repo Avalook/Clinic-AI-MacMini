@@ -849,145 +849,155 @@ class PharmacyService:
         Một thao tác, hai sổ, MỘT GIAO DỊCH: kho và số đã cấp của đơn.
         """
         luong = _so(so_luong, ten="Số lượng cấp")
-        tu_chon_lo = False
-
         async with self._pool.acquire() as conn:
             async with conn.transaction():
-                # visit → dòng đơn (cùng thứ tự với lần thu / huỷ phiếu).
-                don = await self._khoa_theo_luot(conn, identity, prescription_id)
-                if don["closed_at"] is not None:
-                    raise ConflictError(
-                        "Dòng thuốc này đã chốt — không cấp thêm được nữa."
-                    )
-                luong = await _so_giao_theo_don_vi_ban(
-                    conn, identity, don, prescription_id, luong, don_vi_giao
-                )
-                lan = await conn.fetchrow(
-                    """
-                    SELECT payment_cycle_id::text, legacy FROM public.payment_cycle
-                     WHERE clinic_id = $1::uuid AND visit_id = $2::uuid
-                       AND kind = 'thuoc' AND status = 'PAID'
-                    """,
-                    identity.clinic_id,
-                    don["visit_id"],
-                )
-                if lan is None:
-                    raise ConflictError(
-                        "Tiền thuốc của lượt này chưa thu — thu tiền thuốc trước "
-                        "rồi mới giao thuốc."
-                    )
-                # Lần thu KHÔNG gắn lô nào (thu không chờ kho — công tắc
-                # CLINICAI_DRUG_PAYMENT_REQUIRES_INVENTORY tắt, Tuyền chốt
-                # 20/09/2026) đi đường giao thẳng từ lô như lần thu cũ. Trước
-                # 24/09 nó rơi vào nhánh "giao đúng lô đã bán" và KHÔNG giao
-                # được gì (bộ mô phỏng 20 khách bắt được). Quyết theo DỮ LIỆU,
-                # không đọc công tắc: lần thu nào đã bán lô thì vẫn phải giao
-                # đúng lô ấy, dù công tắc sau đó đổi.
-                giao_thang = bool(lan["legacy"]) or not await conn.fetchval(
-                    "SELECT EXISTS (SELECT 1 FROM public.prescription_allocation"
-                    " WHERE clinic_id = $1::uuid AND payment_cycle_id = $2::uuid"
-                    " AND released_at IS NULL)",
-                    identity.clinic_id,
-                    lan["payment_cycle_id"],
-                )
-                # Giao không lô: xét THEO DÒNG — dòng này không có lô nào đã bán
-                # trong lần thu (cùng luật nút `giao_khong_lo` ở ban_thuoc_service).
-                if drug_batch_id is None and await conn.fetchval(
-                    "SELECT EXISTS (SELECT 1 FROM public.prescription_allocation"
-                    " WHERE clinic_id = $1::uuid AND payment_cycle_id = $2::uuid"
-                    " AND prescription_id = $3::uuid AND released_at IS NULL)",
-                    identity.clinic_id,
-                    lan["payment_cycle_id"],
-                    prescription_id,
-                ):
-                    raise ValidationError(
-                        "Dòng này đã bán theo lô — giao từ đúng lô đã bán."
-                    )
-                lo_da_tru: list[dict[str, Any]] = []
-                chua_tru = Decimal(0)
-                can_lam: str | None = None
-                chu_chua_tru: str | None = None
-                la_vat_tu = bool(
-                    await thuoc_la_vat_tu(
-                        conn, identity.clinic_id, [don.get("drug_catalog_id")]
-                    )
-                )
-                if la_vat_tu and drug_batch_id is not None:
-                    raise ValidationError(
-                        "Hàng này theo dõi ở Kho vật tư — bấm Giao, không chọn lô."
-                    )
-                if la_vat_tu:
-                    moi = await self._giao_vat_tu(
-                        conn,
-                        identity=identity,
-                        don=don,
-                        prescription_id=prescription_id,
-                        luong=luong,
-                    )
-                elif drug_batch_id is None:
-                    tu_chon_lo = True
-                    moi, lo_da_tru, chua_tru = await self._giao_tu_chon_lo(
-                        conn,
-                        identity=identity,
-                        don=don,
-                        prescription_id=prescription_id,
-                        luong=luong,
-                    )
-                    if chua_tru > 0:
-                        can_lam = await _viec_de_tru_duoc(
-                            conn, identity, don, prescription_id
-                        )
-                        doi = await quy_doi_cua_dong(
-                            conn,
-                            identity.clinic_id,
-                            thuoc=don.get("drug_catalog_id"),
-                            don_vi=don.get("unit"),
-                            prescription_id=prescription_id,
-                        )
-                        chu_chua_tru = so_de_doc(
-                            chua_tru, doi.he_so_dong, doi.bang.goc, don.get("unit")
-                        )
-                elif giao_thang:
-                    moi = await self._cap_phat_cu(
-                        conn,
-                        identity=identity,
-                        don=don,
-                        prescription_id=prescription_id,
-                        drug_batch_id=drug_batch_id,
-                        luong=luong,
-                    )
-                else:
-                    moi = await self._giao_theo_phan_lo(
-                        conn,
-                        identity=identity,
-                        prescription_id=prescription_id,
-                        drug_batch_id=drug_batch_id,
-                        cycle_id=lan["payment_cycle_id"],
-                        luong=luong,
-                    )
-                # Dòng thời gian: kê ↔ khách mua ↔ đã giao (hai bản đơn). Số kê
-                # và số mua đọc từ dòng đã khoá ở trên — giao không đổi hai số ấy.
-                await emit_event(
+                ket_qua = await self.giao_trong_giao_dich(
                     conn,
-                    ten="medicine.dispensed",
-                    clinic_id=identity.clinic_id,
-                    aggregate_id=prescription_id,
-                    payload=ThuocDaGiao(
-                        visit_id=str(don["visit_id"]),
-                        prescription_id=prescription_id,
-                        so_ke=_so_chu(don.get("quantity_num")),
-                        so_mua=_so_chu(don.get("purchased_qty")),
-                        so_da_giao=str(moi["dispensed_qty"]),
-                    ),
-                    boi=nguoi(identity),
-                    correlation_id=str(don["visit_id"]),
+                    identity=identity,
+                    prescription_id=prescription_id,
+                    drug_batch_id=drug_batch_id,
+                    luong=luong,
+                    don_vi_giao=don_vi_giao,
                 )
-
         logger.info(
             "pharmacy_dispensed",
             prescription_id=prescription_id,
             quantity=str(luong),
             by_staff_id=identity.staff_id,
+        )
+        return ket_qua
+
+    async def giao_trong_giao_dich(
+        self,
+        conn: asyncpg.Connection,
+        *,
+        identity: StaffIdentity,
+        prescription_id: str,
+        drug_batch_id: str | None,
+        luong: Decimal,
+        don_vi_giao: str | None = None,
+    ) -> dict[str, Any]:
+        """Thân của `cap_phat`, chạy TRONG giao dịch của người gọi — để lần thu
+        tiền thuốc giao luôn trong cùng giao dịch (`tu_giao_khi_thu`).
+        Thứ tự khoá: lượt → dòng đơn → lô, như mọi thao tác chạm hoá đơn thuốc."""
+        tu_chon_lo = False
+        don = await self._khoa_theo_luot(conn, identity, prescription_id)
+        if don["closed_at"] is not None:
+            raise ConflictError("Dòng thuốc này đã chốt — không cấp thêm được nữa.")
+        luong = await _so_giao_theo_don_vi_ban(
+            conn, identity, don, prescription_id, luong, don_vi_giao
+        )
+        lan = await conn.fetchrow(
+            """
+            SELECT payment_cycle_id::text, legacy FROM public.payment_cycle
+             WHERE clinic_id = $1::uuid AND visit_id = $2::uuid
+               AND kind = 'thuoc' AND status = 'PAID'
+            """,
+            identity.clinic_id,
+            don["visit_id"],
+        )
+        if lan is None:
+            raise ConflictError(
+                "Tiền thuốc của lượt này chưa thu — thu tiền thuốc trước "
+                "rồi mới giao thuốc."
+            )
+        # Lần thu KHÔNG gắn lô nào (công tắc CLINICAI_DRUG_PAYMENT_REQUIRES_INVENTORY
+        # tắt, Tuyền chốt 20/09/2026) giao thẳng từ lô như lần thu cũ. Quyết theo DỮ
+        # LIỆU, không đọc công tắc: lần thu đã bán lô thì vẫn giao đúng lô ấy.
+        giao_thang = bool(lan["legacy"]) or not await conn.fetchval(
+            "SELECT EXISTS (SELECT 1 FROM public.prescription_allocation"
+            " WHERE clinic_id = $1::uuid AND payment_cycle_id = $2::uuid"
+            " AND released_at IS NULL)",
+            identity.clinic_id,
+            lan["payment_cycle_id"],
+        )
+        # Giao không lô: xét THEO DÒNG — dòng này không có lô nào đã bán
+        # trong lần thu (cùng luật nút `giao_khong_lo` ở ban_thuoc_service).
+        if drug_batch_id is None and await conn.fetchval(
+            "SELECT EXISTS (SELECT 1 FROM public.prescription_allocation"
+            " WHERE clinic_id = $1::uuid AND payment_cycle_id = $2::uuid"
+            " AND prescription_id = $3::uuid AND released_at IS NULL)",
+            identity.clinic_id,
+            lan["payment_cycle_id"],
+            prescription_id,
+        ):
+            raise ValidationError("Dòng này đã bán theo lô — giao từ đúng lô đã bán.")
+        lo_da_tru: list[dict[str, Any]] = []
+        chua_tru = Decimal(0)
+        can_lam: str | None = None
+        chu_chua_tru: str | None = None
+        la_vat_tu = bool(
+            await thuoc_la_vat_tu(
+                conn, identity.clinic_id, [don.get("drug_catalog_id")]
+            )
+        )
+        if la_vat_tu and drug_batch_id is not None:
+            raise ValidationError(
+                "Hàng này theo dõi ở Kho vật tư — bấm Giao, không chọn lô."
+            )
+        if la_vat_tu:
+            moi = await self._giao_vat_tu(
+                conn,
+                identity=identity,
+                don=don,
+                prescription_id=prescription_id,
+                luong=luong,
+            )
+        elif drug_batch_id is None:
+            tu_chon_lo = True
+            moi, lo_da_tru, chua_tru = await self._giao_tu_chon_lo(
+                conn,
+                identity=identity,
+                don=don,
+                prescription_id=prescription_id,
+                luong=luong,
+            )
+            if chua_tru > 0:
+                can_lam = await _viec_de_tru_duoc(conn, identity, don, prescription_id)
+                doi = await quy_doi_cua_dong(
+                    conn,
+                    identity.clinic_id,
+                    thuoc=don.get("drug_catalog_id"),
+                    don_vi=don.get("unit"),
+                    prescription_id=prescription_id,
+                )
+                chu_chua_tru = so_de_doc(
+                    chua_tru, doi.he_so_dong, doi.bang.goc, don.get("unit")
+                )
+        elif giao_thang:
+            moi = await self._cap_phat_cu(
+                conn,
+                identity=identity,
+                don=don,
+                prescription_id=prescription_id,
+                drug_batch_id=drug_batch_id,
+                luong=luong,
+            )
+        else:
+            moi = await self._giao_theo_phan_lo(
+                conn,
+                identity=identity,
+                prescription_id=prescription_id,
+                drug_batch_id=drug_batch_id,
+                cycle_id=lan["payment_cycle_id"],
+                luong=luong,
+            )
+        # Dòng thời gian: kê ↔ khách mua ↔ đã giao (hai bản đơn). Số kê
+        # và số mua đọc từ dòng đã khoá ở trên — giao không đổi hai số ấy.
+        await emit_event(
+            conn,
+            ten="medicine.dispensed",
+            clinic_id=identity.clinic_id,
+            aggregate_id=prescription_id,
+            payload=ThuocDaGiao(
+                visit_id=str(don["visit_id"]),
+                prescription_id=prescription_id,
+                so_ke=_so_chu(don.get("quantity_num")),
+                so_mua=_so_chu(don.get("purchased_qty")),
+                so_da_giao=str(moi["dispensed_qty"]),
+            ),
+            boi=nguoi(identity),
+            correlation_id=str(don["visit_id"]),
         )
         ket_qua: dict[str, Any] = {
             "ok": True,
