@@ -78,7 +78,7 @@ async def test_huy_lo_demo_va_hoan_tac(co: Co, tmp_path: Path) -> None:  # noqa:
     tep = tmp_path / "huy.jsonl"
     ra = _chay(chi, f"--luu={tep}", "--that")
     assert "đã huỷ 1 lô" in ra, ra
-    assert (await ton(demo), await ton(that_lo)) == (0, 30)
+    assert (await ton(demo), await ton(that_lo)) == (Decimal(0), Decimal(30))
     assert (
         await co.q.pool.fetchval(
             "SELECT count(*) FROM inventory_txn WHERE drug_batch_id = $1::uuid"
