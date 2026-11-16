@@ -3,19 +3,20 @@
     scripts/test-nhanh.sh src/tests/services/test_giam_tai_trang_thuoc_db.py
 
 Prod 16/11: quầy thu thuốc kéo 683 lượt (504 lượt chỉ vì sổ nợ khách PHAI_TRA,
-332 trong đó chỉ còn THUỐC đã thu chưa giao — việc của Nhà thuốc, quầy không có
-nút nào cho nó); màn Nhà thuốc lấy 300 DÒNG mới nhất trong 6.951 dòng mở, còn
-56 lượt — lượt chờ giao vài hôm trước rơi khỏi màn mà không ai biết.
+332 trong đó chỉ còn THUỐC đã thu chưa giao — việc của Nhà thuốc); màn Nhà thuốc
+lấy 300 DÒNG mới nhất trong 6.951 dòng mở, còn 56 lượt — lượt chờ giao vài hôm
+trước rơi khỏi màn mà không ai biết. Quầy thuốc nay lọc theo NGÀY đang xem.
 """
 
 from __future__ import annotations
 
 import json
-from datetime import UTC, datetime
+from datetime import date, timedelta
 from typing import Any
 
 import pytest
 
+from clinicai.core.clock import hom_nay_vn
 from clinicai.events.catalogue import CONG_NO, SO_NO
 from clinicai.services import ban_thuoc_service as bt
 from clinicai.services import cashier_board_service as cb
@@ -86,9 +87,7 @@ def _ids(man: dict[str, Any]) -> set[str]:
     return {g["visit_id"] for g in man["luot"]}
 
 
-async def test_so_no_loai_thuoc_khop() -> None:
-    """Quầy thu không nhập thẳng so_no_service (vòng nhập) — hằng phải khớp."""
-    assert cb.SO_NO_LOAI_THUOC == so_no_service.THUOC
+async def test_cua_so_nha_thuoc_bang_han_quay_thu() -> None:
     # Cửa sổ "đã thu chờ giao" của Nhà thuốc = hạn đơn thuốc của quầy thu.
     assert bt.CUA_SO_SO_NGAY == cb.CU_DON_THUOC_SO_NGAY
 
@@ -117,35 +116,84 @@ async def test_chi_con_thuoc_chua_giao_khong_vao_quay_thuoc_ma_o_nha_thuoc(
     assert q.visit_id in await _tren_quay(q, ["dich_vu", "thuoc"])
 
 
-async def test_khoan_phai_tra_bang_tien_khac_thuoc_van_vao_quay_thuoc(
+# ── Quầy thuốc theo NGÀY (Tuyền 16/11) ─────────────────────────────────────
+
+
+async def _bang(q: Quay, ngay: date | None = None) -> dict[str, Any]:  # noqa: F811
+    return await CashierBoardService(q.pool).board(
+        identity=q.thu_ngan,
+        modes=["thuoc"],
+        ngay=ngay.isoformat() if ngay else None,
+    )
+
+
+def _ngay_lui(n: int) -> date:
+    return hom_nay_vn() - timedelta(days=n)
+
+
+async def test_hom_nay_trong_khi_chi_co_khach_cho_ngay_cu_chon_ngay_cu_thi_hien(
     q: Quay,  # noqa: F811
 ) -> None:
-    """Sổ còn khoản tiền thật (vd đã thu dịch vụ mà không làm) cạnh thuốc chưa
-    giao: quầy thuốc vẫn gom lượt — chỉ khoản THUẦN thuốc mới rời quầy."""
-    await _thu_chua_giao_khach_ve(q)
+    """ "ví dụ ngày thứ 7 14/11 thì còn khách nào chờ thanh toán ngày đó thì …
+    hiện ở ngày đó để xử lý đi, còn hôm nay chưa có thì phải trống"."""
+    await _san_sang(q, 10, 100)  # có đơn, CHƯA thu
     await _lui(q, 2)
-    truoc = int(
-        await q.pool.fetchval(
-            "SELECT so_du FROM so_no WHERE visit_id = $1::uuid AND chieu = 'PHAI_TRA'"
-            " ORDER BY seq DESC LIMIT 1",
-            q.visit_id,
+    hom_nay = await _bang(q)
+    assert q.visit_id not in {i["visit_id"] for i in hom_nay["items"]}
+    ngay_cu = _ngay_lui(2)
+    assert any(
+        d["ngay"] == ngay_cu.isoformat() and d["so"] >= 1
+        for d in hom_nay["ngay_khac_con_cho"]
+    )
+    hom_do = await _bang(q, ngay_cu)
+    assert hom_do["ngay"] == ngay_cu.isoformat()
+    assert q.visit_id in {i["visit_id"] for i in hom_do["items"]}
+    # Đang xem ngày cũ: chính ngày ấy không nằm trong "ngày khác".
+    assert all(d["ngay"] != ngay_cu.isoformat() for d in hom_do["ngay_khac_con_cho"])
+
+
+async def test_ngay_khac_dem_dung_va_luot_da_thu_khong_la_cho(q: Quay) -> None:  # noqa: F811
+    """Hai khách chưa thu ở cùng một ngày cũ → đếm; thu xong một khách thì số
+    giảm đúng một, và khách đã thu nằm ở `paid` (không phải chờ thanh toán)."""
+    ngay = _ngay_lui(17)
+    b = await tao_quay(q.pool)
+    for x in (q, b):
+        await _san_sang(x, 10, 100)
+        await _lui(x, 17)
+
+    def _so(bang: dict[str, Any]) -> int:
+        return next(
+            (
+                d["so"]
+                for d in bang["ngay_khac_con_cho"]
+                if d["ngay"] == ngay.isoformat()
+            ),
+            0,
         )
+
+    truoc = _so(await _bang(q))
+    assert truoc >= 2
+    assert (
+        next(
+            d
+            for d in (await _bang(q))["ngay_khac_con_cho"]
+            if d["ngay"] == ngay.isoformat()
+        )["nhan"]
+        == f"{cb._THU_VN[ngay.weekday()]} {ngay:%d/%m}"
     )
-    ct = [
-        {"ten": "thuoc go tay", "so_tien": truoc, "loai": so_no_service.THUOC},
-        {"ten": "Siêu âm", "so_tien": 300_000, "loai": "KHONG_LAM"},
-    ]
-    await q.pool.execute(
-        "INSERT INTO so_no (clinic_id, visit_id, clinic_patient_id, chieu, so_tien,"
-        " so_du, loai, luc, chi_tiet)"
-        " SELECT clinic_id, visit_id, clinic_patient_id, 'PHAI_TRA', 300000, $2,"
-        " 'DOI_CHIEU', $3, $4::jsonb FROM visit WHERE visit_id = $1::uuid",
-        q.visit_id,
-        truoc + 300_000,
-        datetime.now(UTC),
-        json.dumps(ct),
+    await _thu(q)
+    assert _so(await _bang(q)) == truoc - 1
+    hom_do = await _bang(q, ngay)
+    assert {"visit_id": q.visit_id, "kind": "thuoc"} in hom_do["paid"]
+    assert b.visit_id in {i["visit_id"] for i in hom_do["items"]}
+    assert {"visit_id": b.visit_id, "kind": "thuoc"} not in hom_do["paid"]
+
+
+async def test_quay_dich_vu_khong_doi_va_khong_co_ngay_khac(q: Quay) -> None:  # noqa: F811
+    bang = await CashierBoardService(q.pool).board(
+        identity=q.thu_ngan, modes=["dich_vu"]
     )
-    assert q.visit_id in await _tren_quay(q, ["thuoc"])
+    assert "ngay_khac_con_cho" not in bang
 
 
 # ── Sửa 2: màn Nhà thuốc ───────────────────────────────────────────────────
