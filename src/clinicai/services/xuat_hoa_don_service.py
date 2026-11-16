@@ -432,7 +432,8 @@ class XuatHoaDonService:
             for hd in ap_thue_hoa_don(h, che_do=mode, ghi_giam_gia=bool(ghi_giam_gia))
         ]
         # Tách thuế suất sinh nhiều hoá đơn từ một phiếu: số thứ tự (cột A) phải
-        # duy nhất, phần mềm hoá đơn gom dòng theo nó.
+        # duy nhất, phần mềm hoá đơn gom dòng theo nó. Màn Xuất hoá đơn cũng dùng
+        # stt làm key hàng (ma_phieu trùng giữa các hoá đơn tách).
         for i, hd in enumerate(hoa_don, 1):
             hd["stt"] = i
         ket_qua: dict[str, Any] = {
