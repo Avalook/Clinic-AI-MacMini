@@ -80,9 +80,7 @@ export default function TabThuNgan({ quay, chiXem = false }: { quay: "dich_vu" |
       {phamVi.ready && (tabXem === "cho" ? (
         <QuayThuNgan
           key={`${khoa}:${ngayCho}:${activeCoSo ?? ""}`}
-          quay={quay}
-          ngay={ngayCho}
-          coSo={activeCoSo}
+          quay={quay} ngay={ngayCho} coSo={activeCoSo}
           onChonNgay={theoNgay ? chonNgay : undefined}
         />
       ) : tabXem === "lich_su" ? (

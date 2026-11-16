@@ -57,10 +57,12 @@ test("mỗi quầy là một trang có cửa gác riêng, quầy ghim cứng tro
     // Batch pilot 18/09: trang ghim quầy vào TabThuNgan (thêm hai tab chỉ
     // đọc), và TabThuNgan chuyển NGUYÊN quầy ấy xuống đúng một QuayThuNgan.
     assert.match(trang, new RegExp(`<TabThuNgan quay="${quayCua}" />`));
-    assert.match(
-      readFileSync(new URL("../app/(dashboard)/thu-ngan/TabThuNgan.tsx", import.meta.url), "utf8"),
-      /<QuayThuNgan[^>]*quay=\{quay\} ngay=\{homNay\} coSo=\{activeCoSo\}/,
-    );
+    // 16/11/2026 (Tuyền): quầy THUỐC lọc theo ngày đang chọn; quầy dịch vụ vẫn
+    // luôn là hôm nay — ngày của tab Chờ là `ngayCho`, chỉ quầy thuốc lấy `ngay`.
+    const tabSrc = readFileSync(new URL("../app/(dashboard)/thu-ngan/TabThuNgan.tsx", import.meta.url), "utf8");
+    assert.match(tabSrc, /<QuayThuNgan[^>]*quay=\{quay\} ngay=\{ngayCho\} coSo=\{activeCoSo\}/);
+    assert.match(tabSrc, /const theoNgay = quay === "thuoc";/);
+    assert.match(tabSrc, /const ngayCho = theoNgay \? ngay : homNay;/);
     assert.doesNotMatch(trang, /searchParams/);
   }
 });

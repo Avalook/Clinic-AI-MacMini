@@ -277,6 +277,7 @@ _UNG_VIEN_SQL = (
 WITH hien AS (
     SELECT r.visit_id, r.created_at, r.closed_at, r.removed_at
       FROM public.prescription r
+      /* rx:gom-ca-lich-su: dòng đính chính còn đối soát (_CON_VIEC) */
      WHERE r.clinic_id = $1::uuid
        AND ($5::uuid[] IS NULL OR r.clinic_patient_id = ANY($5::uuid[]))
        AND """
@@ -328,6 +329,7 @@ SELECT r.id::text, r.visit_id::text, r.drug_name_raw, r.quantity,
        r.superseded_by_id::text AS thay_boi_id, v.ban_le,
        coalesce(v.location_id, ap.location_id)::text AS co_so_id
   FROM public.prescription r
+  /* rx:gom-ca-lich-su: dòng đính chính còn đối soát (_CON_VIEC) */
   JOIN public.visit v
     ON v.visit_id = r.visit_id AND v.clinic_id = r.clinic_id
   LEFT JOIN public.patient p

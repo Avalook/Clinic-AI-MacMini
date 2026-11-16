@@ -23,8 +23,12 @@ export default async function PharmacyPage({
 }) {
   await requireNavAccess("/pharmacy");
   const { luot, tim } = await searchParams;
-  const q = typeof tim === "string" && tim.trim() ? `?${new URLSearchParams({ tim: tim.trim() })}` : "";
-  const man = await fetchFromBackend<ManNhaThuoc>(`/api/v1/pharmacy/ban-thuoc${q}`);
+  const tuKhoa = typeof tim === "string" ? tim.trim() : "";
+  const man = tuKhoa
+    ? await fetchFromBackend<ManNhaThuoc>(
+        "/api/v1/pharmacy/ban-thuoc" + "?" + new URLSearchParams({ tim: tuKhoa }).toString(),
+      )
+    : await fetchFromBackend<ManNhaThuoc>("/api/v1/pharmacy/ban-thuoc");
   if (!man) {
     return (
       <div className="p-6 text-body text-danger">
