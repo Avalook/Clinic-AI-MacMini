@@ -96,6 +96,7 @@ from clinicai.services.service_selection_service import (
     validate_input,
 )
 from clinicai.services.tai_khoan_nhan_service import chon_cho_lan_thu
+from clinicai.services.tu_giao_khi_thu import tu_giao_khi_thu
 from clinicai.services.vat_tu_ban_service import dong_bo_ban_vat_tu
 
 logger = structlog.get_logger()
@@ -674,6 +675,9 @@ class PaymentService:
                     await _phat_thuoc_bi_bo(
                         conn, identity=identity, visit_id=visit_id, cycle_id=cycle_id
                     )
+                if kind == "thuoc" and payment_id is not None and not phan_lo:
+                    # Thu xong là giao luôn: trừ kho quầy ngay (Tuyền 16/11/2026).
+                    await tu_giao_khi_thu(conn, identity=identity, cycle_id=cycle_id)
                 if phan_lo:
                     # Chờ xác minh: phân lô thành phần GIỮ của lần thu này.
                     # Tiền mặt: PAID ngay → bán luôn, cùng giao dịch.
@@ -1263,6 +1267,11 @@ class PaymentService:
                         visit_id=visit_id,
                         cycle_id=payment_cycle_id,
                     )
+                    if not phan_lo:
+                        # Tiền vừa nhận → giao luôn, trừ kho quầy (16/11/2026).
+                        await tu_giao_khi_thu(
+                            conn, identity=identity, cycle_id=payment_cycle_id
+                        )
                 if (
                     kind == "thuoc"
                     and bool(phan_lo)
