@@ -77,3 +77,19 @@ test("bỏ tick nhanh 3 thuốc: không có hàng thì tổng đứng số cũ (
 test("bỏ tick nhanh 3 thuốc: đi qua taoMotLuot thì tổng = các dòng còn tick", async () => {
   assert.equal(await moPhong(true), 100);
 });
+
+// 16/11 (bấm staging): bỏ tick xong tổng còn hiện SỐ CŨ ~0,75 s trong lúc nạp lại
+// /api/cashier — thu ngân đọc nhầm. Luật: vừa bấm thì che tổng ("đang tính lại…")
+// và khoá Tạo bill cho tới khi nạp lại xong; lỗi giữa chừng vẫn mở lại.
+test("Quầy thuốc: vừa chỉnh đơn thì che tổng cũ và khoá Tạo bill tới khi nạp lại xong", () => {
+  const quay = doc("app/(dashboard)/thu-ngan/QuayThuNgan.tsx");
+  const chinh = doc("app/(dashboard)/thu-ngan/ChinhDonQuay.tsx");
+  assert.match(quay, /onBatDau=\{\(\) => setTinhLai\(l\.visit_id\)\}/);
+  assert.match(quay, /finally \{\s*setTinhLai\(null\);/);
+  assert.match(quay, /dangTinhLai=\{tinhLai === l\.visit_id\}/);
+  assert.match(quay, /dangTinhLai \?[\s\S]{0,200}đang tính lại…/);
+  assert.match(quay, /disabled=\{\s*dangThu \|\|\s*dangTinhLai \|\|/);
+  // Mọi lệnh chỉnh đơn đi qua batDau (báo cha) — không còn setDang(true) lẻ.
+  assert.match(chinh, /const batDau = \(\) => \{\s*setDang\(true\);\s*onBatDau\?\.\(\);/);
+  assert.equal((chinh.match(/setDang\(true\)/g) ?? []).length, 1);
+});

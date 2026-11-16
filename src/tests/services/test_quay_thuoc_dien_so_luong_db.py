@@ -309,6 +309,31 @@ async def test_con_dong_trong_thi_khong_thu_dong_khac_van_vao_tong(
     assert (await _thu(q))["status"] == "PAID"
 
 
+async def test_bo_tick_dong_trong_so_luong_khong_can_nhap_so_va_tich_lai_duoc(
+    q: Quay,
+) -> None:
+    """16/11 (bấm staging): khách không lấy thuốc bác sĩ kê thiếu số lượng — quầy bỏ
+    tick được NGAY, không phải gõ số giả; tổng chỉ còn dòng khách lấy, thu được.
+    Tích lại thì dòng về đúng trạng thái "chưa có số lượng" (hoàn tác được)."""
+    rx_trong, _ = await _don_trong_so_luong(q)
+    rx_co = await _don(q, 4)
+    drug = await _thuoc(q, ten=f"Thuốc có số {q.duoi}")
+    await PharmacyService(q.pool).xac_dinh_thuoc(
+        identity=q.duoc_si, prescription_id=rx_co, drug_catalog_id=drug
+    )
+    svc = QuayThuocService(q.pool)
+    await svc.chon(prescription_id=rx_trong, mua=False, identity=q.thu_ngan)
+    hd = await _hd(q, "thuoc")
+    assert (hd.tong, hd.thu_duoc) == (20_000, True)
+    assert not any("chưa có số lượng" in v for v in hd.van_de)
+    await svc.chon(prescription_id=rx_trong, mua=True, identity=q.thu_ngan)
+    hd = await _hd(q, "thuoc")
+    assert hd.tong == 20_000 and not hd.thu_duoc
+    assert any("Thuốc quên số lượng" in v for v in hd.van_de)
+    await svc.chon(prescription_id=rx_trong, mua=False, identity=q.thu_ngan)
+    assert (await _thu(q))["status"] == "PAID"
+
+
 async def test_kho_tru_theo_so_cuoi_quay_dien(
     q: Quay, monkeypatch: pytest.MonkeyPatch
 ) -> None:

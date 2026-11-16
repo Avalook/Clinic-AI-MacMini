@@ -92,6 +92,7 @@ async function gui(than: Record<string, unknown>): Promise<string | null> {
 export default function ChinhDonQuay({
   visitId,
   onDoi,
+  onBatDau,
   theoDon,
   nhacChung,
   goiYThuoc,
@@ -99,6 +100,8 @@ export default function ChinhDonQuay({
   visitId: string;
   /** Đơn bán vừa đổi — màn cha nạp lại hoá đơn thuốc. */
   onDoi: (cau: string | null, loi: string | null) => Promise<void>;
+  /** Vừa bấm tick / số lượng / thêm thuốc — màn cha che tổng cũ cho tới `onDoi`. */
+  onBatDau?: () => void;
   /** Lượt bán lẻ đang nối đơn cũ: theo `drug_catalog_id` → số kê / đã mua. */
   theoDon?: Record<string, TheoDonDong>;
   /** Nhắc của khách (vd lần khám gần nhất quá 2 tháng) — chữ trung tính, không chặn. */
@@ -164,6 +167,12 @@ export default function ChinhDonQuay({
     if (loiTaiCho) loiRef.current?.scrollIntoView({ block: "nearest", behavior: "smooth" });
   }, [loiTaiCho]);
 
+  // Báo màn cha ngay khi bấm: tổng của cha còn là số cũ cho tới khi `onDoi` nạp lại.
+  const batDau = () => {
+    setDang(true);
+    onBatDau?.();
+  };
+
   const xong = async (loi: string | null, cau: string) => {
     setLoiTaiCho(loi);
     await tai();
@@ -171,7 +180,7 @@ export default function ChinhDonQuay({
   };
 
   const chon = async (d: DongBan, mua: boolean) => {
-    setDang(true);
+    batDau();
     const loi = await gui({ thao_tac: "chon", du_lieu: { prescription_id: d.id, mua } });
     setDang(false);
     await xong(loi, mua ? `Đã tích lại “${d.ten}”.` : `Đã bỏ “${d.ten}” — khách không lấy.`);
@@ -182,7 +191,7 @@ export default function ChinhDonQuay({
     if (!v) return;
     // Rời ô mà số không đổi thì không gọi máy chủ (khỏi ghi vết "10 → 10").
     if (Number(v.replace(",", ".")) === Number(d.so_mua ?? d.so_ke)) return;
-    setDang(true);
+    batDau();
     const loi = await gui({
       thao_tac: "so-luong",
       du_lieu: { prescription_id: d.id, so_luong: Number(v.replace(",", ".")) },
@@ -193,7 +202,7 @@ export default function ChinhDonQuay({
 
   const doiDonVi = async (d: DongBan, donVi: string) => {
     if (!donVi.trim() || donVi === (d.don_vi ?? d.don_vi_goi_y)) return;
-    setDang(true);
+    batDau();
     const loi = await gui({
       thao_tac: "don-vi",
       du_lieu: { prescription_id: d.id, don_vi: donVi },
@@ -204,7 +213,7 @@ export default function ChinhDonQuay({
 
   const suaDongQuay = async (d: DongBan, cachDung: string, luuY: string) => {
     if (cachDung === (d.cach_dung ?? "") && luuY === (d.luu_y ?? "")) return;
-    setDang(true);
+    batDau();
     const loi = await gui({
       thao_tac: "them",
       id: visitId,
@@ -225,7 +234,7 @@ export default function ChinhDonQuay({
   };
 
   const luuThem = async () => {
-    setDang(true);
+    batDau();
     const loi = await gui({
       thao_tac: "them",
       id: visitId,

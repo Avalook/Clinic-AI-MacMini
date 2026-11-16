@@ -240,18 +240,17 @@ class QuayThuocService:
     async def chon(
         self, *, prescription_id: str, mua: bool, identity: StaffIdentity
     ) -> dict[str, Any]:
-        """Tích (khách lấy) / bỏ tick (khách không lấy). Bỏ tick = số mua 0."""
+        """Tích (khách lấy) / bỏ tick (khách không lấy). Bỏ tick = số mua 0.
+
+        Dòng bác sĩ kê thiếu số lượng vẫn bỏ tick được (16/11): khách không lấy thì
+        không cần số — số mua 0 là đủ để dòng rời hoá đơn. Tích lại thì dòng về đúng
+        trạng thái "chưa có số lượng" (số mua NULL)."""
         async with self._pool.acquire() as conn, conn.transaction():
             don = await self._khoa_dong(conn, identity, prescription_id)
             if don["refusal_reason"] is not None:
                 raise ConflictError(
                     "Dòng này nhà thuốc đã ghi 'khách không lấy' (đã chốt) — "
                     "không tích lại ở quầy được."
-                )
-            if don["quantity_num"] is None:
-                raise ValidationError(
-                    "Dòng này chưa có số lượng — nhập số lượng ở ô “Số lượng” của dòng "
-                    "trước, rồi mới bỏ tick được."
                 )
             if not mua:
                 da_giao = Decimal(str(don["dispensed_qty"] or 0))
