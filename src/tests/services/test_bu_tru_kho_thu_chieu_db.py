@@ -80,7 +80,8 @@ async def test_bu_tru_quay_roi_kho_thu_kho_va_hoan_tac(
     chi = f"--chi-luot={co.q.visit_id}"
     ra = _chay(chi, f"--tu={tu}")
     assert "THỬ KHÔ" in ra and "lần thu còn dòng chưa giao: 1" in ra, ra
-    assert "· QUAY: 4" in ra and "· KHO: 4" in ra, ra
+    assert "· QUAY lô " in ra and "· KHO lô " in ra and "lô DEMO*: 0" in ra, ra
+    assert ": 4\n" in ra, ra
     assert await _ton_lo(co, quay, kho) == [4, 10]  # cuộn lại sạch
     assert await _da_giao(co.q, rx) == 0
 

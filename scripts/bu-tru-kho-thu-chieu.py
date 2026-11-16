@@ -154,13 +154,16 @@ async def _bu_mot_lan(
             moi_txn, moi_cho = sorted(txn1 - txn0), sorted(cho1 - cho0)
             for r in await conn.fetch(
                 "SELECT b.noi_chua, coalesce(c.name_base, c.name_raw, '?') AS ten,"
-                " -t.quantity AS sl FROM public.inventory_txn t"
+                " b.batch_code, -t.quantity AS sl FROM public.inventory_txn t"
                 " JOIN public.drug_batch b ON b.id = t.drug_batch_id"
                 " LEFT JOIN public.drug_catalog c ON c.id = b.drug_catalog_id"
                 " WHERE t.id = ANY($1::uuid[])",
                 moi_txn,
             ):
-                tong[(r["ten"], r["noi_chua"])] += Decimal(str(r["sl"]))
+                noi = f"{r['noi_chua']} lô {r['batch_code']}"
+                tong[(r["ten"], noi)] += Decimal(str(r["sl"]))
+                if str(r["batch_code"]).startswith("DEMO"):
+                    tong[("_demo", "")] += 1
             for r in await conn.fetch(
                 "SELECT coalesce(c.name_base, c.name_raw, '?') AS ten, g.so_luong"
                 " FROM public.thuoc_giao_chua_gan_lo g"
@@ -281,6 +284,8 @@ async def main() -> int:
         print(f"  lần thu đã xử lý: {int(tong.pop(('_luot', ''), 0))}")
         bo = int(tong.pop(("_bo_qua", ""), 0))
         print(f"  dòng bị bỏ qua (vẫn còn nút Giao): {bo}")
+        demo = int(tong.pop(("_demo", ""), 0))
+        print(f"  ⚠ lần trừ vào lô DEMO*: {demo}" if demo else "  lô DEMO*: 0")
         for (ten, noi), sl in sorted(tong.items()):
             print(f"    {ten} · {noi}: {sl.normalize()}")
         if not that:
