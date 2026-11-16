@@ -65,7 +65,11 @@ async def _hit(guard: RunawayRequestGuard, ident: StaffIdentity, times: int) -> 
 
 @pytest.mark.asyncio
 async def test_normal_work_is_never_touched() -> None:
-    """Twenty requests a minute is a busy receptionist. Nothing should happen."""
+    """A light minute of work never meets the guard.
+
+    (Real screens ask far more than one click's worth — up to 443/min measured
+    13–16/11 — which is what the default-ceiling tests below cover.)
+    """
     clock = _Clock()
     guard = RunawayRequestGuard(ceiling=120, window_seconds=60, clock=clock)
     assert await _hit(guard, _identity(), 20) == 0
@@ -221,6 +225,12 @@ async def test_default_guard_warns_at_200_not_at_half_the_ceiling() -> None:
         if guard._record("k", clock())[1] and warned_at is None:
             warned_at = i
     assert warned_at == 200
+
+
+def test_warning_always_comes_before_the_ceiling() -> None:
+    """`warn_at` lớn hơn nửa trần bị kẹp — cảnh báo không bao giờ tới sau 429."""
+    assert RunawayRequestGuard(ceiling=10, warn_at=200).warn_at == 5
+    assert RunawayRequestGuard(ceiling=1000, warn_at=200).warn_at == 200
 
 
 def test_warn_at_must_be_positive() -> None:
