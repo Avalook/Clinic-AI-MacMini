@@ -94,8 +94,11 @@ async def test_don_dong_cu_chua_thu_giu_dong_da_thu_va_hom_nay(
 
     chi = f"--chi-luot={q_cu.visit_id},{q_thu.visit_id},{q_nay.visit_id}"
 
+    # Mốc sớm hơn ngày tạo (3 ngày trước) → không dòng nào.
+    assert "dòng đơn: 0 (0 lượt)" in _chay(chi, "--truoc=2020-01-01T00:00+07:00")
+
     ra = _chay(chi)
-    assert "THỬ KHÔ" in ra and "dòng đơn sẽ đóng: 1 (1 lượt)" in ra
+    assert "THỬ KHÔ" in ra and "dòng đơn: 1 (1 lượt)" in ra
     assert (await _dong(pool, rx_cu))[0] is False
 
     ra = _chay(chi, "--that")
@@ -106,7 +109,7 @@ async def test_don_dong_cu_chua_thu_giu_dong_da_thu_va_hom_nay(
     assert (await _dong(pool, rx_nay))[0] is False
 
     # Chạy lại: không còn ứng viên.
-    assert "dòng đơn sẽ đóng: 0" in _chay(chi, "--that")
+    assert "dòng đơn: 0 (0 lượt)" in _chay(chi, "--that")
 
     # Hoàn tác cả đợt: mở lại đúng dòng đã đóng, có sự kiện bù.
     assert "đã mở lại 1 dòng" in _chay("--hoan-tac")
@@ -119,3 +122,44 @@ async def test_don_dong_cu_chua_thu_giu_dong_da_thu_va_hom_nay(
         )
         == 2
     )
+
+    # ── ĐÃ THU CHƯA GIAO → ghi đã giao, KHÔNG trừ kho, chốt dòng ──
+    async def _tinh(rx: str) -> tuple[float, bool, float, int]:
+        r = await pool.fetchrow(
+            "SELECT coalesce(r.dispensed_qty, 0) AS da,"
+            " r.closed_at IS NOT NULL AS dong,"
+            " (SELECT coalesce(sum(b.quantity_on_hand), 0) FROM drug_batch b"
+            "   WHERE b.drug_catalog_id = r.drug_catalog_id) AS ton,"
+            " (SELECT count(*) FROM inventory_txn t JOIN drug_batch b"
+            "   ON b.id = t.drug_batch_id WHERE b.drug_catalog_id = r.drug_catalog_id)"
+            "   AS so_txn"
+            " FROM prescription r WHERE r.id = $1::uuid",
+            rx,
+        )
+        return float(r["da"]), bool(r["dong"]), float(r["ton"]), int(r["so_txn"])
+
+    truoc = await _tinh(rx_thu)
+    assert truoc[0] == 0 and truoc[1] is False
+    ra = _chay(chi, "--da-thu")
+    assert "THỬ KHÔ" in ra and "dòng đơn: 1 (1 lượt)" in ra
+    assert await _tinh(rx_thu) == truoc
+
+    ra = _chay(chi, "--da-thu", "--that")
+    assert "+ chốt 1 lượt" in ra, ra
+    sau = await _tinh(rx_thu)
+    assert sau[0] == 10 and sau[1] is True
+    assert sau[2:] == truoc[2:]  # tồn và sổ kho không đổi
+    assert (
+        await pool.fetchval(
+            "SELECT count(*) FROM thuoc_giao_chua_gan_lo WHERE prescription_id ="
+            " $1::uuid AND huy_luc IS NULL",
+            rx_thu,
+        )
+        == 0
+    )
+    assert "dòng đơn: 0 (0 lượt)" in _chay(chi, "--da-thu")
+
+    # Hoàn tác: về đã thu, chưa giao; không chạy lại được hai lần.
+    assert "đã trả 1 dòng" in _chay("--hoan-tac-da-thu")
+    assert await _tinh(rx_thu) == truoc
+    assert "đã trả 0 dòng" in _chay("--hoan-tac-da-thu")
