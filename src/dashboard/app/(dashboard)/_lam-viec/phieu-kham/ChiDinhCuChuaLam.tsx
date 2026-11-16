@@ -54,6 +54,8 @@ export default function ChiDinhCuChuaLam({
   // Chỉ định đổi ở chỗ KHÁC (nút [Để lần sau] trên thẻ chỉ định, lần khác của
   // người khác) → khung tự nạp lại; không thì phải F5 mới thấy chỉ định quay về
   // (bấm staging 29/10/2026).
+  // KHÔNG lọc `{ luot }`: khung này vẽ chỉ định của các lượt CŨ — tin của chúng
+  // mang id lượt khác lượt đang mở.
   useNgheBang(["service_order"], nap);
 
   const lamHomNay = async (c: ChiDinhCu) => {

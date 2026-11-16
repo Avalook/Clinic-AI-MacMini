@@ -60,7 +60,9 @@ export default function HanhTrinhLuot({ visitId }: { visitId: string }) {
   }, [visitId, lanNap]);
 
   // Tin bảng đổi → nạp lại (gộp nhịp, tab ẩn không tải — `useNgheBang`).
-  useNgheBang(BANG, () => setLanNap((n) => n + 1));
+  // Chỉ lượt này: dải mốc không đọc hàng chờ của khách khác (khác `HanhTrinhKhach`,
+  // thứ hiện "số người chờ trước" nên phải nghe mọi lượt).
+  useNgheBang(BANG, () => setLanNap((n) => n + 1), { luot: visitId });
 
   // Đồng hồ cho các mốc "x phút trước" — không liên quan tới tin bảng.
   useEffect(() => {

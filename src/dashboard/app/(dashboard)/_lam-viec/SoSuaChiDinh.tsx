@@ -105,7 +105,7 @@ export function SoSuaChiDinhTuTai({ visitId }: { visitId: string }) {
     };
   }, [visitId, lanNap]);
   const napLai = useCallback(() => setLanNap((n) => n + 1), []);
-  useNgheBang(BANG_SO, napLai);
+  useNgheBang(BANG_SO, napLai, { luot: visitId });
   if (kq?.id !== visitId) return <p className="text-meta text-ink-muted">Đang đọc…</p>;
   if (kq.loi) return <p className="text-body text-danger">{kq.loi}</p>;
   if (!kq.so) return null;

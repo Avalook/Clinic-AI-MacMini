@@ -72,6 +72,7 @@ import {
 } from "../../lib/nhip-lam-moi";
 import { nhipKhiHien, taoGopBatKip } from "../../lib/nhip-khi-hien";
 import { canDungLaiTrang, laManTuTai } from "../../lib/man-tu-tai";
+import { docTin, TIN_KHONG_RO, type TinBang } from "../../lib/tin-theo-luot";
 
 // Lưới an toàn cho lúc dòng sự kiện rớt. EventSource tự nối lại (trình duyệt
 // lo), nên nhịp này chỉ để phòng trường hợp cả dòng lẫn lần nối lại đều hỏng —
@@ -230,7 +231,8 @@ export default function RealtimeRefresher({
         chuongCa.batKip();
         // Màn tự fetch (chuông, trưởng ca, check-out…) cũng mù suốt quãng ẩn,
         // và router.refresh() không với tới state của chúng. `null` = "không
-        // rõ bảng nào đổi" — mọi người nghe SU_KIEN_BANG đều coi là phải hỏi lại.
+        // rõ bảng nào, lượt nào" — mọi người nghe SU_KIEN_BANG đều coi là phải
+        // hỏi lại (`canHoiLai(null, …)` luôn đúng).
         window.dispatchEvent(new CustomEvent(SU_KIEN_BANG, { detail: null }));
       },
       dangAn,
@@ -278,7 +280,7 @@ export default function RealtimeRefresher({
             noiLai.thanhCong();
             trangThaiDong.dat("song");
             // Quãng dòng hỏng là quãng mù: bắt kịp một lượt.
-            if (laNoiLai) nhanTin(null);
+            if (laNoiLai) nhanTin(TIN_KHONG_RO);
           });
           e.addEventListener("error", () => {
             if (henRot === undefined) {
@@ -286,17 +288,10 @@ export default function RealtimeRefresher({
             }
             if (e.readyState === EventSource.CLOSED) noiLai.loi();
           });
+          // Tin méo thì `docTin` trả "không rõ" → cứ làm mới: thà thừa một lượt
+          // render còn hơn bỏ sót một thay đổi và để người dùng nhìn dữ liệu cũ.
           e.addEventListener("change", (ev) => {
-            try {
-              const { t } = JSON.parse((ev as MessageEvent<string>).data) as {
-                t?: string;
-              };
-              nhanTin(t ?? null);
-            } catch {
-              // Tin méo thì cứ làm mới — thà thừa một lượt render còn hơn bỏ sót
-              // một thay đổi và để người dùng nhìn dữ liệu cũ.
-              nhanTin(null);
-            }
+            nhanTin(docTin((ev as MessageEvent<string>).data));
           });
         }
         mo(false);
@@ -316,13 +311,15 @@ export default function RealtimeRefresher({
         return () => document.removeEventListener("visibilitychange", fn);
       },
 
-      xuLy: (t) => {
+      xuLy: (tin: TinBang) => {
+        const t = tin.t;
         if (canDungLaiTrang(window.location.pathname, t, wanted)) nhip.nhan();
         if (t === "work_roster") chuongCa.nhan();
         // Phát tiếp cho các màn muốn tự xử lý một bảng cụ thể mà KHÔNG dựng lại
         // cả trang (màn Đặt lịch nghe `slot_hold`). Trước đây mỗi màn như vậy
         // tự mở EventSource riêng — tức thêm một kết nối bị giữ vĩnh viễn.
-        window.dispatchEvent(new CustomEvent(SU_KIEN_BANG, { detail: t }));
+        // `detail` mang cả id lượt (`v`): hook theo một lượt bỏ tin lượt khác.
+        window.dispatchEvent(new CustomEvent<TinBang>(SU_KIEN_BANG, { detail: tin }));
       },
 
       // QUÃNG ẨN LÀ QUÃNG MÙ. Dòng đã đóng suốt lúc tab ẩn, nên không cách nào

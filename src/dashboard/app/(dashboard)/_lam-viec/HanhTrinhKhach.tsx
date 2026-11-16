@@ -407,6 +407,8 @@ function useHanhTrinhKhach(visitId: string) {
     };
   }, [visitId, lanNap]);
   const napLai = useCallback(() => setLanNap((n) => n + 1), []);
+  // KHÔNG lọc `{ luot }`: khung hiện "số người chờ trước" (`so_truoc`) — hàng chờ
+  // của khách KHÁC đổi thì con số này cũng đổi.
   useNgheBang(BANG_NGHE, napLai);
   const dung = kq?.id === visitId;
   return { ht: dung ? (kq?.ht ?? null) : null, loi: dung ? (kq?.loi ?? null) : null };

@@ -255,18 +255,22 @@ export default function PhieuKhamLuot({
   // Chỉ gộp dòng bác sĩ còn để trống (`gopSoLuongQuayDien`) — không đè chữ đang gõ.
   // Nghe qua `useNgheBang` (gộp nhịp + lệch ngẫu nhiên + một lượt một lúc + tab ẩn
   // không tải) thay cho bản tự hẹn giờ 400ms — 14/10/2026.
-  useNgheBang(["prescription"], async () => {
-    const may = await napDon();
-    if (!may) return;
-    const gop = gopSoLuongQuayDien(donRef.current, may);
-    if (gop) datDon(gop);
-  });
+  useNgheBang(
+    ["prescription"],
+    async () => {
+      const may = await napDon();
+      if (!may) return;
+      const gop = gopSoLuongQuayDien(donRef.current, may);
+      if (gop) datDon(gop);
+    },
+    { luot: visitId },
+  );
 
   // KẾT QUẢ TỰ HIỆN (lát 4, 26/09/2026). Màn này tự fetch nên `router.refresh`
   // không với tới — nghe chung dòng tin của RealtimeRefresher (không mở kết nối
   // riêng). CHỈ nạp lại danh sách chỉ định + kết quả (chỉ đọc); phiếu đang gõ
   // KHÔNG nạp lại để không đè chữ người đang nhập.
-  useNgheBang(BANG_KET_QUA, napKetQua);
+  useNgheBang(BANG_KET_QUA, napKetQua, { luot: visitId });
 
   const onLuu = useCallback(
     async (goi: Record<string, ONhap>, keepalive: boolean): Promise<KetQuaLuu> => {

@@ -129,7 +129,7 @@ export default function KhoiDieuTri({
   }, [doc, dat, khoaDs]);
   const theo = useMemo(() => new Map((the ?? []).map((t) => [t.order_id, t] as const)), [the]);
   // Phòng bấm Bắt đầu / Xong, quầy thu tiền, lễ tân check-out → thẻ tự đổi.
-  useNgheBang(["service_order", "form_instance", "visit"], nap);
+  useNgheBang(["service_order", "form_instance", "visit"], nap, { luot: visitId });
 
   // LIỆU TRÌNH (08/10/2026): dải trong thẻ + liệu trình chỉ đề xuất từ lượt này.
   // Máy chủ trả số, trạng thái, nút; không có quyền đọc → null, không vẽ gì.

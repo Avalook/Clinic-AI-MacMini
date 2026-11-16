@@ -237,15 +237,15 @@ export function taoNoiLai(cong: CongCuNoiLai): NoiLai {
   };
 }
 
-export interface CongCuDong {
-  /** Mở dòng SSE thật. Trả hàm đóng. */
-  moDong: (nhanTin: (t: string | null) => void) => Go;
+export interface CongCuDong<T = string | null> {
+  /** Mở dòng SSE thật. Trả hàm đóng. `T`: tin (RealtimeRefresher dùng `TinBang`). */
+  moDong: (nhanTin: (t: T) => void) => Go;
   /** Tab này có đang bị ẩn/che không. */
   dangAn: () => boolean;
   /** Đăng ký nghe đổi tầm nhìn. Trả hàm thôi nghe. */
   ngheDoiHien: (fn: () => void) => Go;
   /** Việc phải làm với mỗi tin. */
-  xuLy: (t: string | null) => void;
+  xuLy: (t: T) => void;
   /** Gọi sau khi dòng được mở LẠI — quãng vừa rồi mù, phải bắt kịp. */
   khiMoLai: () => void;
 }
@@ -266,7 +266,7 @@ export interface CongCuDong {
  * những thay đổi xảy ra sau đó — nên mở lại là phải làm mới một lượt, không cần
  * hỏi "có bỏ lỡ gì không". Đó là việc của `khiMoLai`.
  */
-export function moDongTheoHien(cong: CongCuDong): Go {
+export function moDongTheoHien<T>(cong: CongCuDong<T>): Go {
   let dongDong: Go | null = null;
   let daTungMo = false;
 

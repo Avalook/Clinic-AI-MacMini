@@ -51,7 +51,7 @@ export default function DauDoChiDinh({
   }, [nap]);
 
   // Quầy bỏ / thêm đầu dò, chỉ định bị bỏ / khôi phục → cập nhật liền.
-  useNgheBang(["luot_vat_tu", "service_order"], () => void nap());
+  useNgheBang(["luot_vat_tu", "service_order"], () => void nap(), { luot: visitId });
 
   async function chon(orderId: string, servicePriceId: string | null) {
     setDangGui(orderId);

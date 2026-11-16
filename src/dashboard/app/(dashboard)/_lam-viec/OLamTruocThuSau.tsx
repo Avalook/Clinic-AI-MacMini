@@ -111,9 +111,13 @@ export default function OLamTruocThuSau({
       huy = true;
     };
   }, [doc, tuDoc]);
-  useNgheBang(["visit"], () => {
-    if (tuDoc) void doc().then((d) => d && setDocDuoc(d));
-  });
+  useNgheBang(
+    ["visit"],
+    () => {
+      if (tuDoc) void doc().then((d) => d && setDocDuoc(d));
+    },
+    { luot: visitId },
+  );
 
   const tt = tuDoc ? docDuoc : vuaGhi && vuaGhi.goc === trangThai ? vuaGhi.tt : trangThai;
 

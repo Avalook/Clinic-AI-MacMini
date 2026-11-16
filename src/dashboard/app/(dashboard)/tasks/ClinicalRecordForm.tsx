@@ -38,6 +38,7 @@ import {
   type ClinicalCompletionMode,
 } from "../../../lib/clinical-completion";
 import { SU_KIEN_BANG } from "../../../lib/nhip-lam-moi";
+import type { TinBang } from "../../../lib/tin-theo-luot";
 import type { DoctorApptRow } from "./DoctorApptRow";
 import { nhipKhiHien } from "@/lib/nhip-khi-hien";
 
@@ -532,7 +533,7 @@ export default function ClinicalRecordForm({
       timer = setTimeout(() => setReloadEpoch((n) => n + 1), 250);
     };
     const changed = (ev: Event) => {
-      const table = (ev as CustomEvent<string>).detail;
+      const table = (ev as CustomEvent<TinBang | null>).detail?.t ?? "";
       if (["clinical_record", "patient_medical_profile", "prescription", "lab_result", "visit", "vital_measurement"].includes(table)) reload();
     };
     window.addEventListener(SU_KIEN_BANG, changed);

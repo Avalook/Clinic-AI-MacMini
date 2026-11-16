@@ -18,7 +18,12 @@
 //
 // Gộp nhịp qua `taoNhipLamMoi` — cùng luật với cả trang: một thao tác đụng vài
 // bảng thành MỘT lượt hỏi lại, và tab đang ẩn không hỏi gì cả. Lúc tab hiện lại,
-// `RealtimeRefresher` phát `null` ("không rõ bảng nào") nên màn tự bắt kịp.
+// `RealtimeRefresher` phát tin "không rõ" (`t: null`) nên màn tự bắt kịp.
+//
+// THEO MỘT LƯỢT (16/11/2026). Tin mang id lượt (`v`, `lib/tin-theo-luot`). Màn vẽ
+// dữ liệu của MỘT lượt truyền `{ luot: visitId }` để bỏ tin của lượt khác — đo prod
+// 13–16/11, thiếu lọc này một lượt ghi bất kỳ kéo theo ~15 GET từ các phiếu đang
+// mở. Màn DANH SÁCH (bàn khám, phòng, hành trình…) thì KHÔNG truyền: nó cần mọi lượt.
 
 import { useEffect, useRef, useSyncExternalStore } from "react";
 
@@ -30,6 +35,7 @@ import {
   trangThaiDong,
   type TrangThaiDong,
 } from "../../lib/nhip-lam-moi";
+import { canHoiLai, type TinBang } from "../../lib/tin-theo-luot";
 
 /**
  * Gọi `khiDoi` (đã gộp nhịp 250ms, lệch ngẫu nhiên 0–400ms) khi một trong các
@@ -41,11 +47,20 @@ import {
  * chỉ để lại ĐÚNG MỘT lượt nối đuôi — không mở lượt thứ hai song song. Trả `void`
  * (vd. tăng một bộ đếm cho effect) thì hành vi y như cũ; muốn gộp lượt tải ở
  * trường hợp ấy thì gộp ở chỗ đọc (`lib/doc-gop`).
+ *
+ * `luot`: id lượt màn đang vẽ — tin của lượt KHÁC bị bỏ; tin không mang id lượt
+ * (bảng không có cột lượt) hoặc không rõ thì vẫn hỏi lại (`canHoiLai`).
  */
 export function useNgheBang(
   bang: readonly string[],
   khiDoi: () => void | Promise<unknown>,
+  { luot }: { luot?: string | null } = {},
 ): void {
+  // Qua ref: đổi khách đang xem không phải gỡ/gắn lại tay nghe.
+  const luotRef = useRef(luot);
+  useEffect(() => {
+    luotRef.current = luot;
+  }, [luot]);
   // Qua ref: `khiDoi` thường là hàm khai trong thân component, mỗi lượt render
   // một bản mới. Đưa thẳng vào deps là gỡ/gắn lại tay nghe ở mỗi lượt render.
   const khiDoiRef = useRef(khiDoi);
@@ -71,8 +86,8 @@ export function useNgheBang(
       ...NHIP_NGHE_TIN,
     });
     const nghe = (ev: Event) => {
-      const t = (ev as CustomEvent<string | null>).detail;
-      if (t === null || can.has(t)) nhip.nhan();
+      const tin = (ev as CustomEvent<TinBang | null>).detail;
+      if (canHoiLai(tin, can, luotRef.current)) nhip.nhan();
     };
     window.addEventListener(SU_KIEN_BANG, nghe);
     return () => {
