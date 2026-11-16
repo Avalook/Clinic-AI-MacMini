@@ -21,10 +21,10 @@ import XuatNhapTon from "./XuatNhapTon";
 type Khu = "kho" | "quay";
 type Tab =
   | "bao_cao_kho" | "ton" | "nhap" | "chuyen_kho" | "theo_doi" | "danh_muc" | "kiem_kho"
-  | "kiem_dau" | "kiem_cuoi" | "cho_gan_lo" | "tra_cho_kiem";
+  | "thuoc_quay" | "kiem_dau" | "kiem_cuoi" | "cho_gan_lo" | "tra_cho_kiem";
 
 const TAB_KHO: readonly Tab[] = ["ton", "nhap", "chuyen_kho", "bao_cao_kho", "theo_doi", "danh_muc", "kiem_kho"];
-const TAB_QUAY: readonly Tab[] = ["kiem_dau", "kiem_cuoi", "cho_gan_lo", "tra_cho_kiem"];
+const TAB_QUAY: readonly Tab[] = ["thuoc_quay", "kiem_dau", "kiem_cuoi", "cho_gan_lo", "tra_cho_kiem"];
 const TAB_HOP_LE: readonly Tab[] = [...TAB_KHO, ...TAB_QUAY];
 
 /** Tên tab CŨ trong link đã lưu / link từ báo cáo hàng hoá → tab mới tương ứng. */
@@ -83,7 +83,18 @@ export default function KhoThuoc({
   // Tab Chuyển kho: cơ sở đã tách, hoặc người được bật tách (công tắc nằm trong tab).
   const coChuyenKho = tachKhoQuay || suaTachDuoc;
   const [chonTab, setTab] = useState<Tab>(() => tabTuUrl(tabDau));
-  const tab: Tab = chonTab === "chuyen_kho" && !coChuyenKho ? "ton" : chonTab;
+  // Cơ sở tách kho / quầy: lô KHO ở tab kho, lô QUẦY ở tab "Thuốc tại quầy" — trước đây
+  // tab kho vẽ cả hai nên mỗi thuốc đã chuyển ra quầy hiện hai dòng (Tuyền 16/11). Không
+  // tách thì mọi lô là QUAY và tab kho vẽ tất cả như cũ. Các tab khác (chuyển kho, kiểm ca,
+  // kiểm kho) vẫn nhận đủ lô — chúng tự lọc theo nơi chứa.
+  const loKho = tachKhoQuay ? batches.filter((b) => b.noi_chua === "KHO") : batches;
+  const loQuay = tachKhoQuay ? batches.filter((b) => b.noi_chua !== "KHO") : [];
+  // Số trên nút = lô quầy CÒN thuốc (lô bán hết vẫn hiện trong bảng như lịch sử).
+  const loQuayConThuoc = loQuay.filter((b) => b.quantity_on_hand > 0).length;
+  const tab: Tab =
+    chonTab === "chuyen_kho" && !coChuyenKho ? "ton"
+    : chonTab === "thuoc_quay" && !tachKhoQuay ? "kiem_dau"
+    : chonTab;
   const [theoDoi, setTheoDoi] = useState<ChonThuoc | null>(null);
   const xemThe = (id: string) => {
     setTheoDoi({ id });
@@ -94,7 +105,7 @@ export default function KhoThuoc({
   const sapHet = thuoc.filter((t) => t.sap_het_hang).length;
 
   const mucKho = [
-    { ma: "ton" as const, nhan: `Thuốc trong kho (${batches.length} lô)` },
+    { ma: "ton" as const, nhan: `Thuốc trong kho (${loKho.length} lô)` },
     { ma: "nhap" as const, nhan: "Nhập thuốc" },
     ...(coChuyenKho ? [{ ma: "chuyen_kho" as const, nhan: "Chuyển kho ↔ quầy" }] : []),
     { ma: "bao_cao_kho" as const, nhan: "Báo cáo kho" },
@@ -107,6 +118,9 @@ export default function KhoThuoc({
     { ma: "kiem_kho" as const, nhan: "Kiểm đếm kho" },
   ];
   const mucQuay = [
+    ...(tachKhoQuay
+      ? [{ ma: "thuoc_quay" as const, nhan: `Thuốc tại quầy (${loQuayConThuoc} lô còn thuốc)` }]
+      : []),
     { ma: "kiem_dau" as const, nhan: "Kiểm đầu ca" },
     { ma: "kiem_cuoi" as const, nhan: "Kiểm cuối ca" },
     {
@@ -138,7 +152,7 @@ export default function KhoThuoc({
               type="button"
               role="tab"
               aria-selected={dang}
-              onClick={() => setTab(k.ma === "kho" ? "ton" : "kiem_dau")}
+              onClick={() => setTab(k.ma === "kho" ? "ton" : tachKhoQuay ? "thuoc_quay" : "kiem_dau")}
               className={`flex min-h-16 flex-col items-start justify-center rounded-card px-5 py-3 text-left ring-1 ring-inset ${
                 dang
                   ? "bg-brand-600 text-white ring-brand-600"
@@ -181,8 +195,10 @@ export default function KhoThuoc({
         <TheoDoiThuoc chon={theoDoi} onChon={setTheoDoi} />
       ) : tab === "bao_cao_kho" ? (
         <XuatNhapTon onXemThe={xemThe} />
+      ) : tab === "thuoc_quay" ? (
+        <InventoryBoard key={tab} batches={loQuay} thuoc={thuoc} ghiDuoc={ghiDuoc} onXemThe={xemThe} tachKhoQuay={tachKhoQuay} taiQuay />
       ) : (
-        <InventoryBoard batches={batches} thuoc={thuoc} ghiDuoc={ghiDuoc} onXemThe={xemThe} cauHinhHan={cauHinhHan} tachKhoQuay={tachKhoQuay} />
+        <InventoryBoard key={tab} batches={loKho} thuoc={thuoc} ghiDuoc={ghiDuoc} onXemThe={xemThe} cauHinhHan={cauHinhHan} tachKhoQuay={tachKhoQuay} />
       )}
       </XuatBangTrongVung>
     </div>
