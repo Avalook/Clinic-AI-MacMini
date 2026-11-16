@@ -62,7 +62,7 @@ async def tu_giao_khi_thu(
         cycle_id,
     )
     # Không dùng pool: mọi thứ chạy trên `conn` của lần thu.
-    svc = PharmacyService(None)  # type: ignore[arg-type]
+    svc = PharmacyService(None)
     da_giao = 0
     for d in dong:
         con = Decimal(str(d["con"]))
