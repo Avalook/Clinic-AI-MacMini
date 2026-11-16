@@ -256,14 +256,34 @@ async def test_to_may_nhan_khong_con_vao_hang_cho_xac_nhan(
     """Tuyền 12/11 bỏ hẳn bước Xác nhận kết quả: tờ máy nhận (cả có chỉ định lẫn theo
     lượt) Hợp lệ ngay, KHÔNG nằm trong hàng chờ xác nhận."""
     a = await c3.viec(pool, ban_xn=False)
-    await pool.execute(
-        "UPDATE node_definition n SET lam_ben_ngoai = true FROM service_order o"
-        " WHERE o.id = $1::uuid AND n.code = o.node_code AND n.clinic_id = o.clinic_id",
+    # Node của chỉ định là DICHVU-SIEUAM — cấu hình DÙNG CHUNG cả phòng khám trong
+    # DB của worker. Để nguyên `lam_ben_ngoai = true` thì mọi bài chạy sau trên cùng
+    # worker có siêu âm đều bị đòi tệp kết quả, vòng đọc kẹt "collecting" (CI
+    # 12–13/11 đỏ test_khach_bo_chi_dinh_vong_doc_db, test_slice1_http_db).
+    node = await pool.fetchrow(
+        "SELECT n.code, n.clinic_id, n.lam_ben_ngoai FROM node_definition n"
+        " JOIN service_order o ON n.code = o.node_code AND n.clinic_id = o.clinic_id"
+        " WHERE o.id = $1::uuid",
         a["oid"],
     )
-    c3.thu(a["ten"], a["sdt"])
-    await gmail.mot_vong(pool)
-    v, _d = await _theo_luot(pool, c3)
-    hang = await TepKetQuaService(pool).cho_xac_nhan(identity=await _nguoi(pool))
+    await pool.execute(
+        "UPDATE node_definition SET lam_ben_ngoai = true"
+        " WHERE clinic_id = $1 AND code = $2",
+        node["clinic_id"],
+        node["code"],
+    )
+    try:
+        c3.thu(a["ten"], a["sdt"])
+        await gmail.mot_vong(pool)
+        v, _d = await _theo_luot(pool, c3)
+        hang = await TepKetQuaService(pool).cho_xac_nhan(identity=await _nguoi(pool))
+    finally:
+        await pool.execute(
+            "UPDATE node_definition SET lam_ben_ngoai = $3"
+            " WHERE clinic_id = $1 AND code = $2",
+            node["clinic_id"],
+            node["code"],
+            node["lam_ben_ngoai"],
+        )
     khach = {t["clinic_patient_id"] for t in hang}
     assert a["kh"] not in khach and v["kh"] not in khach
