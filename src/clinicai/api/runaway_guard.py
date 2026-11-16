@@ -7,10 +7,14 @@ right answer.
 
 The business endpoints are a different problem wearing the same clothes. They sit
 on an internal network behind authentication, used by about thirty-five people
-who each touch a screen a few times a minute. A human being cannot generate a
-hundred requests a minute. Something that does is a *bug* — almost always a
-``useEffect`` that re-fires on a dependency it also sets, or a retry loop with no
-backoff.
+who each touch a screen a few times a minute. A *person* cannot click a thousand
+times a minute; a *screen* can easily ask a few hundred times, because live
+updates make every open tab refetch (see the measurements at DEFAULT_CEILING).
+Past the ceiling it is a *bug* — almost always a ``useEffect`` that re-fires on a
+dependency it also sets, or a retry loop with no backoff.
+
+THE COUNT IS PER PERSON, ACROSS ALL ROUTES. The warning's ``route`` is just the
+request that crossed the line; ``top_routes`` says which routes filled the window.
 
 COUNTS READS TOO, ON PURPOSE. The runaway loop this exists to expose is far more
 often a refetch than a save; watching only writes would miss the common case
@@ -41,7 +45,7 @@ rather than discovered.
 from __future__ import annotations
 
 import time
-from collections import deque
+from collections import Counter, deque
 from collections.abc import Callable
 from threading import Lock
 
@@ -61,27 +65,31 @@ Clock = Callable[[], float]
 
 # Far above human use, far below what breaks the pool.
 #
-# A busy receptionist moving between screens does perhaps 20 requests a minute.
-# The warning still fires at HALF the ceiling, so a loop is recorded long before
-# anyone is refused.
+# NGƯỜI ≠ MÀN HÌNH. Một lượt người bấm hiếm khi là một request: `router.refresh()`
+# dựng lại layout (7 lời gọi) và mỗi lượt GHI ở bất kỳ đâu trong phòng khám làm
+# MỌI tab đang mở hỏi lại — tin SSE chỉ mang tên bảng, nên phiếu của khách B cũng
+# hỏi lại khi lượt của khách A đổi. Hai lần đo:
+#   * 10/08/2026: trần 120 chặn Quang lúc bấm dưới bước check-in → nâng 400.
+#   * 13–16/11/2026 (log prod): người làm việc bình thường lên tới 443 lượt/phút,
+#     25 nhân viên mọi vai; trần 400 trả 1.834 lượt 429 trong 2,6 ngày. Một lượt
+#     ghi đứng riêng kéo theo ~15 GET trong 1,5 giây. Không có vòng lặp nào —
+#     các đợt dài 1–6 phút, route chạm ngưỡng đổi liên tục.
 #
-# ĐO LẠI 10/08/2026 — TRẦN CŨ 120 CHẶN NGƯỜI THẬT. Quang bấm các nút dưới bước
-# check-in và nhận "lỗi 429" giữa chừng; log staging đếm được 28 lượt bị từ chối
-# trong 40 phút, riêng lúc 09:43:13 có BẢY lời gọi `/api/v1/me` trong 0,4 giây.
-#
-# Sai lầm của con số cũ nằm ở tiền đề "một người làm 20 request/phút". Nó đúng
-# với NGƯỜI, không đúng với MÀN HÌNH: mỗi cú bấm ở màn CSKH ghi một dòng rồi gọi
-# `router.refresh()`, và một lượt dựng lại cây server component kéo theo `/me`,
-# `/appointments/policy`, `/cskh/recall-jobs`, `/appointments/week`,
-# `/visits/progress`… Một thao tác của người hoá ra sáu bảy lượt gọi. Nhân với
-# một người đang thử nhanh là chạm trần mà không có vòng lặp nào cả.
-#
-# 400 giữ nguyên mục đích của cái trần này: một vòng lặp thật sinh HÀNG NGHÌN
-# lượt một phút và vẫn bị bắt, trong khi người dùng nhanh tay thì không. Nếu vẫn
-# gặp 429 trong lúc dùng bình thường thì ĐỪNG nâng tiếp — lúc ấy đúng là có một
-# vòng lặp, và dòng cảnh báo ở nửa trần đã ghi sẵn tên đường dẫn gây ra nó.
-DEFAULT_CEILING = 400
+# 1000 (Tuyền chốt 16/11) = ~2,25 lần đỉnh người thật; vòng lặp thật sinh HÀNG
+# NGHÌN lượt một phút và vẫn bị chặn trước khi vét bể kết nối. Gặp 429 lúc dùng
+# bình thường thì đọc `top_routes` trong dòng cảnh báo trước — đó là bằng chứng
+# màn nào hỏi dày, sửa ở đó (tin SSE theo lượt, cache layout), đừng nâng mù.
+DEFAULT_CEILING = 1000
 DEFAULT_WINDOW_SECONDS = 60
+
+# Cảnh báo ở ngưỡng CỐ ĐỊNH, không theo trần: trước đây báo ở nửa trần, nên nâng
+# trần lên 1000 sẽ làm cảnh báo im tới 500 — mất đúng thứ cần nhìn. Trần nhỏ hơn
+# (test) thì vẫn báo ở nửa trần, để cảnh báo luôn tới trước 429.
+DEFAULT_WARN_AT = 200
+
+# Bao nhiêu route kể trong dòng cảnh báo. Năm là đủ thấy màn nào gây ra: các
+# route của một lượt dựng layout luôn đi thành cụm.
+_TOP_ROUTES = 5
 
 # Once per actor per window is enough to investigate. Without this, the runaway
 # loop that triggered the warning also floods the log with warnings about itself,
@@ -96,17 +104,21 @@ class RunawayRequestGuard:
         self,
         *,
         ceiling: int = DEFAULT_CEILING,
+        warn_at: int = DEFAULT_WARN_AT,
         window_seconds: int = DEFAULT_WINDOW_SECONDS,
         max_buckets: int = 4_096,
         clock: Clock = time.monotonic,
     ) -> None:
-        if ceiling <= 0 or window_seconds <= 0 or max_buckets <= 0:
+        if min(ceiling, warn_at, window_seconds, max_buckets) <= 0:
             raise ValueError("runaway-guard values must be positive")
         self.ceiling = ceiling
+        self.warn_at = min(warn_at, max(ceiling // 2, 1))
         self.window_seconds = window_seconds
         self.max_buckets = max_buckets
         self._clock = clock
-        self._hits: dict[str, deque[float]] = {}
+        # Mỗi lượt giữ kèm route TEMPLATE (không phải đường dẫn đã điền id), để
+        # dòng cảnh báo kể được route nào lấp cửa sổ.
+        self._hits: dict[str, deque[tuple[float, str]]] = {}
         self._last_warned: dict[str, float] = {}
         self._lock = Lock()
 
@@ -128,15 +140,19 @@ class RunawayRequestGuard:
     ) -> None:
         now = self._clock()
         key = f"{identity.clinic_id}:{identity.staff_id}"
-        count, should_warn = self._record(key, now)
+        # Route TEMPLATE, never the filled-in path — the same rule the telemetry
+        # buffer follows, and for the same reason: a patient id in an operations
+        # log is still a patient id.
+        route = route_template(request)
+        count, should_warn = self._record(key, now, route)
 
         if should_warn:
-            # Route TEMPLATE, never the filled-in path — the same rule the
-            # telemetry buffer follows, and for the same reason: a patient id in
-            # an operations log is still a patient id.
             logger.warning(
                 "request_rate_unusually_high",
-                route=route_template(request),
+                # `route` chỉ là lượt TÌNH CỜ chạm ngưỡng, không phải thủ phạm —
+                # bộ đếm gộp mọi route của một người. Đọc `top_routes`.
+                route=route,
+                top_routes=self._top_routes(key),
                 method=request.method,
                 clinic_staff_id=identity.staff_id,
                 clinic_role=identity.role.value,
@@ -144,9 +160,11 @@ class RunawayRequestGuard:
                 window_seconds=self.window_seconds,
                 ceiling=self.ceiling,
                 hint=(
-                    "A person cannot click this fast. Look for a client-side "
-                    "loop (useEffect re-firing, retry without backoff) before "
-                    "raising the ceiling."
+                    "Counts every route of this person together; `route` is only "
+                    "the request that crossed the line. Read `top_routes`: a few "
+                    "routes repeating = a loop on that screen; a spread of layout "
+                    "routes (/me, /phan-quyen/toi, /feature-mode…) = refresh "
+                    "fan-out from live updates."
                 ),
             )
 
@@ -160,7 +178,9 @@ class RunawayRequestGuard:
                 headers={"Retry-After": str(self.window_seconds)},
             )
 
-    def _record(self, key: str, now: float) -> tuple[int, bool]:
+    def _record(
+        self, key: str, now: float, route: str = "<unmatched>"
+    ) -> tuple[int, bool]:
         """Count this request and say whether it deserves a warning line."""
         cutoff = now - self.window_seconds
         with self._lock:
@@ -183,16 +203,16 @@ class RunawayRequestGuard:
                 bucket = deque()
                 self._hits[key] = bucket
 
-            while bucket and bucket[0] <= cutoff:
+            while bucket and bucket[0][0] <= cutoff:
                 bucket.popleft()
-            bucket.append(now)
+            bucket.append((now, route))
             count = len(bucket)
 
-            # Warn at HALF the ceiling: by the time a loop reaches the ceiling it
-            # is already being refused, and the useful moment to notice was
-            # earlier — while the writes were still landing.
+            # Warn well below the ceiling (`warn_at`): by the time a loop reaches
+            # the ceiling it is already being refused, and the useful moment to
+            # notice was earlier — while the writes were still landing.
             should_warn = False
-            if count >= self.ceiling // 2:
+            if count >= self.warn_at:
                 last = self._last_warned.get(key, float("-inf"))
                 if now - last >= _WARN_EVERY_SECONDS:
                     self._last_warned[key] = now
@@ -200,8 +220,18 @@ class RunawayRequestGuard:
 
             return count, should_warn
 
+    def _top_routes(self, key: str) -> list[dict[str, object]]:
+        """Các route lấp cửa sổ của người này, nhiều nhất trước (tối đa 5).
+
+        Chỉ chạy khi cảnh báo — tối đa một lần một phút mỗi người — nên đếm lại
+        cả cửa sổ (≤ trần) là rẻ, không cần giữ bộ đếm riêng theo route.
+        """
+        with self._lock:
+            dem = Counter(route for _, route in self._hits.get(key, ()))
+        return [{"route": r, "n": n} for r, n in dem.most_common(_TOP_ROUTES)]
+
     def _evict_expired(self, cutoff: float) -> None:
-        stale = [k for k, b in self._hits.items() if not b or b[-1] <= cutoff]
+        stale = [k for k, b in self._hits.items() if not b or b[-1][0] <= cutoff]
         for k in stale:
             self._hits.pop(k, None)
             self._last_warned.pop(k, None)

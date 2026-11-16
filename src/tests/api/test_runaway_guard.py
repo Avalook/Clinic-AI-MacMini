@@ -151,3 +151,150 @@ async def test_it_fails_open_when_out_of_room() -> None:
         guard._record(f"actor-{i}", clock())
     # Whatever happened to the table, a fresh actor is not refused.
     assert await _hit(guard, _identity("newcomer"), 1) == 0
+
+
+# --- Đo prod 13–16/11/2026: người thật làm việc bình thường lên tới 443 lượt/phút ---
+#
+# Không phải vòng lặp: mỗi lượt ghi ở bất kỳ đâu làm MỌI tab đang mở hỏi lại
+# (layout 7 lời gọi + ~10 hook `useNgheBang` ở bàn khám). Trần 400 trả 1.834 lượt
+# 429 cho nhân viên trong 2,6 ngày. Tuyền chốt 16/11: chặn ở 1000, cảnh báo ở 200.
+
+
+class _Route:
+    def __init__(self, path: str) -> None:
+        self.path = path
+
+
+class _RequestAt:
+    """Request đã khớp một route — bộ canh đọc `scope["route"].path`."""
+
+    method = "GET"
+
+    def __init__(self, path: str | None) -> None:
+        self.scope: dict[str, object] = {} if path is None else {"route": _Route(path)}
+
+
+class _Recorder:
+    """Thay `logger` của module: bắt cảnh báo, không phụ thuộc cấu hình structlog."""
+
+    def __init__(self) -> None:
+        self.warnings: list[tuple[str, dict[str, object]]] = []
+
+    def warning(self, event: str, **kw: object) -> None:
+        self.warnings.append((event, kw))
+
+    def error(self, event: str, **kw: object) -> None:
+        pass
+
+
+async def _goi(
+    guard: RunawayRequestGuard, ident: StaffIdentity, path: str | None, times: int
+) -> int:
+    refused = 0
+    for _ in range(times):
+        try:
+            await guard(_RequestAt(path), ident)  # type: ignore[arg-type]
+        except HTTPException as exc:
+            assert exc.status_code == 429
+            refused += 1
+    return refused
+
+
+@pytest.mark.asyncio
+async def test_default_ceiling_admits_the_measured_human_peak() -> None:
+    """443/phút là đỉnh đo được của người thật — không bị 429. Chặn từ lượt 1001."""
+    from clinicai.api.runaway_guard import DEFAULT_CEILING
+
+    assert DEFAULT_CEILING == 1000
+    guard = RunawayRequestGuard(clock=_Clock())
+    assert await _hit(guard, _identity(), 1000) == 0
+    assert await _hit(guard, _identity(), 1) == 1
+
+
+@pytest.mark.asyncio
+async def test_default_guard_warns_at_200_not_at_half_the_ceiling() -> None:
+    """Nâng trần không được làm cảnh báo im đi: vẫn báo ở 200, không đợi tới 500."""
+    clock = _Clock()
+    guard = RunawayRequestGuard(clock=clock)
+    warned_at = None
+    for i in range(1, 600):
+        if guard._record("k", clock())[1] and warned_at is None:
+            warned_at = i
+    assert warned_at == 200
+
+
+def test_warn_at_must_be_positive() -> None:
+    with pytest.raises(ValueError):
+        RunawayRequestGuard(warn_at=0)
+
+
+@pytest.mark.asyncio
+async def test_warning_names_the_routes_that_filled_the_window(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Dòng cảnh báo phải kể route nào LẤP cửa sổ, không chỉ route thứ 200.
+
+    Log 13–16/11 ghi `route=/phan-quyen/toi` 60 lần và người đọc tưởng route đó
+    lặp — thật ra nó chỉ là lời gọi tình cờ chạm ngưỡng.
+    """
+    import clinicai.api.runaway_guard as mod
+
+    rec = _Recorder()
+    monkeypatch.setattr(mod, "logger", rec)
+    clock = _Clock()
+    guard = RunawayRequestGuard(ceiling=100, warn_at=10, clock=clock)
+    me = _identity("me")
+    await _goi(guard, me, "/api/v1/luot-kham/hang-cho", 5)
+    await _goi(guard, me, "/api/v1/me", 3)
+    await _goi(guard, me, "/api/v1/feature-mode", 1)
+    # Người khác gọi dồn — không được lọt vào tóm tắt của "me".
+    await _goi(guard, _identity("other"), "/api/v1/khac", 9)
+    await _goi(guard, me, "/api/v1/hoa-don/cong-ty/khach/{clinic_patient_id}", 1)
+
+    mine = [kw for _, kw in rec.warnings if kw["clinic_staff_id"] == "me"]
+    assert len(mine) == 1
+    kw = mine[0]
+    assert kw["route"] == "/api/v1/hoa-don/cong-ty/khach/{clinic_patient_id}"
+    assert kw["requests_in_window"] == 10
+    assert kw["top_routes"] == [
+        {"route": "/api/v1/luot-kham/hang-cho", "n": 5},
+        {"route": "/api/v1/me", "n": 3},
+        {"route": "/api/v1/feature-mode", "n": 1},
+        {"route": "/api/v1/hoa-don/cong-ty/khach/{clinic_patient_id}", "n": 1},
+    ]
+
+
+@pytest.mark.asyncio
+async def test_top_routes_keeps_five_and_forgets_what_aged_out(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import clinicai.api.runaway_guard as mod
+
+    rec = _Recorder()
+    monkeypatch.setattr(mod, "logger", rec)
+    clock = _Clock()
+    guard = RunawayRequestGuard(ceiling=100, warn_at=21, clock=clock)
+    me = _identity("me")
+    await _goi(guard, me, "/api/v1/cu", 20)  # trôi khỏi cửa sổ trước lúc báo
+    clock.now += 61
+    for i in range(6):
+        await _goi(guard, me, f"/api/v1/r{i}", 6 - i)  # 6,5,4,3,2,1 = 21 lượt
+    (kw,) = [kw for _, kw in rec.warnings]
+    assert kw["requests_in_window"] == 21
+    assert kw["top_routes"] == [
+        {"route": f"/api/v1/r{i}", "n": 6 - i} for i in range(5)
+    ]
+
+
+@pytest.mark.asyncio
+async def test_unmatched_request_is_counted_without_crashing(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import clinicai.api.runaway_guard as mod
+
+    rec = _Recorder()
+    monkeypatch.setattr(mod, "logger", rec)
+    guard = RunawayRequestGuard(ceiling=10, warn_at=2, clock=_Clock())
+    assert await _goi(guard, _identity(), None, 3) == 0
+    (kw,) = [kw for _, kw in rec.warnings]
+    assert kw["top_routes"] == [{"route": "<unmatched>", "n": 2}]
