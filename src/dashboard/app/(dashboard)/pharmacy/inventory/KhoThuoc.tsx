@@ -196,9 +196,10 @@ export default function KhoThuoc({
       ) : tab === "bao_cao_kho" ? (
         <XuatNhapTon onXemThe={xemThe} />
       ) : tab === "thuoc_quay" ? (
-        <InventoryBoard key={tab} batches={loQuay} thuoc={thuoc} ghiDuoc={ghiDuoc} onXemThe={xemThe} tachKhoQuay={tachKhoQuay} taiQuay />
+        // Không truyền `tachKhoQuay`: mỗi bảng chỉ còn một nơi chứa → cột "Nơi chứa" thừa.
+        <InventoryBoard key={tab} batches={loQuay} thuoc={thuoc} ghiDuoc={ghiDuoc} onXemThe={xemThe} taiQuay />
       ) : (
-        <InventoryBoard key={tab} batches={loKho} thuoc={thuoc} ghiDuoc={ghiDuoc} onXemThe={xemThe} cauHinhHan={cauHinhHan} tachKhoQuay={tachKhoQuay} />
+        <InventoryBoard key={tab} batches={loKho} thuoc={thuoc} ghiDuoc={ghiDuoc} onXemThe={xemThe} cauHinhHan={cauHinhHan} />
       )}
       </XuatBangTrongVung>
     </div>
