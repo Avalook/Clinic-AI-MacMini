@@ -172,10 +172,24 @@ export default function DongThuoc({
       </div>
 
       {dong.closed ? (
-        <p className="rounded-control bg-surface-muted px-3 py-2 text-meta text-ink-soft">
-          Dòng này đã chốt
-          {dong.refusal_reason ? ` — khách không lấy: ${dong.refusal_reason}` : ""}.
-        </p>
+        <div className="flex flex-wrap items-center gap-2 rounded-control bg-surface-muted px-3 py-2 text-meta text-ink-soft">
+          <span className="min-w-0 flex-1">
+            Dòng này đã chốt
+            {dong.refusal_reason ? ` — khách không lấy: ${dong.refusal_reason}` : ""}.
+          </span>
+          {tt.mo_lai ? (
+            <Button
+              size="sm"
+              variant="ghost"
+              className={CHAM}
+              disabled={dangGui}
+              title="Khách đổi ý, lấy thuốc này — đưa dòng về lại Đang xử lý"
+              onClick={() => goi("mo-lai-dong", { prescription_id: dong.id })}
+            >
+              Mở lại
+            </Button>
+          ) : null}
+        </div>
       ) : null}
 
       {/* ── Thuốc trong kho ── */}
