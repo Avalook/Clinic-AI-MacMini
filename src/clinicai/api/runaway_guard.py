@@ -75,10 +75,13 @@ Clock = Callable[[], float]
 #     ghi đứng riêng kéo theo ~15 GET trong 1,5 giây. Không có vòng lặp nào —
 #     các đợt dài 1–6 phút, route chạm ngưỡng đổi liên tục.
 #
-# 1000 (Tuyền chốt 16/11) = ~2,25 lần đỉnh người thật; vòng lặp thật sinh HÀNG
-# NGHÌN lượt một phút và vẫn bị chặn trước khi vét bể kết nối. Gặp 429 lúc dùng
-# bình thường thì đọc `top_routes` trong dòng cảnh báo trước — đó là bằng chứng
-# màn nào hỏi dày, sửa ở đó (tin SSE theo lượt, cache layout), đừng nâng mù.
+# 1000 LÀ TẠM (Tuyền chốt 16/11) = ~2,25 lần đỉnh người thật; vòng lặp thật sinh
+# HÀNG NGHÌN lượt một phút và vẫn bị chặn trước khi vét bể kết nối. Nâng trần
+# KHÔNG phải cách chữa: chữa là bớt lượt hỏi thừa ở gốc — (a) tin SSE mang id lượt
+# để phiếu chỉ hỏi lại đúng lượt đang mở, (b) cache ngắn các lời gọi gần-tĩnh của
+# layout. XONG HAI VIỆC ĐÓ THÌ ĐO LẠI ĐỈNH/NGƯỜI TRÊN LOG PROD VÀ HẠ TRẦN NÀY XUỐNG
+# (mục tiêu ~2 lần đỉnh mới). Gặp 429 lúc dùng bình thường thì đọc `top_routes`
+# trong dòng cảnh báo — đó là bằng chứng màn nào hỏi dày, sửa ở màn đó.
 DEFAULT_CEILING = 1000
 DEFAULT_WINDOW_SECONDS = 60
 
