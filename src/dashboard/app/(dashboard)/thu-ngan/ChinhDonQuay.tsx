@@ -29,6 +29,7 @@ import {
   type DongThuoc,
   type MauThuoc,
 } from "@/lib/phieu-kham";
+import { taoMotLuot } from "@/lib/mot-luot";
 
 import DonThuocPhieu from "../_lam-viec/phieu-kham/DonThuocPhieu";
 import { INPUT } from "../form-ui";
@@ -116,23 +117,31 @@ export default function ChinhDonQuay({
     if (lanGoiY) khungThem.current?.scrollIntoView({ behavior: "smooth", block: "center" });
   }, [lanGoiY]);
 
-  const tai = useCallback(async () => {
-    const r = await fetch(`/api/quay-thuoc?visit_id=${visitId}`, { cache: "no-store" });
-    const d = (await r.json().catch(() => null)) as { dong?: DongBan[] } | null;
-    setDong(d?.dong ?? []);
-    setSoNhap({});
-  }, [visitId]);
+  // MỘT LƯỢT NẠP MỘT LÚC (lib/mot-luot): ô tick bấm nhanh liên tiếp thì mỗi lần
+  // một lượt nạp; chạy chồng thì lượt cũ về sau đè lượt mới → ô tick nhảy ngược.
+  const [motLuot] = useState(taoMotLuot);
+  const tai = useCallback(
+    () =>
+      motLuot(async () => {
+        const r = await fetch(`/api/quay-thuoc?visit_id=${visitId}`, { cache: "no-store" });
+        const d = (await r.json().catch(() => null)) as { dong?: DongBan[] } | null;
+        setDong(d?.dong ?? []);
+        setSoNhap({});
+      }),
+    [motLuot, visitId],
+  );
 
   useEffect(() => {
     let bo = false;
-    fetch(`/api/quay-thuoc?visit_id=${visitId}`, { cache: "no-store" })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((d: { dong?: DongBan[] } | null) => {
+    void motLuot(async () => {
+      try {
+        const r = await fetch(`/api/quay-thuoc?visit_id=${visitId}`, { cache: "no-store" });
+        const d = (r.ok ? await r.json() : null) as { dong?: DongBan[] } | null;
         if (!bo) setDong(d?.dong ?? []);
-      })
-      .catch(() => {
+      } catch {
         if (!bo) setDong([]);
-      });
+      }
+    });
     fetch("/api/phieu-kham?xem=tham-chieu")
       .then((r) => (r.ok ? r.json() : null))
       .then((d: { mau_thuoc?: MauThuoc[] } | null) => {
@@ -144,7 +153,7 @@ export default function ChinhDonQuay({
     return () => {
       bo = true;
     };
-  }, [visitId]);
+  }, [motLuot, visitId]);
 
   // Lỗi hiện NGAY CẠNH nút vừa bấm: câu của màn cha nằm trên đầu trang, có khi
   // cao hơn nút cả màn hình (đo 17/10: 895px trên điện thoại) nên bấm xong tưởng

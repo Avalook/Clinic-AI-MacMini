@@ -892,6 +892,8 @@ export default function QuayThuNgan({ quay, ngay, ca, coSo }: { quay: Quay; ngay
                 onDoi={async (cau, loiMoi) => {
                   setXong(cau);
                   setLoi(loiMoi);
+                  // Nạp lại CẢ /api/cashier (chậm khi đông) vì chưa có API hoá đơn
+                  // một lượt cho quầy; đúng số nhờ `tai` đi qua taoMotLuot.
                   await tai();
                 }}
               />
