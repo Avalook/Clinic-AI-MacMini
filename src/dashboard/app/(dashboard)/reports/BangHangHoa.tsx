@@ -40,8 +40,9 @@ export interface HangHoa {
   };
   dong: {
     /** Khoá gom của máy chủ (mã + đơn vị bán) — DUY NHẤT trong bảng, dùng làm key:
-     *  cùng thuốc bán hộp và gói là hai dòng cùng mã + tên. */
-    khoa: string;
+     *  cùng thuốc bán hộp và gói là hai dòng cùng mã + tên. Bản chụp ca đã chốt
+     *  trước khi có trường này thì thiếu → key dự phòng như cũ. */
+    khoa?: string;
     ma: string | null;
     ten: string;
     don_vi: string | null;
@@ -127,7 +128,7 @@ function BangCoTon({ hh }: { hh: HangHoa }) {
             hh.dong.map((m) => {
               const ds = kho(m);
               return (
-                <tr key={m.khoa} className="border-b border-line align-top text-ink break-inside-avoid">
+                <tr key={m.khoa ?? `${m.ma ?? ""}-${m.ten}`} className="border-b border-line align-top text-ink break-inside-avoid">
                   <td className="hidden px-3 py-3 whitespace-nowrap text-meta font-semibold text-info sm:table-cell">
                     {m.ma ?? "—"}
                   </td>
@@ -212,7 +213,7 @@ export default function BangHangHoa({ hh }: { hh: HangHoa }) {
             </tr>
           ) : (
             hh.dong.map((m) => (
-              <tr key={m.khoa} className="border-b border-line text-ink break-inside-avoid">
+              <tr key={m.khoa ?? `${m.ma ?? ""}-${m.ten}`} className="border-b border-line text-ink break-inside-avoid">
                 <td className="hidden px-3 py-3 whitespace-nowrap text-meta font-semibold text-info sm:table-cell">
                   {m.ma ?? "—"}
                 </td>
