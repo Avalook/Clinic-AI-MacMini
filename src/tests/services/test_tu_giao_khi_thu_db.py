@@ -28,6 +28,7 @@ from clinicai.services import theo_doi_thuoc_service
 from clinicai.services.kiem_ke_ca_service import xnt_theo_ca
 from clinicai.services.payment_service import PaymentService
 from clinicai.services.pharmacy_service import LY_DO_LAY_TU_KHO, PharmacyService
+from clinicai.services.tu_giao_khi_thu import VI_TRI_LOI
 from tests.services.test_kho_quay_db import (
     Co,
     _bat,
@@ -372,7 +373,7 @@ async def test_i_chuyen_khoan_co_kho_chi_tru_khi_xac_minh(co: Co) -> None:  # no
 async def test_g_chua_tach_kho_fefo_tren_quay_nhu_cu(co: Co) -> None:  # noqa: F811
     # Không bật tách: nhập lô vào QUẦY như cũ.
     thuoc = await _thuoc(co.q)
-    xa = await _nhap_kho(co, thuoc, 30, han=hom_nay_vn() + timedelta(days=900))
+    xa = await _nhap_kho(co, thuoc, 3, han=hom_nay_vn() + timedelta(days=900))
     gan = await _nhap_kho(co, thuoc, 4, han=hom_nay_vn() + timedelta(days=100))
     assert {
         r["noi_chua"]
@@ -380,12 +381,74 @@ async def test_g_chua_tach_kho_fefo_tren_quay_nhu_cu(co: Co) -> None:  # noqa: F
             "SELECT noi_chua FROM drug_batch WHERE id = ANY($1::uuid[])", [xa, gan]
         )
     } == {"QUAY"}
+    # Một hàng KHO còn tồn (dữ liệu cũ) ở cơ sở CHƯA tách: không được đụng tới.
+    kho = await _nhap_kho(co, thuoc, 50)
+    await co.q.pool.execute(
+        "UPDATE drug_batch SET noi_chua = 'KHO' WHERE id = $1::uuid", kho
+    )
     rx = await _rx(co, thuoc, 10)
     kq = await _thu(co.q)
-    assert await _ton_lo(co, gan, xa) == [0, 24]
+    assert await _ton_lo(co, gan, xa, kho) == [0, 0, 50]
     assert [g["reason"] for g in await _giao_cua(co.q.pool, rx)] == [None, None]
+    assert await _cho(co.q.pool, rx) == 3  # như cũ: quầy thiếu → chờ gán
     await _huy(co.q, kq["payment_cycle_id"])
-    assert await _ton_lo(co, gan, xa) == [4, 30]
+    assert await _ton_lo(co, gan, xa, kho) == [4, 3, 50]
+    assert await _cho(co.q.pool, rx) == 0
+
+
+async def test_thu_hai_thuoc_khi_ben_khac_khoa_nguoc_khong_mat_dau(co: Co) -> None:  # noqa: F811
+    """Lần thu hai thuốc A, B khoá mọi lô MỘT lần theo id. Một giao dịch khác khoá
+    lô id lớn rồi lô id nhỏ (ngược thứ tự). Nếu Postgres huỷ phía lần thu vì
+    deadlock: lần thu vẫn PAID, hai dòng hiện ở `tu_giao_bo_qua`, kho lỗi có dòng,
+    tồn không đổi. Nếu huỷ phía bên kia: giao đủ cả hai."""
+    pool = co.q.pool
+    a, b = await _thuoc(co.q), await _thuoc(co.q, ten=f"Thuốc B {co.q.duoi}")
+    lo_a = await _nhap_kho(co, a, 20)
+    lo_b = await _nhap_kho(co, b, 20)
+    rx_a, rx_b = await _rx(co, a, 3), await _rx(co, b, 4)
+    nho, lon = sorted([lo_a, lo_b])
+    truoc = await pool.fetchval(
+        "SELECT coalesce(sum(so_lan), 0) FROM loi_nhom WHERE vi_tri = $1",
+        VI_TRI_LOI,
+    )
+
+    async with pool.acquire() as khac:
+        tr = khac.transaction()
+        await tr.start()
+        try:
+            await khac.execute(
+                "SELECT 1 FROM drug_batch WHERE id = $1::uuid FOR UPDATE", lon
+            )
+            thu = asyncio.create_task(_thu(co.q))
+            await asyncio.sleep(0.4)  # lần thu đã giữ lô nhỏ, đang chờ lô lớn
+            await khac.execute(
+                "SELECT 1 FROM drug_batch WHERE id = $1::uuid FOR UPDATE", nho
+            )
+        except asyncpg.DeadlockDetectedError:
+            pass  # Postgres huỷ phía bên kia — lần thu giao đủ
+        finally:
+            await tr.rollback()
+        kq = await asyncio.wait_for(thu, timeout=30)
+
+    assert kq["status"] == "PAID"
+    giao = (await _da_giao(co.q, rx_a), await _da_giao(co.q, rx_b))
+    if not kq["tu_giao_bo_qua"]:
+        assert giao == (3, 4)
+        assert await _ton_lo(co, lo_a, lo_b) == [17, 16]
+        return
+    assert giao == (0, 0)
+    assert await _ton_lo(co, lo_a, lo_b) == [20, 20]
+    assert {x["prescription_id"] for x in kq["tu_giao_bo_qua"]} == {rx_a, rx_b}
+    sau = await pool.fetchval(
+        "SELECT coalesce(sum(so_lan), 0) FROM loi_nhom WHERE vi_tri = $1",
+        VI_TRI_LOI,
+    )
+    assert sau == truoc + 1
+    # Bấm Giao sau đó vẫn giao được.
+    await PharmacyService(pool).cap_phat(
+        identity=co.ds, prescription_id=rx_a, drug_batch_id=None, so_luong=3
+    )
+    assert await _ton_lo(co, lo_a) == [17]
 
 
 async def test_f_hai_lan_thu_cung_luc_tranh_lo_kho_cuoi(co: Co) -> None:  # noqa: F811

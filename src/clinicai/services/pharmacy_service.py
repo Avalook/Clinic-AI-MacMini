@@ -1252,20 +1252,10 @@ class PharmacyService:
             )
             # Khoá TRƯỚC khi đọc tồn (theo id tăng dần, như `khoa_lo` và phiếu chuyển
             # kho): hai lần giao cùng lúc xếp hàng ở đây thay vì cùng thấy một số tồn.
-            # Lô KHO cũng khoá: quầy thiếu thì lấy tiếp ở kho (Tuyền 16/11/2026).
-            ung_vien = await conn.fetch(
-                "SELECT id::text AS id FROM public.drug_batch"
-                " WHERE clinic_id = $1::uuid AND drug_catalog_id = $2::uuid"
-                " AND location_id = $3::uuid AND noi_chua IN ('QUAY', 'KHO')"
-                " AND quantity_on_hand > 0",
-                identity.clinic_id,
-                thuoc,
-                co_so,
-            )
-            await khoa_lo(
-                conn,
-                clinic_id=identity.clinic_id,
-                lo_ids=[r["id"] for r in ung_vien],
+            # Lô KHO chỉ khi cơ sở đã tách kho: quầy thiếu thì lấy tiếp ở kho (Tuyền
+            # 16/11/2026). Lần thu nhiều thuốc đã khoá sẵn mọi lô — khoá lại là no-op.
+            ung_vien = await khoa_lo_de_giao(
+                conn, clinic_id=identity.clinic_id, co_so=co_so, thuoc_ids=[thuoc]
             )
             # Câu lệnh MỚI sau khoá: thấy số tồn người giao trước vừa ghi.
             # QUẦY trước, rồi KHO; trong mỗi nơi lô hạn gần nhất (FEFO).
@@ -1278,7 +1268,7 @@ class PharmacyService:
                 " AND (expiry_date IS NULL OR expiry_date >= $3::date)"
                 " ORDER BY noi_chua = 'KHO', expiry_date NULLS LAST, batch_code, id",
                 identity.clinic_id,
-                [r["id"] for r in ung_vien],
+                ung_vien,
                 now_vn().date(),
             )
             doi = await quy_doi_cua_dong(
@@ -3708,6 +3698,41 @@ async def tach_kho_quay_bat(conn: Any, identity: StaffIdentity) -> bool:
             identity.clinic_id,
         )
     )
+
+
+async def khoa_lo_de_giao(
+    conn: Any, *, clinic_id: str, co_so: str | None, thuoc_ids: list[str]
+) -> list[str]:
+    """Khoá (FOR UPDATE, id tăng dần, MỘT câu) mọi lô có thể giao tự chọn của các
+    thuốc này ở cơ sở `co_so`: còn tồn, còn hạn, ở QUẦY — và ở KHO chỉ khi cơ sở
+    ĐÃ BẬT tách kho/quầy (chưa tách thì như cũ: chỉ lô QUẦY). Trả id các lô.
+
+    Một lần thu nhiều thuốc gọi hàm này cho MỌI thuốc trước khi giao từng dòng
+    (`tu_giao_khi_thu`): khoá theo từng thuốc một thì kiểm ca / hoàn tác kiểm kho /
+    lần thu khác (cũng khoá nhiều thuốc theo id) có thể khoá chéo → deadlock."""
+    if not thuoc_ids or not co_so:
+        return []
+    rows = await conn.fetch(
+        """
+        SELECT b.id::text AS id
+          FROM public.drug_batch b
+          JOIN public.clinic_location l
+            ON l.id = b.location_id AND l.clinic_id = b.clinic_id
+         WHERE b.clinic_id = $1::uuid AND b.location_id = $2::uuid
+           AND b.drug_catalog_id = ANY($3::uuid[])
+           AND (b.noi_chua = 'QUAY'
+                OR (b.noi_chua = 'KHO' AND coalesce(l.tach_kho_quay, false)))
+           AND b.quantity_on_hand > 0
+           AND (b.expiry_date IS NULL OR b.expiry_date >= $4::date)
+         ORDER BY b.id
+           FOR UPDATE OF b
+        """,
+        clinic_id,
+        co_so,
+        sorted(set(thuoc_ids)),
+        now_vn().date(),
+    )
+    return [r["id"] for r in rows]
 
 
 def kiem_dong_nhap(
