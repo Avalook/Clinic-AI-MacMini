@@ -19,17 +19,13 @@
 // C19 (Tuyền 02/10/2026): bác sĩ đã ghi số thì quầy vẫn gõ số khác được — chip
 // "SL do thu ngân sửa (bác sĩ kê X)"; máy chủ ghi số cũ → mới.
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 
 import Button from "@/components/ui/Button";
 import Chip from "@/components/ui/Chip";
-import {
-  donTuDong,
-  tienVn,
-  type DongThuoc,
-  type MauThuoc,
-} from "@/lib/phieu-kham";
+import { donTuDong, tienVn, type MauThuoc } from "@/lib/phieu-kham";
 import { taoMotLuot } from "@/lib/mot-luot";
+import { khoNhapLayThem, NHAP_RONG } from "@/lib/nhap-lay-them";
 
 import DonThuocPhieu from "../_lam-viec/phieu-kham/DonThuocPhieu";
 import { INPUT } from "../form-ui";
@@ -111,7 +107,17 @@ export default function ChinhDonQuay({
 }) {
   const [dong, setDong] = useState<DongBan[] | null>(null);
   const [mauThuoc, setMauThuoc] = useState<MauThuoc[]>([]);
-  const [them, setThem] = useState<DongThuoc[]>([]);
+  // NHÁP "LẤY THÊM" + LỜI TỪ CHỐI SỐNG TRONG KHO THEO LƯỢT, không trong state: khung
+  // này bị gắn lại sau mỗi lần trang làm mới (prod 16/11/2026 — 30 lần trong 25′),
+  // mỗi lần mất thuốc vừa chọn + số đang gõ. Xem `lib/nhap-lay-them`.
+  const nhap = useSyncExternalStore(
+    khoNhapLayThem.nghe,
+    () => khoNhapLayThem.doc(visitId),
+    () => NHAP_RONG,
+  );
+  const them = nhap.dong;
+  const loiTaiCho = nhap.loi;
+  const setLoiTaiCho = (loi: string | null) => khoNhapLayThem.ghi(visitId, { loi });
   const [soNhap, setSoNhap] = useState<Record<string, string>>({});
   const [dang, setDang] = useState(false);
   const khungThem = useRef<HTMLDivElement>(null);
@@ -161,9 +167,15 @@ export default function ChinhDonQuay({
   // Lỗi hiện NGAY CẠNH nút vừa bấm: câu của màn cha nằm trên đầu trang, có khi
   // cao hơn nút cả màn hình (đo 17/10: 895px trên điện thoại) nên bấm xong tưởng
   // không có gì xảy ra.
-  const [loiTaiCho, setLoiTaiCho] = useState<string | null>(null);
+  // Lỗi có sẵn lúc khung vừa gắn lại (lời từ chối giữ trong kho) thì KHÔNG cuộn:
+  // gắn lại xảy ra mỗi lần trang làm mới, cuộn ở đó là màn tự nhảy giữa lúc gõ.
   const loiRef = useRef<HTMLParagraphElement>(null);
+  const vuaGan = useRef(true);
   useEffect(() => {
+    if (vuaGan.current) {
+      vuaGan.current = false;
+      return;
+    }
     if (loiTaiCho) loiRef.current?.scrollIntoView({ block: "nearest", behavior: "smooth" });
   }, [loiTaiCho]);
 
@@ -251,7 +263,8 @@ export default function ChinhDonQuay({
       },
     });
     setDang(false);
-    if (!loi) setThem([]);
+    // Bị từ chối (vd 422 thiếu số lượng) thì nháp Ở NGUYÊN để sửa rồi bấm lại.
+    if (!loi) khoNhapLayThem.bo(visitId);
     await xong(loi, `Đã thêm ${them.length} thuốc vào đơn bán.`);
   };
 
@@ -393,10 +406,7 @@ export default function ChinhDonQuay({
           key={goiYThuoc?.lan ?? 0}
           dong={them}
           mauThuoc={mauThuoc}
-          onDoi={(moi) => {
-            setLoiTaiCho(null);
-            setThem(moi);
-          }}
+          onDoi={(moi) => khoNhapLayThem.ghi(visitId, { dong: moi, loi: null })}
           ngoaiDanhMuc={false}
           tuKhoaDau={goiYThuoc?.ten}
         />
