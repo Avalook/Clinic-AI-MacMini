@@ -152,10 +152,10 @@ async def hang_doi(
 
 @router.get("/pharmacy/ban-thuoc")
 async def man_nha_thuoc(
+    # Không `max_length`: chữ dài quá thì service tự cắt về 100 (`chuan_tu_khoa`)
+    # thay vì 422 làm cả màn báo lỗi.
     tim: str | None = Query(
-        None,
-        max_length=100,
-        description="Tên / mã khách / SĐT — tìm cả lượt cũ hơn cửa sổ ngày",
+        None, description="Tên / mã khách / SĐT — tìm cả lượt cũ hơn cửa sổ ngày"
     ),
     identity: StaffIdentity = Depends(_DOC),
     pool: asyncpg.Pool = Depends(get_db_pool),

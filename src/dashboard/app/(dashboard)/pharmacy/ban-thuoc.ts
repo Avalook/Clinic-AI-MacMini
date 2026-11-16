@@ -174,6 +174,8 @@ export interface ManNhaThuoc {
   cua_so_ngay?: number;
   /** Từ khoá máy chủ đã tìm (`?tim=`) — null = màn thường. */
   tim?: string | null;
+  /** Ô tìm khớp quá nhiều khách — chỉ hiện một phần, màn bảo gõ thêm. */
+  tim_bi_cat?: boolean;
 }
 
 export const GIAI_DOAN: Record<GiaiDoan, { nhan: string; tone: StatusTone; giai_thich: string }> = {

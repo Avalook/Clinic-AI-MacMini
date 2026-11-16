@@ -89,6 +89,15 @@ def _ids(man: dict[str, Any]) -> set[str]:
 async def test_so_no_loai_thuoc_khop() -> None:
     """Quầy thu không nhập thẳng so_no_service (vòng nhập) — hằng phải khớp."""
     assert cb.SO_NO_LOAI_THUOC == so_no_service.THUOC
+    # Cửa sổ "đã thu chờ giao" của Nhà thuốc = hạn đơn thuốc của quầy thu.
+    assert bt.CUA_SO_SO_NGAY == cb.CU_DON_THUOC_SO_NGAY
+
+
+@pytest.fixture(autouse=True)
+def _tran_rong(monkeypatch: pytest.MonkeyPatch) -> None:
+    """DB test chung có hàng trăm lượt hôm nay của tệp khác — trần 200 sẽ cắt
+    (đúng, và màn nói ra) nhưng làm bài đỏ vì lý do khác. Trần có bài riêng."""
+    monkeypatch.setattr(bt, "TRAN_LUOT", 100_000)
 
 
 # ── Sửa 1: quầy thu thuốc ──────────────────────────────────────────────────
@@ -191,6 +200,36 @@ async def test_tim_duoc_luot_cu_ngoai_cua_so(q: Quay) -> None:  # noqa: F811
     for rac in ("x", 123, None, "   "):
         thuong = await _man(q, tim=rac)
         assert thuong["tim"] is None and q.visit_id not in _ids(thuong)
+
+
+async def test_da_thu_qua_7_ngay_an_ck_cho_cu_van_hien(q: Quay) -> None:  # noqa: F811
+    """Đã thu (TM) 10 hôm trước chưa giao: ngoài cửa sổ, được đếm; CK CHỜ XÁC
+    MINH 10 hôm trước: tiền đang treo — luôn hiện."""
+    await _san_sang(q, 10, 100)
+    await _thu(q)
+    await _lui(q, 10)
+    man = await _man(q)
+    assert q.visit_id not in _ids(man) and man["luot_cu_an"] >= 1
+    assert q.visit_id in _ids(await _man(q, tim=f"TT-{q.duoi}"))
+
+    ck = await tao_quay(q.pool)
+    await _san_sang(ck, 10, 100)
+    await _thu(ck, "TRANSFER")
+    await _lui(ck, 10)
+    assert ck.visit_id in _ids(await _man(ck))
+
+
+async def test_tim_khop_qua_nhieu_khach_thi_noi_ra(
+    q: Quay,  # noqa: F811
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    await _don(q, 1)
+    khac = await tao_quay(q.pool)
+    await _don(khac, 1)
+    monkeypatch.setattr(bt, "TRAN_TIM_KHACH", 1)
+    man = await _man(q, tim="BN thử tiền thuốc")  # tên chung của mọi khách thử
+    assert man["tim_bi_cat"] is True
+    assert (await _man(q, tim=f"TT-{q.duoi}"))["tim_bi_cat"] is False
 
 
 async def test_cham_tran_luot_thi_noi_ra(

@@ -186,6 +186,7 @@ export default function PharmacyBoard({
             {man.tim ? (
               <p role="status" className="mt-2 text-meta text-ink-soft">
                 Kết quả tìm “{man.tim}” — mọi ngày.{" "}
+                {man.tim_bi_cat ? "Khớp quá nhiều khách, chỉ hiện một phần — gõ thêm tên / mã / SĐT. " : null}
                 <button
                   type="button"
                   className="min-h-10 underline"

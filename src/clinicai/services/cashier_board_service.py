@@ -289,7 +289,10 @@ WITH v AS (
                -- quầy không có nút nào cho nó, mỗi lượt chỉ kéo thêm đơn +
                -- hoá đơn (prod 16/11: 332/565 lượt, JSON 2,6 MB). Lượt còn
                -- khoản tiền khác (tiền thừa / đã thu chưa làm) vẫn vào.
-               AND (NOT $7::boolean OR EXISTS (
+               -- Sổ không ghi rõ khoản (chi_tiet rỗng) thì vẫn gom — không đoán.
+               AND (NOT $7::boolean
+                    OR jsonb_array_length(coalesce(n.chi_tiet, '[]'::jsonb)) = 0
+                    OR EXISTS (
                     SELECT 1 FROM jsonb_array_elements(
                                       coalesce(n.chi_tiet, '[]'::jsonb)) k
                      WHERE k->>'loai' IS DISTINCT FROM '"""

@@ -261,6 +261,8 @@ CUA_SO_SO_NGAY = 7
 CUA_SO_CHUA_THU_NGAY = 1
 #: Trần số LƯỢT dựng một lần; chạm trần thì `bi_cat` + `tong` (màn nói ra).
 TRAN_LUOT = 200
+#: Ô tìm: số khách khớp tối đa; hơn thì `tim_bi_cat` (màn: "gõ thêm").
+TRAN_TIM_KHACH = 50
 
 #: LƯỢT CÒN VIỆC, mỗi lượt một dòng, việc mới nhất lên đầu (16/11/2026).
 #:
@@ -358,11 +360,19 @@ async def man_nha_thuoc(
         # Nút ghi hiện theo QUYỀN "Nhà thuốc" (24/09), cùng câu hỏi với router.
         co_quyen_ghi = await can(conn, identity, "pharmacy.dispense")
         khach_tim: list[str] | None = None
+        tim_bi_cat = False
         if len(tu_khoa) >= 2:
             khach_tim = [
                 k["clinic_patient_id"]
-                for k in await tim_khach_conn(conn, identity.clinic_id, tu_khoa)
+                for k in await tim_khach_conn(
+                    conn, identity.clinic_id, tu_khoa, tran=TRAN_TIM_KHACH + 1
+                )
             ]
+            # Khớp quá nhiều khách ("nguyen"): không cắt im lặng — màn bảo gõ thêm.
+            tim_bi_cat = canh_bao_neu_day(
+                "nha_thuoc.tim_khach", len(khach_tim), TRAN_TIM_KHACH + 1
+            )
+            khach_tim = khach_tim[:TRAN_TIM_KHACH]
         ung_vien = await conn.fetch(
             _UNG_VIEN_SQL,
             identity.clinic_id,
@@ -776,6 +786,7 @@ async def man_nha_thuoc(
         "luot_cu_an": len(ung_vien) - len(trong),
         "cua_so_ngay": CUA_SO_SO_NGAY,
         "tim": tu_khoa if khach_tim is not None else None,
+        "tim_bi_cat": tim_bi_cat,
     }
 
 
