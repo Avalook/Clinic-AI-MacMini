@@ -433,10 +433,10 @@ async def test_thu_hai_thuoc_khi_ben_khac_khoa_nguoc_khong_mat_dau(co: Co) -> No
     assert kq["status"] == "PAID"
     giao = (await _da_giao(co.q, rx_a), await _da_giao(co.q, rx_b))
     if not kq["tu_giao_bo_qua"]:
-        assert giao == (3, 4)
+        assert giao == (Decimal(3), Decimal(4))
         assert await _ton_lo(co, lo_a, lo_b) == [17, 16]
         return
-    assert giao == (0, 0)
+    assert giao == (Decimal(0), Decimal(0))
     assert await _ton_lo(co, lo_a, lo_b) == [20, 20]
     assert {x["prescription_id"] for x in kq["tu_giao_bo_qua"]} == {rx_a, rx_b}
     sau = await pool.fetchval(
