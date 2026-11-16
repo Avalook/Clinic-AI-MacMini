@@ -211,8 +211,11 @@ export default function XuatHoaDon({ coSo }: { coSo: CoSo[] }) {
                   </tr>
                 </thead>
                 <tbody>
+                  {/* key = stt, KHÔNG ma_phieu: phiếu tách theo thuế suất thành nhiều hoá
+                      đơn cùng mã phiếu → trùng key, đổi bộ lọc thì React giữ lại hàng của
+                      danh sách cũ (dịch vụ hiện dưới "Thuốc"). Máy chủ đánh stt duy nhất. */}
                   {ds.map(h => (
-                    <tr key={h.ma_phieu} className="border-t border-hairline align-top">
+                    <tr key={h.stt} className="border-t border-hairline align-top">
                       <td className="px-3 py-3 text-right tabular-nums">{h.stt}</td>
                       <td className="whitespace-nowrap px-3 py-3 tabular-nums">{h.ngay}<span className="block text-meta text-ink-muted">{h.ma_phieu}</span></td>
                       <td className="px-3 py-3"><KhachHang h={h} /></td>
@@ -228,7 +231,7 @@ export default function XuatHoaDon({ coSo }: { coSo: CoSo[] }) {
           ) : null}
           <div className="space-y-3 md:hidden">
             {ds.map(h => (
-              <div key={h.ma_phieu} className="rounded-card bg-surface p-4 ring-1 ring-hairline">
+              <div key={h.stt} className="rounded-card bg-surface p-4 ring-1 ring-hairline">
                 <div className="flex flex-wrap items-start justify-between gap-2">
                   <span className="text-emph font-semibold text-ink">{h.stt}. {h.la_hd_cong_ty ? h.ten_cong_ty : h.ten_khach || "—"}</span>
                   <span className="tabular-nums text-emph font-semibold text-ink">{tien(h.tong)}</span>

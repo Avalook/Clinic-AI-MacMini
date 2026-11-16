@@ -28,7 +28,8 @@ test("khối hành chính là thứ đầu tiên trong thân cột phải", () =
 
 /** Vị trí mở / đóng của ngăn "Thông tin hành chính" — không phụ thuộc thụt dòng. */
 function ngan(): { mo: number; dong: number; dau: string } {
-  const m = /<NganGap\s+tieuDe="Thông tin hành chính"/.exec(view);
+  // Thuộc tính đứng thứ tự nào cũng được (`co="the"` có thể đứng trước `tieuDe`).
+  const m = /<NganGap\s+(?:\w+="[^"]*"\s+)*tieuDe="Thông tin hành chính"/.exec(view);
   assert.ok(m, "không thấy ngăn Thông tin hành chính");
   const dong = view.indexOf("</NganGap>", m.index);
   const dauHet = view.indexOf(">\n", m.index);
@@ -52,5 +53,7 @@ test("người sửa được: gập mặc định; người chỉ xem: mở s�
   const { dau } = ngan();
   // Người sửa = quyền SỬA HÀNH CHÍNH (khớp máy chủ), không phải `canEdit` (gồm cả đặt lịch).
   assert.match(dau, /moSan=\{!canSuaHanhChinh\}/);
+  // Tiêu đề to + đậm (dáng `the`), không phải dòng chữ nhỏ mờ (Tuyền 13/11).
+  assert.match(dau, /co="the"/);
   assert.match(dau, /nhoKhoa="khach-hanh-chinh"/);
 });
