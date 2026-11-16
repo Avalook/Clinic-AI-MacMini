@@ -17,12 +17,14 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 export default async function PharmacyPage({
   searchParams,
 }: {
-  /** `luot` — chọn sẵn một lượt (V8: nút "Khách mua thuốc" ở Kho thuốc). */
-  searchParams: Promise<{ luot?: string }>;
+  /** `luot` — chọn sẵn một lượt (V8: nút "Khách mua thuốc" ở Kho thuốc).
+   *  `tim` — tìm cả lượt cũ hơn cửa sổ ngày (máy chủ tìm theo tên / mã / SĐT). */
+  searchParams: Promise<{ luot?: string; tim?: string }>;
 }) {
   await requireNavAccess("/pharmacy");
-  const { luot } = await searchParams;
-  const man = await fetchFromBackend<ManNhaThuoc>("/api/v1/pharmacy/ban-thuoc");
+  const { luot, tim } = await searchParams;
+  const q = typeof tim === "string" && tim.trim() ? `?${new URLSearchParams({ tim: tim.trim() })}` : "";
+  const man = await fetchFromBackend<ManNhaThuoc>(`/api/v1/pharmacy/ban-thuoc${q}`);
   if (!man) {
     return (
       <div className="p-6 text-body text-danger">

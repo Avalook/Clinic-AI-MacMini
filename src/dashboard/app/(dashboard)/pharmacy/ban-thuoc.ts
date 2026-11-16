@@ -164,6 +164,16 @@ export interface ManNhaThuoc {
   duoc_mo_ban_le?: boolean;
   /** V8: được kê thêm + thu tiền thuốc ngay tại quầy (lego Thu tiền thuốc). */
   duoc_thu_thuoc?: boolean;
+  /** Còn lượt trong cửa sổ không dựng (chạm trần `tran` lượt) — màn nói ra. */
+  bi_cat?: boolean;
+  tran?: number;
+  /** Số lượt còn việc trong cửa sổ (máy chủ đếm). */
+  tong?: number;
+  /** Lượt còn việc CŨ hơn cửa sổ — không dựng, tìm theo tên / mã / SĐT. */
+  luot_cu_an?: number;
+  cua_so_ngay?: number;
+  /** Từ khoá máy chủ đã tìm (`?tim=`) — null = màn thường. */
+  tim?: string | null;
 }
 
 export const GIAI_DOAN: Record<GiaiDoan, { nhan: string; tone: StatusTone; giai_thich: string }> = {

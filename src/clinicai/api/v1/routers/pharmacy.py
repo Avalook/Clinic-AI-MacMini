@@ -152,13 +152,18 @@ async def hang_doi(
 
 @router.get("/pharmacy/ban-thuoc")
 async def man_nha_thuoc(
+    tim: str | None = Query(
+        None,
+        max_length=100,
+        description="Tên / mã khách / SĐT — tìm cả lượt cũ hơn cửa sổ ngày",
+    ),
     identity: StaffIdentity = Depends(_DOC),
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> dict[str, Any]:
     """Màn Nhà thuốc (contract tiền–thuốc CP4): lượt → dòng đơn → phân lô, kèm
     giai đoạn tiền thuốc và các thao tác được phép — máy chủ quyết, giao diện vẽ."""
     kq: dict[str, Any] = jsonable_encoder(
-        await ban_thuoc_service.man_nha_thuoc(pool, identity=identity)
+        await ban_thuoc_service.man_nha_thuoc(pool, identity=identity, tim=tim)
     )
     return kq
 

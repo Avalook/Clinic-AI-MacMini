@@ -170,6 +170,12 @@ _CU_CK_CHUA_VE = """EXISTS(SELECT 1 FROM public.payment_cycle pc
                      AND pc.status='PENDING_VERIFICATION')"""
 
 
+#: Loại khoản "thuốc đã thu chưa giao" trong `so_no.chi_tiet` — bằng
+#: `so_no_service.THUOC` (không nhập thẳng: vòng nhập so_no → cong_no → bill →
+#: module này; test `test_so_no_loai_thuoc_khop` giữ hai bên không lệch).
+SO_NO_LOAI_THUOC = "THUOC"
+
+
 def _chua_ngung(visit: str) -> str:
     """Điều kiện SQL cho vế "lượt CŨ còn việc tồn": không chọn cơ sở ($5 NULL) thì
     bỏ lượt của cơ sở đã NGỪNG hoạt động (Tuyền 14/10/2026) — chỉ ẩn khỏi hàng chờ,
@@ -278,6 +284,17 @@ WITH v AS (
                                 WHERE m.clinic_id = n.clinic_id
                                   AND m.visit_id = n.visit_id
                                   AND m.chieu = n.chieu AND m.seq > n.seq)
+               -- QUẦY THUỐC ($7): khoản chỉ gồm THUỐC đã thu chưa giao
+               -- (`so_no_service.THUOC`) là việc của Nhà thuốc (/pharmacy) —
+               -- quầy không có nút nào cho nó, mỗi lượt chỉ kéo thêm đơn +
+               -- hoá đơn (prod 16/11: 332/565 lượt, JSON 2,6 MB). Lượt còn
+               -- khoản tiền khác (tiền thừa / đã thu chưa làm) vẫn vào.
+               AND (NOT $7::boolean OR EXISTS (
+                    SELECT 1 FROM jsonb_array_elements(
+                                      coalesce(n.chi_tiet, '[]'::jsonb)) k
+                     WHERE k->>'loai' IS DISTINCT FROM '"""
+    + SO_NO_LOAI_THUOC
+    + """'))
             UNION ALL
             SELECT old.visit_id FROM public.visit old
              WHERE $4::boolean AND old.clinic_id=$1::uuid AND old.created_at<$2
@@ -671,6 +688,8 @@ class CashierBoardService:
                 # Lượt cũ chỉ còn ĐƠN THUỐC chưa mua là việc của quầy thuốc —
                 # quầy dịch vụ kéo chúng vào thì ~290 lượt thừa (staging 29/10).
                 want_rx,
+                # Chỉ quầy thuốc: bỏ lượt mà sổ nợ khách chỉ còn thuốc chưa giao.
+                want_rx and not want_svc,
             )
         raw = json.loads(row) if isinstance(row, str) else row
         if len(raw.get("visits") or []) > CU_TRAN_CANH_BAO:
