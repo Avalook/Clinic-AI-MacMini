@@ -82,7 +82,11 @@ export default function InventoryBoard({
   onXemThe,
   cauHinhHan,
   tachKhoQuay = false,
+  taiQuay = false,
 }: {
+  /** Bảng lô QUẦY (tab "Thuốc tại quầy"): lô vào quầy qua Chuyển kho, không nhập thẳng
+   *  → ẩn [+ Nhập lô]. */
+  taiQuay?: boolean;
   batches: InvBatch[];
   thuoc: ThuocKho[];
   /** Có quyền ghi kho — chỉ ẩn/hiện nút, máy chủ tự kiểm. */
@@ -200,7 +204,7 @@ export default function InventoryBoard({
           aria-label="Lọc tồn kho theo tên thuốc hoặc mã lô"
           className={`${INPUT} sm:ml-auto sm:w-56`}
         />
-        {ghiDuoc ? (
+        {ghiDuoc && !taiQuay ? (
           <Button
             type="button"
             variant="primary"
@@ -240,7 +244,9 @@ export default function InventoryBoard({
             {rows.length === 0 ? (
               <tr>
                 <td colSpan={9} className="px-3 py-6 text-center text-ink-muted">
-                  Chưa có lô thuốc nào — bấm [+ Nhập lô] để nhập.
+                  {taiQuay
+                    ? "Quầy chưa có thuốc — chuyển từ kho sang ở tab Chuyển kho ↔ quầy."
+                    : "Chưa có lô thuốc nào — bấm [+ Nhập lô] để nhập."}
                 </td>
               </tr>
             ) : (

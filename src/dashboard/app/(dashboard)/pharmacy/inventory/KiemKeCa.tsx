@@ -14,6 +14,7 @@ import Chip from "@/components/ui/Chip";
 import XacNhanTaiCho from "@/components/ui/XacNhanTaiCho";
 import { INPUT, TBL_DIV, TBL_HEAD, TBL_WRAP } from "../../form-ui";
 import type { InvBatch } from "./InventoryBoard";
+import { dongCanDem, khoaDong } from "./dong-kiem-ca";
 import { soKho } from "./gui-kho";
 
 type Ca = "SANG" | "CHIEU" | "TOI";
@@ -129,7 +130,6 @@ async function goi<T>(method: "GET" | "POST", url: string, body?: unknown): Prom
 }
 
 const homNayVn = () => new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Ho_Chi_Minh" });
-const khoaDong = (thuoc: string, dv: string) => `${thuoc}|${dv.trim().toLowerCase()}`;
 const URL_GOC = "/api/pharmacy/kiem-ke-ca";
 
 export default function KiemKeCa({
@@ -195,37 +195,7 @@ export default function KiemKeCa({
     };
   }, [ngay]);
 
-  // Dòng cần đếm: mọi (thuốc, đơn vị) có lô ở QUẦY + dòng đã nằm trong phiếu.
-  const dong = useMemo(() => {
-    const m = new Map<string, { khoa: string; thuoc: string; ten: string; dv: string }>();
-    // Đơn vị chỉ còn lô về 0 mà thuốc đang có tồn ở đơn vị khác: dòng ấy không có gì để đếm.
-    const donViCoTon = new Set<string>();
-    const thuocCoTon = new Set<string>();
-    for (const b of batches) {
-      if (b.noi_chua === "KHO" || !b.drug_catalog_id || Number(b.quantity_on_hand) === 0) continue;
-      donViCoTon.add(khoaDong(b.drug_catalog_id, b.unit));
-      thuocCoTon.add(b.drug_catalog_id);
-    }
-    for (const b of batches) {
-      if (b.noi_chua === "KHO" || !b.drug_catalog_id) continue;
-      const k = khoaDong(b.drug_catalog_id, b.unit);
-      if (thuocCoTon.has(b.drug_catalog_id) && !donViCoTon.has(k)) continue;
-      if (!m.has(k)) {
-        const bien = b.drug?.variant ? ` (${b.drug.variant})` : "";
-        m.set(k, {
-          khoa: k,
-          thuoc: b.drug_catalog_id,
-          ten: `${b.drug?.name_base ?? b.drug?.name_raw ?? "—"}${bien}`,
-          dv: b.unit,
-        });
-      }
-    }
-    for (const d of phieu?.dong ?? []) {
-      const k = khoaDong(d.drug_catalog_id, d.don_vi);
-      if (!m.has(k)) m.set(k, { khoa: k, thuoc: d.drug_catalog_id, ten: d.ten, dv: d.don_vi });
-    }
-    return [...m.values()].sort((a, b) => a.ten.localeCompare(b.ten, "vi"));
-  }, [batches, phieu]);
+  const dong = useMemo(() => dongCanDem(batches, phieu?.dong ?? []), [batches, phieu]);
 
   const nap = (p: Phieu) => {
     setPhieu(p);

@@ -240,6 +240,9 @@ export default function QuayThuNgan({
   const [loi, setLoi] = useState<string | null>(null);
   const [xong, setXong] = useState<string | null>(null);
   const [dangThu, setDangThu] = useState<string | null>(null);
+  // Lượt vừa chỉnh đơn thuốc, tổng đang chờ nạp lại (đo staging 16/11: ~0,75 s hiện
+  // số cũ — thu ngân đọc nhầm tổng khi bỏ tick nhanh).
+  const [tinhLai, setTinhLai] = useState<string | null>(null);
   const [vatTuDangLuu, setVatTuDangLuu] = useState<Set<string>>(() => new Set());
   // `?luot=` — mở quầy từ nút "Thu ngay" của check-out (khách còn nợ,
   // 01/10/2026): chọn sẵn đúng lượt ấy.
@@ -944,10 +947,17 @@ export default function QuayThuNgan({
             !choCua(l.visit_id, "thuoc") ? (
               <ChinhDonQuay
                 visitId={l.visit_id}
+                onBatDau={() => setTinhLai(l.visit_id)}
                 onDoi={async (cau, loiMoi) => {
                   setXong(cau);
                   setLoi(loiMoi);
-                  await tai();
+                  // Nạp lại CẢ /api/cashier (chậm khi đông) vì chưa có API hoá đơn
+                  // một lượt cho quầy; đúng số nhờ `tai` đi qua taoMotLuot.
+                  try {
+                    await tai();
+                  } finally {
+                    setTinhLai(null);
+                  }
                 }}
               />
             ) : null}
@@ -962,6 +972,7 @@ export default function QuayThuNgan({
                 daThu={daThuCua(l.visit_id, "thuoc")}
                 cho={choCua(l.visit_id, "thuoc")}
                 dangThu={dangThu === `${l.visit_id}:thuoc`}
+                dangTinhLai={tinhLai === l.visit_id}
                 onThu={(hd, c, g, ct) => void thu(l, "thuoc", hd, c, g, ct)}
                 onXacMinh={(ma, soNhan) => void xacMinh(l, "thuoc", ma, soNhan)}
                 onDoi={(cau) => {
@@ -1180,10 +1191,13 @@ export function NhomThu({
   daThu,
   cho,
   dangThu,
+  dangTinhLai = false,
   onThu,
   onXacMinh,
   onDoi,
 }: {
+  /** Đơn vừa chỉnh, tổng đang nạp lại — che số cũ và khoá Tạo bill. */
+  dangTinhLai?: boolean;
   /** Loại tiền của khối — gửi kèm lệnh hoàn tác để máy chủ gác quầy (01/10/2026). */
   quay?: "dich_vu" | "thuoc";
   /** Lượt đang thu — tài khoản nhận chuyển khoản theo cơ sở của lượt (31/10/2026). */
@@ -1354,7 +1368,14 @@ export function NhomThu({
                 {tien(tongGoc)} − {tien(giamGia.tienGiam)} ={" "}
               </span>
             ) : null}
-            Tổng: <span className="tabular-nums">{mienPhi ? "Miễn phí" : hd ? tien(tongSauGiam) : "—"}</span>
+            Tổng:{" "}
+            {dangTinhLai ? (
+              <span role="status" className="text-meta font-normal text-ink-muted">
+                đang tính lại…
+              </span>
+            ) : (
+              <span className="tabular-nums">{mienPhi ? "Miễn phí" : hd ? tien(tongSauGiam) : "—"}</span>
+            )}
           </p>
           {hd && hd.van_de.length > 0 ? (
             // KHÔNG cho bấm thu khi còn dòng chưa thu được (thiếu giá, giá mâu
@@ -1371,7 +1392,14 @@ export function NhomThu({
         ) : (
           <button
             type="button"
-            disabled={dangThu || !hd || !hd.thu_duoc || giamGia?.loi != null || (!mienPhi && !chia?.hopLe)}
+            disabled={
+              dangThu ||
+              dangTinhLai ||
+              !hd ||
+              !hd.thu_duoc ||
+              giamGia?.loi != null ||
+              (!mienPhi && !chia?.hopLe)
+            }
             onClick={() => hd && (mienPhi || chia) && onThu(hd, mienPhi ? null : chia, giamGia?.params ? giamGia : undefined, congTyId)}
             className="inline-flex min-h-10 items-center rounded-control border border-brand-500 bg-brand-500 px-4 text-sm font-semibold text-white disabled:opacity-50"
           >

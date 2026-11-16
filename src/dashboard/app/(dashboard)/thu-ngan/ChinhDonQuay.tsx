@@ -29,6 +29,7 @@ import {
   type DongThuoc,
   type MauThuoc,
 } from "@/lib/phieu-kham";
+import { taoMotLuot } from "@/lib/mot-luot";
 
 import DonThuocPhieu from "../_lam-viec/phieu-kham/DonThuocPhieu";
 import { INPUT } from "../form-ui";
@@ -91,6 +92,7 @@ async function gui(than: Record<string, unknown>): Promise<string | null> {
 export default function ChinhDonQuay({
   visitId,
   onDoi,
+  onBatDau,
   theoDon,
   nhacChung,
   goiYThuoc,
@@ -98,6 +100,8 @@ export default function ChinhDonQuay({
   visitId: string;
   /** Đơn bán vừa đổi — màn cha nạp lại hoá đơn thuốc. */
   onDoi: (cau: string | null, loi: string | null) => Promise<void>;
+  /** Vừa bấm tick / số lượng / thêm thuốc — màn cha che tổng cũ cho tới `onDoi`. */
+  onBatDau?: () => void;
   /** Lượt bán lẻ đang nối đơn cũ: theo `drug_catalog_id` → số kê / đã mua. */
   theoDon?: Record<string, TheoDonDong>;
   /** Nhắc của khách (vd lần khám gần nhất quá 2 tháng) — chữ trung tính, không chặn. */
@@ -116,23 +120,31 @@ export default function ChinhDonQuay({
     if (lanGoiY) khungThem.current?.scrollIntoView({ behavior: "smooth", block: "center" });
   }, [lanGoiY]);
 
-  const tai = useCallback(async () => {
-    const r = await fetch(`/api/quay-thuoc?visit_id=${visitId}`, { cache: "no-store" });
-    const d = (await r.json().catch(() => null)) as { dong?: DongBan[] } | null;
-    setDong(d?.dong ?? []);
-    setSoNhap({});
-  }, [visitId]);
+  // MỘT LƯỢT NẠP MỘT LÚC (lib/mot-luot): ô tick bấm nhanh liên tiếp thì mỗi lần
+  // một lượt nạp; chạy chồng thì lượt cũ về sau đè lượt mới → ô tick nhảy ngược.
+  const [motLuot] = useState(taoMotLuot);
+  const tai = useCallback(
+    () =>
+      motLuot(async () => {
+        const r = await fetch(`/api/quay-thuoc?visit_id=${visitId}`, { cache: "no-store" });
+        const d = (await r.json().catch(() => null)) as { dong?: DongBan[] } | null;
+        setDong(d?.dong ?? []);
+        setSoNhap({});
+      }),
+    [motLuot, visitId],
+  );
 
   useEffect(() => {
     let bo = false;
-    fetch(`/api/quay-thuoc?visit_id=${visitId}`, { cache: "no-store" })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((d: { dong?: DongBan[] } | null) => {
+    void motLuot(async () => {
+      try {
+        const r = await fetch(`/api/quay-thuoc?visit_id=${visitId}`, { cache: "no-store" });
+        const d = (r.ok ? await r.json() : null) as { dong?: DongBan[] } | null;
         if (!bo) setDong(d?.dong ?? []);
-      })
-      .catch(() => {
+      } catch {
         if (!bo) setDong([]);
-      });
+      }
+    });
     fetch("/api/phieu-kham?xem=tham-chieu")
       .then((r) => (r.ok ? r.json() : null))
       .then((d: { mau_thuoc?: MauThuoc[] } | null) => {
@@ -144,7 +156,7 @@ export default function ChinhDonQuay({
     return () => {
       bo = true;
     };
-  }, [visitId]);
+  }, [motLuot, visitId]);
 
   // Lỗi hiện NGAY CẠNH nút vừa bấm: câu của màn cha nằm trên đầu trang, có khi
   // cao hơn nút cả màn hình (đo 17/10: 895px trên điện thoại) nên bấm xong tưởng
@@ -155,6 +167,12 @@ export default function ChinhDonQuay({
     if (loiTaiCho) loiRef.current?.scrollIntoView({ block: "nearest", behavior: "smooth" });
   }, [loiTaiCho]);
 
+  // Báo màn cha ngay khi bấm: tổng của cha còn là số cũ cho tới khi `onDoi` nạp lại.
+  const batDau = () => {
+    setDang(true);
+    onBatDau?.();
+  };
+
   const xong = async (loi: string | null, cau: string) => {
     setLoiTaiCho(loi);
     await tai();
@@ -162,7 +180,7 @@ export default function ChinhDonQuay({
   };
 
   const chon = async (d: DongBan, mua: boolean) => {
-    setDang(true);
+    batDau();
     const loi = await gui({ thao_tac: "chon", du_lieu: { prescription_id: d.id, mua } });
     setDang(false);
     await xong(loi, mua ? `Đã tích lại “${d.ten}”.` : `Đã bỏ “${d.ten}” — khách không lấy.`);
@@ -173,7 +191,7 @@ export default function ChinhDonQuay({
     if (!v) return;
     // Rời ô mà số không đổi thì không gọi máy chủ (khỏi ghi vết "10 → 10").
     if (Number(v.replace(",", ".")) === Number(d.so_mua ?? d.so_ke)) return;
-    setDang(true);
+    batDau();
     const loi = await gui({
       thao_tac: "so-luong",
       du_lieu: { prescription_id: d.id, so_luong: Number(v.replace(",", ".")) },
@@ -184,7 +202,7 @@ export default function ChinhDonQuay({
 
   const doiDonVi = async (d: DongBan, donVi: string) => {
     if (!donVi.trim() || donVi === (d.don_vi ?? d.don_vi_goi_y)) return;
-    setDang(true);
+    batDau();
     const loi = await gui({
       thao_tac: "don-vi",
       du_lieu: { prescription_id: d.id, don_vi: donVi },
@@ -195,7 +213,7 @@ export default function ChinhDonQuay({
 
   const suaDongQuay = async (d: DongBan, cachDung: string, luuY: string) => {
     if (cachDung === (d.cach_dung ?? "") && luuY === (d.luu_y ?? "")) return;
-    setDang(true);
+    batDau();
     const loi = await gui({
       thao_tac: "them",
       id: visitId,
@@ -216,7 +234,7 @@ export default function ChinhDonQuay({
   };
 
   const luuThem = async () => {
-    setDang(true);
+    batDau();
     const loi = await gui({
       thao_tac: "them",
       id: visitId,

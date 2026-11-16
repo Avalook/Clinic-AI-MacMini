@@ -124,6 +124,8 @@ export interface DongDon {
     tu_choi: boolean;
     chot: boolean;
     huy_chua_giao: boolean;
+    /** Dòng đã ghi "khách không lấy" — mở lại được (chưa thu tiền, chưa giao). */
+    mo_lai?: boolean;
   };
 }
 
@@ -146,6 +148,10 @@ export interface LuotThuoc {
     can_doi_soat: boolean;
   } | null;
   dong: DongDon[];
+  /** Có ít nhất một dòng ghi "khách không lấy" được — nút cả đơn (máy chủ quyết). */
+  khong_lay_ca_don?: boolean;
+  /** Có ít nhất một dòng "khách không lấy" mở lại được. */
+  mo_lai_ca_don?: boolean;
 }
 
 export interface ThuocDanhMuc {

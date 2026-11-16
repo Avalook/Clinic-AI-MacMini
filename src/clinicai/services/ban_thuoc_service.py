@@ -49,6 +49,7 @@ from clinicai.services.don_vi_thuoc import (
     so_de_doc,
     so_dep,
 )
+from clinicai.services.khach_khong_lay import co_cua_luot, ly_do_khong_mo_lai
 from clinicai.services.moc_kham_xong import kham_xong_sql
 from clinicai.services.phan_lo_service import ban_chua_giao
 from clinicai.services.vat_tu_trung_ma import thuoc_la_vat_tu
@@ -142,6 +143,7 @@ def thao_tac_dong(
     can_hoan: Decimal = Decimal(0),
     lich_su: bool = False,
     lo_da_ban: bool = False,
+    khach_khong_lay: bool = False,
 ) -> dict[str, bool]:
     """Nút nào được hiện cho một dòng đơn — cùng luật với lệnh ghi ở
     pharmacy_service (Khám xong, chốt không bỏ lại thuốc đã bán chưa giao)."""
@@ -179,6 +181,15 @@ def thao_tac_dong(
         # CP5: nhả phần đã bán chưa giao — chỉ khi đã có căn cứ tài chính
         # (huỷ phiếu / hoàn tiền xong đủ). Thiếu căn cứ: màn nói còn cần hoàn.
         "huy_chua_giao": chua_giao > 0 and can_hoan == 0,
+        # Hoàn tác "Khách không lấy" — cùng một luật với lệnh ghi (khach_khong_lay).
+        "mo_lai": ly_do_khong_mo_lai(
+            da_dong=dong_da_chot,
+            khach_khong_lay=khach_khong_lay,
+            da_giao=da_giao,
+            lich_su=lich_su,
+            da_thu_tien=gd != SAN_SANG,
+        )
+        is None,
     }
     if lich_su:
         # CP6 Q3: dòng bác sĩ đã đính chính không nhận thao tác mới — chỉ còn
@@ -752,6 +763,7 @@ async def man_nha_thuoc(
                 and (not dv or _don_vi(b["unit"]) == dv)
             ]
             g["dong"].append(d)
+        g.update(co_cua_luot(g["dong"]))
     # Lượt bán lẻ chưa có dòng đơn: vẫn hiện (giai đoạn "chờ thu"), lên đầu.
     ban_le_trong = [
         {
@@ -766,6 +778,7 @@ async def man_nha_thuoc(
             "lan_thu": None,
             "dong": [],
             "giai_doan": SAN_SANG,
+            **co_cua_luot([]),
         }
         for b in ban_le_rows
         if b["visit_id"] not in luot
@@ -985,6 +998,7 @@ def _dong(
                 and p["payment_cycle_id"] == lt.payment_cycle_id
                 for p in cac_pl
             ),
+            khach_khong_lay=r["refusal_reason"] is not None,
         ),
     }
 

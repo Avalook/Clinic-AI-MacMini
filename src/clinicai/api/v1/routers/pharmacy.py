@@ -32,6 +32,7 @@ from clinicai.phieu_kham.khung import doc_ngay
 from clinicai.services import (
     ban_theo_don_service,
     ban_thuoc_service,
+    khach_khong_lay,
     kho_thuoc_service,
     kiem_ke_ca_service,
     lech_kiem_ke_service,
@@ -1301,6 +1302,57 @@ async def tu_choi(
         prescription_id=str(body.prescription_id),
         ly_do=body.ly_do,
     )
+
+
+class KhongLayCaDonRequest(BaseModel):
+    visit_id: UUID
+    # Lý do BẮT BUỘC — xem khach_khong_lay.khong_lay_ca_don.
+    ly_do: str = Field(min_length=1, max_length=500)
+
+
+class MoLaiDongRequest(BaseModel):
+    prescription_id: UUID
+
+
+class MoLaiCaDonRequest(BaseModel):
+    visit_id: UUID
+
+
+class SoDongDaDoi(BaseModel):
+    ok: bool
+    so_dong: int
+
+
+@router.post("/pharmacy/khong-lay-ca-don", status_code=201, response_model=SoDongDaDoi)
+async def khong_lay_ca_don(
+    body: KhongLayCaDonRequest,
+    identity: StaffIdentity = Depends(_GHI),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Khách không mua cả đơn — đóng mọi dòng chưa giao của lượt, một giao dịch."""
+    return await khach_khong_lay.khong_lay_ca_don(
+        pool, identity, body.visit_id, body.ly_do
+    )
+
+
+@router.post("/pharmacy/mo-lai-dong", status_code=201, response_model=SoDongDaDoi)
+async def mo_lai_dong(
+    body: MoLaiDongRequest,
+    identity: StaffIdentity = Depends(_GHI),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Hoàn tác "Khách không lấy" của một dòng."""
+    return await khach_khong_lay.mo_lai_dong(pool, identity, body.prescription_id)
+
+
+@router.post("/pharmacy/mo-lai-ca-don", status_code=201, response_model=SoDongDaDoi)
+async def mo_lai_ca_don(
+    body: MoLaiCaDonRequest,
+    identity: StaffIdentity = Depends(_GHI),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Hoàn tác "Khách không lấy" của mọi dòng trong lượt."""
+    return await khach_khong_lay.mo_lai_ca_don(pool, identity, body.visit_id)
 
 
 class ChotRequest(BaseModel):

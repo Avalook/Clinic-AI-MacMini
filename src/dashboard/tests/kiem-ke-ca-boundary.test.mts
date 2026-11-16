@@ -29,6 +29,15 @@ function nap(duongDan: string, mock: Record<string, unknown>): Comp {
   return exports.default;
 }
 
+type DongCanDem = { khoa: string; thuoc: string; ten: string; dv: string };
+const DONG_KIEM: Record<string, unknown> = {};
+runInNewContext(
+  ts.transpileModule(doc("app/(dashboard)/pharmacy/inventory/dong-kiem-ca.ts"), {
+    compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 },
+  }).outputText,
+  { exports: DONG_KIEM },
+);
+
 const Nut = (p: { children?: React.ReactNode }) => React.createElement("button", { type: "button" }, p.children);
 const Chip = (p: { children?: React.ReactNode }) => React.createElement("span", {}, p.children);
 const MOCK = {
@@ -37,6 +46,7 @@ const MOCK = {
   "@/components/ui/XacNhanTaiCho": (p: { cau?: string }) => React.createElement("div", { role: "alertdialog" }, p.cau),
   "../../form-ui": { INPUT: "i", TBL_DIV: "d", TBL_HEAD: "h", TBL_WRAP: "w" },
   "./gui-kho": { soKho: (n: unknown) => String(n ?? 0) },
+  "./dong-kiem-ca": DONG_KIEM,
 };
 
 test("proxy kiểm kê: danh sách trắng bước ghi, id phải là uuid, không có đường lạ", () => {
@@ -77,6 +87,45 @@ test("KiemKeCa: tự mở phiếu ca hiện tại; người không có quyền c
   const xem = renderToStaticMarkup(React.createElement(Kiem, { batches, ghiDuoc: false }));
   assert.doesNotMatch(xem, />Bắt đầu kiểm kê<\/button>/);
   assert.doesNotMatch(doc("app/(dashboard)/pharmacy/inventory/KiemKeCa.tsx"), /window\.confirm/);
+});
+
+// 16/11: chuyển tồn quầy về kho trưa 16/11 để lại 145 lô QUẦY tồn 0 → Kiểm đầu ca đòi đếm
+// ~100 thuốc quầy không có. Tuyền: quầy chỉ hiện thuốc đã chuyển sang.
+function napDongKiem(): (b: unknown[], p: unknown[]) => DongCanDem[] {
+  const ham = DONG_KIEM.dongCanDem as (b: unknown[], p: unknown[]) => DongCanDem[];
+  // Mảng tạo trong vm khác realm → so bằng JSON.
+  return (b, p) => JSON.parse(JSON.stringify(ham(b, p)));
+}
+
+test("Kiểm ca: chỉ đếm lô QUẦY còn thuốc — bỏ lô quầy tồn 0 và lô KHO; giữ dòng đã có trong phiếu", () => {
+  const dongCanDem = napDongKiem();
+  const lo = (thuoc: string, ten: string, noi: "KHO" | "QUAY", ton: number | string, dv = "hộp") => ({
+    drug_catalog_id: thuoc,
+    unit: dv,
+    noi_chua: noi,
+    quantity_on_hand: ton,
+    drug: { name_base: ten, name_raw: ten, variant: null },
+  });
+  const ten = (r: DongCanDem[]) => r.map((d) => d.ten);
+  // Quầy rỗng sau khi chuyển về kho: không có gì để đếm.
+  assert.deepEqual(ten(dongCanDem([lo("a", "HetQuay", "QUAY", 0), lo("c", "ChiOKho", "KHO", 9)], [])), []);
+  // Chỉ thuốc đã chuyển sang quầy (tồn > 0) mới vào; số dạng chuỗi từ API cũng đúng.
+  assert.deepEqual(
+    ten(dongCanDem([lo("a", "HetQuay", "QUAY", "0.000"), lo("b", "ConQuay", "QUAY", "3.000")], [])),
+    ["ConQuay"],
+  );
+  // Cùng thuốc: đơn vị hết bỏ, đơn vị còn giữ.
+  const r = dongCanDem([lo("x", "X", "QUAY", 0, "viên"), lo("x", "X", "QUAY", 2, "hộp")], []);
+  assert.deepEqual(r.map((d) => d.dv), ["hộp"]);
+  // Dòng đã đếm trong phiếu vẫn hiện dù lô về 0 (đã nhập số thì không được mất).
+  assert.deepEqual(
+    ten(dongCanDem([lo("a", "HetQuay", "QUAY", 0)], [{ drug_catalog_id: "a", don_vi: "hộp", ten: "HetQuay" }])),
+    ["HetQuay"],
+  );
+  // KiemKeCa dùng đúng hàm này, không còn vòng tự tính riêng.
+  const kiem = doc("app/(dashboard)/pharmacy/inventory/KiemKeCa.tsx");
+  assert.match(kiem, /dongCanDem\(batches, phieu\?\.dong \?\? \[\]\)/);
+  assert.doesNotMatch(kiem, /donViCoTon/);
 });
 
 test("Chốt kiểm kê phải qua xác nhận TẠI CHỖ (XacNhanTaiCho), nút Chốt không gọi chốt ngay", () => {
