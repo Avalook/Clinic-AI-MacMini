@@ -88,9 +88,13 @@ export default function KhoThuoc({
   // tách thì mọi lô là QUAY và tab kho vẽ tất cả như cũ. Các tab khác (chuyển kho, kiểm ca,
   // kiểm kho) vẫn nhận đủ lô — chúng tự lọc theo nơi chứa.
   const loKho = tachKhoQuay ? batches.filter((b) => b.noi_chua === "KHO") : batches;
-  const loQuay = tachKhoQuay ? batches.filter((b) => b.noi_chua !== "KHO") : [];
-  // Số trên nút = lô quầy CÒN thuốc (lô bán hết vẫn hiện trong bảng như lịch sử).
-  const loQuayConThuoc = loQuay.filter((b) => b.quantity_on_hand > 0).length;
+  // Bảng quầy chỉ lô quầy CÒN thuốc (Tuyền 16/11): lô quầy tồn 0 phần lớn là lô cũ mặc
+  // định ở QUẦY lúc bật tách, chưa từng nhận thuốc (Hào Nam: 145 dòng toàn 0). Lịch sử
+  // lô đã bán hết xem ở tab "Theo dõi thuốc".
+  const loQuay = tachKhoQuay
+    ? batches.filter((b) => b.noi_chua !== "KHO" && b.quantity_on_hand > 0)
+    : [];
+  const loQuayConThuoc = loQuay.length;
   const tab: Tab =
     chonTab === "chuyen_kho" && !coChuyenKho ? "ton"
     : chonTab === "thuoc_quay" && !tachKhoQuay ? "kiem_dau"

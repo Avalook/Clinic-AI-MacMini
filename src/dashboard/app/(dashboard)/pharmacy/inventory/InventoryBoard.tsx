@@ -245,7 +245,7 @@ export default function InventoryBoard({
               <tr>
                 <td colSpan={9} className="px-3 py-6 text-center text-ink-muted">
                   {taiQuay
-                    ? "Quầy chưa có lô thuốc nào — chuyển từ kho ở KHO → Chuyển kho ↔ quầy."
+                    ? "Quầy chưa có thuốc — chuyển từ kho sang ở tab Chuyển kho ↔ quầy."
                     : "Chưa có lô thuốc nào — bấm [+ Nhập lô] để nhập."}
                 </td>
               </tr>

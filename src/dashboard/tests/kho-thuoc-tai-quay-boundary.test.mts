@@ -78,14 +78,27 @@ test("đã tách: tab kho chỉ lô KHO, số trên nút chỉ đếm lô KHO", 
   assert.doesNotMatch(html, /q1|q0/);
 });
 
-test("đã tách: nút Thuốc tại quầy đứng đầu hàng QUẦY, đếm lô quầy còn thuốc, bảng chỉ lô QUẦY", () => {
+test("đã tách: nút Thuốc tại quầy đứng đầu hàng QUẦY, đếm lô quầy còn thuốc, bảng chỉ lô QUẦY còn thuốc", () => {
   const html = ve({ tachKhoQuay: true, tabDau: "thuoc_quay" });
   const nhan = [...html.matchAll(/\[([^\]]+)\]/g)].map((m) => m[1]);
   assert.equal(nhan[0], "Thuốc tại quầy (1 lô còn thuốc)");
   assert.equal(nhan[1], "Kiểm đầu ca");
-  assert.match(html, /bang:quay:q1,q0</);
+  // Lô quầy tồn 0 (q0 — lô cũ mặc định ở QUẦY lúc bật tách) KHÔNG hiện; tồn > 0 (q1) hiện.
+  assert.match(html, /bang:quay:q1</);
+  assert.doesNotMatch(html, /q0/);
   // Bấm khu QUẦY mở tab đầu hàng khi đã tách; chưa tách vẫn mở Kiểm đầu ca.
   assert.match(doc("app/(dashboard)/pharmacy/inventory/KhoThuoc.tsx"), /tachKhoQuay \? "thuoc_quay" : "kiem_dau"/);
+});
+
+test("đã tách, quầy chỉ có lô tồn 0: bảng quầy rỗng, nút ghi 0 lô còn thuốc", () => {
+  const html = ve({
+    tachKhoQuay: true,
+    tabDau: "thuoc_quay",
+    batches: [lo("k1", "KHO", 10), lo("q0", "QUAY", 0), lo("q00", "QUAY", 0)],
+  });
+  assert.match(html, /\[Thuốc tại quầy \(0 lô còn thuốc\)\]/);
+  assert.match(html, /bang:quay:</);
+  assert.doesNotMatch(html, /q0/);
 });
 
 test("chưa tách: không có nút quầy, tab kho vẽ đủ mọi lô như cũ; link ?tab=thuoc-quay không vỡ", () => {
@@ -111,5 +124,5 @@ test("bảng quầy không có [+ Nhập lô] (nhập khi đã tách luôn vào 
   assert.match(renderToStaticMarkup(React.createElement(Board, props)), /\+ Nhập lô/);
   const quay = renderToStaticMarkup(React.createElement(Board, { ...props, taiQuay: true }));
   assert.doesNotMatch(quay, /\+ Nhập lô/);
-  assert.match(quay, /Quầy chưa có lô thuốc nào/);
+  assert.match(quay, /Quầy chưa có thuốc — chuyển từ kho sang ở tab Chuyển kho ↔ quầy\./);
 });
