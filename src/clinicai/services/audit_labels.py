@@ -137,6 +137,7 @@ EVENT_LABELS: dict[str, str] = {
     "vat_tu.ban_khong_nhan_lai": "Không nhận lại vật tư đã hoàn tiền",
     "visit.exam_fee_selected": "Chọn dịch vụ khám (tiền khám)",
     "pharmacy.refused": "Khách không lấy thuốc",
+    "pharmacy.refuse_undone": "Hoàn tác khách không lấy thuốc",
     "pharmacy.line_closed": "Chốt dòng thuốc",
     "pharmacy.adjusted": "Điều chỉnh tồn kho",
     "pharmacy.discarded": "Huỷ thuốc",

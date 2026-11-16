@@ -21,6 +21,7 @@ import StatusChip from "@/components/ui/StatusChip";
 import XemLuot from "../_lam-viec/XemLuot";
 import BanLeThu from "./BanLeThu";
 import DongThuoc, { CHAM } from "./DongThuoc";
+import KhachKhongLayCaDon from "./KhachKhongLayCaDon";
 import KhachMuaThuoc from "./KhachMuaThuoc";
 import { INPUT } from "../form-ui";
 import OQuetMa, { NHAN_TRANG_THAI_LO, type KetQuaQuet } from "./inventory/OQuetMa";
@@ -286,6 +287,8 @@ export default function PharmacyBoard({
                   ) : null}
                 </div>
               ) : null}
+              {/* Khách không mua cả đơn / mở lại cả đơn — máy chủ quyết nút nào hiện. */}
+              <KhachKhongLayCaDon key={luot.visit_id} luot={luot} />
               {luot.dong.map((d) => (
                 // Khoá theo trạng thái của dòng: mỗi lần ghi xong (xác định
                 // thuốc, chọn lô, giao…) dòng dựng lại với ô nhập mới — số còn
@@ -293,6 +296,7 @@ export default function PharmacyBoard({
                 <DongThuoc
                   key={[
                     d.id,
+                    d.closed,
                     luot.giai_doan,
                     d.drug_catalog_id,
                     d.purchased_qty,
