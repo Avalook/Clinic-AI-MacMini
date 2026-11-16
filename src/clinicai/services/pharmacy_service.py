@@ -156,12 +156,14 @@ def _tom_tat_giao(
         f"trừ {so(x['so_luong'])}"
         + (f" {x['don_vi']}" if x.get("don_vi") else dv)
         + f" từ lô {x['batch_code']}"
+        + (" ở KHO" if x.get("noi_chua") == "KHO" else "")
         + (f" (hạn {x['expiry_date']:%d/%m/%Y})" if x["expiry_date"] else "")
         for x in lo_da_tru
     ]
     if chua_tru > 0:
         phan.append(
-            f"{chu_chua_tru or so(chua_tru) + dv} quầy không đủ để trừ — đã ghi vào "
+            f"{chu_chua_tru or so(chua_tru) + dv} quầy và kho không đủ để trừ — đã "
+            "ghi vào "
             "danh sách "
             "“Đã giao, chưa trừ kho”, gán lô ở kho hoặc quầy sau"
         )
@@ -1211,16 +1213,19 @@ class PharmacyService:
 
         Trả (dòng đơn sau khi cập nhật, các lô đã trừ, số CHƯA trừ được).
 
-        Lô được xét: đúng thuốc, đúng cơ sở của lượt, nằm ở QUẦY, còn tồn, còn
-        hạn (lô không hạn xếp cuối), CÙNG ĐƠN VỊ với dòng đơn hoặc đổi được qua
-        hệ số đã khai (`don_vi_thuoc.QuyDoiDong`: bán 1 hộp thì lô trừ 30 gói, lô
-        đổi không chẵn thì bỏ qua). Số lượng lấy tối đa theo `drug_batch_kha_dung`
-        (đã trừ phần giữ cho chuyển khoản chờ) và trừ thêm các lần giao CHƯA gán
-        lô của cùng thuốc, cơ sở: thuốc ấy đã rời kệ mà sổ chưa biết.
+        Lô được xét: đúng thuốc, đúng cơ sở của lượt, còn tồn, còn hạn (lô không
+        hạn xếp cuối), CÙNG ĐƠN VỊ với dòng đơn hoặc đổi được qua hệ số đã khai
+        (`don_vi_thuoc.QuyDoiDong`: bán 1 hộp thì lô trừ 30 gói, lô đổi không chẵn
+        thì bỏ qua). QUẦY trước; quầy không đủ thì phần còn lại trừ ở KHO, lô hạn
+        gần nhất (Tuyền 16/11/2026) — dòng sổ mang `LY_DO_LAY_TU_KHO`. Chưa tách
+        kho thì mọi lô ở QUẦY, hành vi như cũ. Số lượng lấy tối đa theo
+        `drug_batch_kha_dung` (đã trừ phần giữ cho chuyển khoản chờ) và trừ thêm
+        các lần giao CHƯA gán lô của cùng thuốc, cơ sở: thuốc ấy đã rời kệ mà sổ
+        chưa biết.
 
-        Thiếu lô / thiếu tồn / dòng đơn chưa rõ thuốc hoặc đơn vị thì phần còn
-        lại VẪN GIAO, ghi vào sổ chờ gán lô như trước (`_giao_khong_lo`) — giai
-        đoạn chưa nạp tồn thật không được làm kẹt quầy.
+        Cả quầy lẫn kho thiếu / dòng đơn chưa rõ thuốc hoặc đơn vị thì phần còn
+        lại VẪN GIAO, ghi vào sổ chờ gán lô (`_giao_khong_lo`) — thu tiền và
+        giao không bao giờ kẹt vì kho.
         """
         _kiem_khong_giao_qua_so_mua(don, luong)
         thuoc = don.get("drug_catalog_id")
@@ -1245,12 +1250,13 @@ class PharmacyService:
                 )
                 or identity.location_id
             )
-            # Khoá TRƯỚC khi đọc tồn (theo id tăng dần, như `khoa_lo`): hai lần
-            # giao cùng lúc xếp hàng ở đây thay vì cùng thấy một số tồn.
+            # Khoá TRƯỚC khi đọc tồn (theo id tăng dần, như `khoa_lo` và phiếu chuyển
+            # kho): hai lần giao cùng lúc xếp hàng ở đây thay vì cùng thấy một số tồn.
+            # Lô KHO cũng khoá: quầy thiếu thì lấy tiếp ở kho (Tuyền 16/11/2026).
             ung_vien = await conn.fetch(
                 "SELECT id::text AS id FROM public.drug_batch"
                 " WHERE clinic_id = $1::uuid AND drug_catalog_id = $2::uuid"
-                " AND location_id = $3::uuid AND noi_chua = 'QUAY'"
+                " AND location_id = $3::uuid AND noi_chua IN ('QUAY', 'KHO')"
                 " AND quantity_on_hand > 0",
                 identity.clinic_id,
                 thuoc,
@@ -1262,14 +1268,15 @@ class PharmacyService:
                 lo_ids=[r["id"] for r in ung_vien],
             )
             # Câu lệnh MỚI sau khoá: thấy số tồn người giao trước vừa ghi.
+            # QUẦY trước, rồi KHO; trong mỗi nơi lô hạn gần nhất (FEFO).
             lo = await conn.fetch(
-                "SELECT id::text AS id, batch_code, expiry_date, unit,"
+                "SELECT id::text AS id, batch_code, expiry_date, unit, noi_chua,"
                 " public.drug_batch_kha_dung(clinic_id, id) AS kha_dung"
                 " FROM public.drug_batch"
                 " WHERE clinic_id = $1::uuid AND id = ANY($2::uuid[])"
                 " AND quantity_on_hand > 0"
                 " AND (expiry_date IS NULL OR expiry_date >= $3::date)"
-                " ORDER BY expiry_date NULLS LAST, batch_code, id",
+                " ORDER BY noi_chua = 'KHO', expiry_date NULLS LAST, batch_code, id",
                 identity.clinic_id,
                 [r["id"] for r in ung_vien],
                 now_vn().date(),
@@ -1309,12 +1316,24 @@ class PharmacyService:
                 ),
                 Decimal(0),
             )
-            san = sum((b["san"] for b in lo), Decimal(0))
-            san = max(san - cho_gan, Decimal(0))
+            # Thuốc chờ gán lô đã rời KỆ QUẦY mà sổ chưa biết: trừ vào số quầy trước;
+            # phần vượt quầy (quầy đã âm thật) trừ tiếp vào kho để lúc gán lô sau
+            # không thiếu.
+            san_quay = sum(
+                (b["san"] for b in lo if b["noi_chua"] == "QUAY"), Decimal(0)
+            )
+            san_kho = sum((b["san"] for b in lo if b["noi_chua"] == "KHO"), Decimal(0))
+            san = {
+                "QUAY": max(san_quay - cho_gan, Decimal(0)),
+                "KHO": max(san_kho - max(cho_gan - san_quay, Decimal(0)), Decimal(0)),
+            }
             for b in lo:
-                if con <= 0 or san <= 0:
+                noi = b["noi_chua"]
+                if con <= 0:
                     break
-                lay = min(con, san, b["san"])
+                if san.get(noi, Decimal(0)) <= 0:
+                    continue
+                lay = min(con, san[noi], b["san"])
                 tru_lo = doi.so_lo(lay, b["unit"]) if lay > 0 else None
                 if not tru_lo:
                     continue
@@ -1324,7 +1343,9 @@ class PharmacyService:
                     drug_batch_id=b["id"],
                     txn_type=CAP,
                     quantity=-tru_lo,
-                    reason=None,
+                    # Dấu cho chốt `lo_o_kho` (migration 20261116150000) và lời
+                    # hiện ở "Theo dõi thuốc": lần giao này lấy ở KHO.
+                    reason=LY_DO_LAY_TU_KHO if noi == "KHO" else None,
                     ref_type="prescription",
                     ref_id=prescription_id,
                 )
@@ -1335,10 +1356,11 @@ class PharmacyService:
                         "expiry_date": b["expiry_date"],
                         "so_luong": tru_lo,
                         "don_vi": b["unit"],
+                        "noi_chua": noi,
                     }
                 )
                 con -= lay
-                san -= lay
+                san[noi] -= lay
             if lo_da_tru:
                 # 5/30 hộp còn lại = 0,166667: đủ đổi lại đúng 5 gói lúc gán lô.
                 con = con.quantize(SAU_SO_LE)
@@ -1369,6 +1391,7 @@ class PharmacyService:
                     aggregate_id=prescription_id,
                     payload={
                         "drug_batch_id": x["drug_batch_id"],
+                        "noi_chua": x["noi_chua"],
                         "tu_chon_lo": True,
                         "quantity": str(x["so_luong"]),
                         "dispensed_qty": str(moi["dispensed_qty"]),
@@ -3669,6 +3692,9 @@ _SQL_GHI_SO = """
 
 
 NOI_KHO_DANG_O = "Lô này đang ở KHO — chuyển sang quầy rồi mới bán / giao."
+#: `reason` của dòng DISPENSE trên lô KHO khi quầy không đủ. Chốt `lo_o_kho`
+#: (migration 20261116150000) so ĐÚNG chuỗi này — đổi chữ phải đổi cả migration.
+LY_DO_LAY_TU_KHO = "Quầy không đủ — lấy từ kho"
 
 
 async def tach_kho_quay_bat(conn: Any, identity: StaffIdentity) -> bool:

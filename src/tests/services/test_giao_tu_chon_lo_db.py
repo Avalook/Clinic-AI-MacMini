@@ -136,7 +136,7 @@ async def test_kho_chua_co_lo_nao_giao_het_vao_danh_sach_cho(q: Quay) -> None:
     assert [float(d["so_luong"]) for d in await _cho(q, rx)] == [6.0]
 
 
-async def test_khong_tu_chon_lo_het_han_khac_don_vi_hay_o_kho(q: Quay) -> None:
+async def test_khong_tu_chon_lo_het_han_khac_don_vi_quay_het_lay_kho(q: Quay) -> None:
     rx, drug = await _dong_da_xac_dinh(q, 4)
     het_han = await _nhap_lo(q, drug, 50)
     hop = await _nhap_lo(q, drug, 50, don_vi="hộp")
@@ -154,9 +154,11 @@ async def test_khong_tu_chon_lo_het_han_khac_don_vi_hay_o_kho(q: Quay) -> None:
 
     kq = await _giao(q, rx, 4)
 
-    for lo in (het_han, hop, o_kho):
-        assert await _ton(q, lo) == 50, "B4: không lô nào trong ba lô này bị trừ"
-    assert float(kq["chua_tru_kho"]) == 4, "không có lô hợp lệ → chờ gán lô"
+    for lo in (het_han, hop):
+        assert await _ton(q, lo) == 50, "B4: lô hết hạn / khác đơn vị không bị trừ"
+    # Quầy không có lô hợp lệ → lấy ở KHO, lô còn hạn (Tuyền 16/11/2026).
+    assert await _ton(q, o_kho) == 46
+    assert float(kq["chua_tru_kho"]) == 0
 
 
 async def test_hai_lan_giao_cung_luc_khong_tru_qua_ton(q: Quay) -> None:

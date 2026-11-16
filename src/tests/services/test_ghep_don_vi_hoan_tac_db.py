@@ -101,6 +101,55 @@ async def test_ban_hop_quay_thieu_gan_lo_tu_kho_va_cau_bao_de_doc(co: Co) -> Non
     await _bat(co)
     drug = await _thuoc_goi(co.q)
     svc = PharmacyService(co.q.pool)
+    ma_lo = f"LO-{uuid.uuid4().hex[:8]}"
+
+    async def nhap(so: int) -> str:
+        kq = await svc.nhap_lo(
+            identity=co.ds,
+            drug_catalog_id=drug,
+            so_luong=so,
+            batch_code=ma_lo,
+            expiry_date=hom_nay_vn() + timedelta(days=400),
+            unit="gói",
+        )
+        return str(kq["drug_batch_id"])
+
+    # Quầy thiếu thì máy lấy tiếp ở kho (16/11/2026). Bài này kiểm đường GÁN LÔ từ
+    # kho theo quy đổi, nên lúc giao kho trống (cả hai không đủ → chờ gán), hàng kho
+    # về sau, cùng số lô.
+    lo_kho = await nhap(29)
+    await _chuyen(co, lo_kho, 29, ly_do=None)
+    rx = await _ban(co.q, drug, "1 hộp")
+    await _thu(co.q)
+
+    kq = await svc.cap_phat(
+        identity=co.ds, prescription_id=rx, drug_batch_id=None, so_luong=1
+    )
+    assert "1 gói quầy và kho không đủ" in kq["tom_tat"]
+    assert await nhap(30) == lo_kho
+
+    td = await theo_doi.theo_doi_thuoc(co.q.pool, identity=co.ds, thuoc=drug)
+    goi = next(x for x in td["dang_o_dau"]["tong"] if x["don_vi"] == "gói")
+    assert goi["cho_gan_lo"] == 1 and goi["tren_ke"] == 29, "kho 30 − 1 đã giao"
+
+    async def cho_cua_dong() -> list[dict[str, Any]]:
+        ds = (await svc.cho_gan_lo(identity=co.ds))["dong"]
+        return [d for d in ds if d["prescription_id"] == rx]
+
+    cho = await cho_cua_dong()
+    assert cho[0]["hien"] == "1 gói"
+    await svc.gan_lo_da_giao(identity=co.ds, dong_id=cho[0]["id"], drug_batch_id=lo_kho)
+
+    assert await _ton_noi(co, drug) == {"KHO": 29, "QUAY": 0}
+    assert not await cho_cua_dong()
+
+
+async def test_ban_hop_quay_thieu_lay_tiep_o_kho_theo_quy_doi(co: Co) -> None:
+    """Luật 16/11/2026: bán 1 hộp (30 gói), quầy 29 gói → 29 ở quầy, 1 gói ở KHO,
+    không vào chờ gán lô."""
+    await _bat(co)
+    drug = await _thuoc_goi(co.q)
+    svc = PharmacyService(co.q.pool)
     nhap = await svc.nhap_lo(
         identity=co.ds,
         drug_catalog_id=drug,
@@ -117,19 +166,8 @@ async def test_ban_hop_quay_thieu_gan_lo_tu_kho_va_cau_bao_de_doc(co: Co) -> Non
     kq = await svc.cap_phat(
         identity=co.ds, prescription_id=rx, drug_batch_id=None, so_luong=1
     )
-    assert "1 gói quầy không đủ" in kq["tom_tat"]
-
-    td = await theo_doi.theo_doi_thuoc(co.q.pool, identity=co.ds, thuoc=drug)
-    goi = next(x for x in td["dang_o_dau"]["tong"] if x["don_vi"] == "gói")
-    assert goi["cho_gan_lo"] == 1 and goi["tren_ke"] == 29, "kho 30 − 1 đã giao"
-
-    async def cho_cua_dong() -> list[dict[str, Any]]:
-        ds = (await svc.cho_gan_lo(identity=co.ds))["dong"]
-        return [d for d in ds if d["prescription_id"] == rx]
-
-    cho = await cho_cua_dong()
-    assert cho[0]["hien"] == "1 gói"
-    await svc.gan_lo_da_giao(identity=co.ds, dong_id=cho[0]["id"], drug_batch_id=lo_kho)
-
+    assert "trừ 1 gói" in kq["tom_tat"] and "ở KHO" in kq["tom_tat"]
+    assert float(kq["chua_tru_kho"]) == 0
     assert await _ton_noi(co, drug) == {"KHO": 29, "QUAY": 0}
-    assert not await cho_cua_dong()
+    ds = (await svc.cho_gan_lo(identity=co.ds))["dong"]
+    assert not [d for d in ds if d["prescription_id"] == rx]

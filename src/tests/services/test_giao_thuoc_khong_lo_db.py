@@ -181,14 +181,15 @@ async def _kha_dung(q: Quay, lo: str) -> tuple[float, float]:
 
 async def test_giao_tru_kha_dung_gan_lo_kho_sau_khong_tru_hai_lan(q: Quay) -> None:
     rx, drug = await _dong_da_xac_dinh(q, 8)
+    await _thu(q)
+    # Giao lúc quầy lẫn kho chưa có lô → chờ gán lô (16/11/2026: kho còn hàng thì
+    # máy đã tự lấy ở kho, không còn chờ gán). Lô kho nhập SAU khi giao.
+    await _giao_khong_lo(q, rx, 8)
     lo = await _nhap_lo(q, drug, 30)
     async with q.pool.acquire() as conn:
         await conn.execute(
             "UPDATE drug_batch SET noi_chua = 'KHO' WHERE id = $1::uuid", lo
         )
-    await _thu(q)
-    assert await _kha_dung(q, lo) == (30, 0)
-    await _giao_khong_lo(q, rx, 8)
     assert await _ton(q, lo) == 30  # chưa bịa lô
     assert await _kha_dung(q, lo) == (22, 8)
     dong = next(d for d in await _cho(q) if d["prescription_id"] == rx)
@@ -298,10 +299,10 @@ async def test_khach_tra_lo_kho_hoan_tien_va_cach_ly(q: Quay) -> None:
     async with q.pool.acquire() as conn:
         await conn.execute("UPDATE drug_batch SET noi_chua='KHO' WHERE id=$1::uuid", lo)
     await _thu(q)
+    # Quầy không có lô → máy tự lấy ở KHO (16/11/2026), không qua chờ gán lô.
     await _giao_khong_lo(q, rx, 8)
+    assert await _ton(q, lo) == 22
     svc = PharmacyService(q.pool)
-    dong = next(d for d in await _cho(q) if d["prescription_id"] == rx)
-    await svc.gan_lo_da_giao(identity=q.duoc_si, dong_id=dong["id"], drug_batch_id=lo)
     kq = await svc.khach_tra_thuoc(
         identity=q.duoc_si,
         dispense_txn_id=await _xuat(q, rx),

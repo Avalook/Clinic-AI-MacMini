@@ -8,8 +8,8 @@ Bất biến (bấm ngẫu nhiên 40 hạt × 10 bước, lệnh thật):
   (1) tồn MỖI HÀNG (lô × nơi chứa) = cộng dồn sổ vật lý của hàng ấy, ≥ 0;
   (2) chỉ CHUYỂN thì tổng KHO + QUẦY của thuốc không đổi;
   (3) tổng mọi hàng của thuốc = tồn "cơ sở cũ" = cộng dồn sổ KHÔNG tính chuyển;
-  (4) giao mới không có lô giữ guard QUẦY; chỉ đối chiếu giao thật mới cho
-      ghi DISPENSE ở KHO và phải khớp đúng dòng chờ gán lô;
+  (4) KHO không bao giờ bán; DISPENSE ở KHO chỉ khi quầy không đủ (dấu "lấy từ
+      kho", 16/11/2026) hoặc đối chiếu khớp đúng dòng chờ gán lô;
   (5) hai hàng cùng số lô là CÙNG lô: cùng thuốc, hạn, đơn vị, mã tem.
 """
 
@@ -33,7 +33,7 @@ from clinicai.core.clock import hom_nay_vn
 from clinicai.services import ban_thuoc_service, lo_thuoc_service
 from clinicai.services import kho_thuoc_service as kho
 from clinicai.services import ma_vach_service as mv
-from clinicai.services.pharmacy_service import PharmacyService
+from clinicai.services.pharmacy_service import LY_DO_LAY_TU_KHO, PharmacyService
 from tests.services.test_kho_kiotviet_db import _thuoc_moi
 from tests.services.test_luot_kham_service_db import CLINIC
 from tests.services.test_tien_thuoc_cp1_db import Quay, _nhap_lo, q  # noqa: F401
@@ -400,13 +400,14 @@ async def test_khach_tra_thuoc_ve_quay_khong_ve_kho(co: Co) -> None:
 async def test_giao_khong_lo_duoc_doi_chieu_vao_lo_kho_hay_quay(co: Co) -> None:
     rx, drug = await _don(co, 2)
     await _bat(co)
-    kho_lo = await _nhap_kho(co, drug, 10)
     await _thu(co.q)
     svc = PharmacyService(co.q.pool)
-    # Quầy chưa có lô nào (hàng còn ở KHO) → máy không tự chọn được → chờ gán lô.
+    # Quầy lẫn kho chưa có lô nào → máy không tự chọn được → chờ gán lô. (Kho còn
+    # hàng thì máy đã lấy ở kho — 16/11/2026 — nên lô kho nhập SAU khi giao.)
     await svc.cap_phat(
         identity=co.ds, prescription_id=rx, drug_batch_id=None, so_luong=2
     )
+    kho_lo = await _nhap_kho(co, drug, 10)
     quay = _id_dich(await _chuyen(co, kho_lo, 5))
     dong = await co.q.pool.fetchval(
         "SELECT id::text FROM thuoc_giao_chua_gan_lo WHERE prescription_id=$1::uuid",
@@ -521,12 +522,24 @@ async def _bat_bien(co: Co, thuoc: list[str], trace: tuple[str, ...]) -> None:
             [x for x in kho.LOAI_VAT_LY if not x.startswith("CHUYEN")],
         )
         assert tong == so_cu, (d, tong, so_cu, trace)
-    sai = await pool.fetchval(  # (4)
+    # (4) Ở KHO: không bao giờ bán; giao chỉ khi quầy không đủ (dấu "lấy từ kho",
+    # 16/11/2026) hoặc gán lô cho lần giao chờ gán; khách trả chỉ về đúng lô kho đã
+    # giao. Dấu "lấy từ kho" không bao giờ nằm trên lô QUẦY.
+    sai = await pool.fetchval(
         "SELECT count(*) FROM inventory_txn t JOIN drug_batch b"
         " ON b.id = t.drug_batch_id"
-        " WHERE b.drug_catalog_id = ANY($1::uuid[]) AND b.noi_chua = 'KHO'"
-        " AND t.txn_type IN ('DISPENSE', 'RETURN_RECEIVED', 'SALE')",
+        " WHERE b.drug_catalog_id = ANY($1::uuid[]) AND ("
+        "  (b.noi_chua = 'KHO' AND (t.txn_type = 'SALE'"
+        "   OR (t.txn_type = 'DISPENSE' AND t.reason IS DISTINCT FROM $2"
+        "       AND NOT EXISTS (SELECT 1 FROM thuoc_giao_chua_gan_lo g"
+        "                        WHERE g.inventory_txn_id = t.id))"
+        "   OR (t.txn_type = 'RETURN_RECEIVED' AND NOT EXISTS ("
+        "       SELECT 1 FROM drug_return r JOIN inventory_txn x"
+        "         ON x.id = r.original_dispense_txn_id"
+        "        WHERE r.id = t.ref_id AND x.drug_batch_id = t.drug_batch_id))))"
+        "  OR (b.noi_chua = 'QUAY' AND t.txn_type = 'DISPENSE' AND t.reason = $2))",
         thuoc,
+        LY_DO_LAY_TU_KHO,
     )
     assert sai == 0, trace
     lech = await pool.fetchval(  # (5)

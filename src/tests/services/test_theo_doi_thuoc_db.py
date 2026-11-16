@@ -74,6 +74,13 @@ async def _vong_doi(co: Co) -> Vong:
     svc = PharmacyService(pool)
     rx, drug = await _dong_da_xac_dinh(co.q, 8)
     await _bat(co)
+    # Giao 2 lúc quầy lẫn kho chưa có hàng → chờ gán lô, kho chưa trừ. (Kho còn
+    # hàng thì máy đã tự lấy ở kho — 16/11/2026 — nên phải giao TRƯỚC khi nhập.)
+    await _thu(co.q)
+    for _ in range(2):
+        await svc.cap_phat(
+            identity=co.ds, prescription_id=rx, drug_batch_id=None, so_luong=1
+        )
     ma_lo = f"LO-{uuid.uuid4().hex[:10]}"
     kho_lo = await _nhap_kho(co, drug, 30, ma=ma_lo)
     await kho.kiem_kho(
@@ -125,7 +132,6 @@ async def _vong_doi(co: Co) -> Vong:
     )
 
     # Giao 3, trả 3 lần: một bán lại, một huỷ, một còn chờ kiểm.
-    await _thu(co.q)
     await svc.cap_phat(
         identity=co.ds, prescription_id=rx, drug_batch_id=quay, so_luong=3
     )
@@ -154,15 +160,12 @@ async def _vong_doi(co: Co) -> Vong:
         identity=co.ds, drug_return_id=tra[1], quyet_dinh="HUY", ly_do="Đã mở hộp"
     )
 
-    # Rút hết phần bán được về kho → giao nữa thì chờ gán lô, kho chưa trừ.
+    # Rút phần bán được về kho (trừ 2 viên đã giao chờ gán — đã rời kệ quầy); gán
+    # một lần giao chờ ở đầu vào lô kho.
     con = await pool.fetchval(
         "SELECT public.drug_batch_kha_dung($1::uuid, $2::uuid)", co.ds.clinic_id, quay
     )
-    await _chuyen(co, quay, con, huong="QUAY_KHO")
-    for _ in range(2):
-        await svc.cap_phat(
-            identity=co.ds, prescription_id=rx, drug_batch_id=None, so_luong=1
-        )
+    await _chuyen(co, quay, con - 2, huong="QUAY_KHO")
     dong = await pool.fetchval(
         "SELECT id::text FROM thuoc_giao_chua_gan_lo WHERE prescription_id = $1::uuid"
         " ORDER BY giao_luc LIMIT 1",
