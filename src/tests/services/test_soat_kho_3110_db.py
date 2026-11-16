@@ -37,6 +37,12 @@ pytest_plugins = ["tests.services.test_luot_kham_service_db"]
 pytestmark = [pytest.mark.db, pytest.mark.asyncio]
 
 
+@pytest.fixture(autouse=True)
+def _khong_tu_giao_khi_thu(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Bài kiểm nút Giao (còn sống cho lượt cũ / dòng bị bỏ qua) → tắt tự giao.
+    monkeypatch.setenv("CLINICAI_TU_GIAO_KHI_THU", "0")
+
+
 async def test_1_hoan_tac_1_goi_khong_giam_da_giao(q: Quay) -> None:
     """Bán 1 hộp (30 gói): lô A còn 1 gói hạn sớm, lô B 59. Hoàn tác lần giao 1 gói."""
     drug = await _thuoc_goi(q)

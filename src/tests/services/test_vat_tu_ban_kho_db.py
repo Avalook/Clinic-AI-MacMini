@@ -81,6 +81,13 @@ from tests.services.test_tien_thuoc_cp1_db import Quay, tao_quay
 
 pytestmark = [pytest.mark.db, pytest.mark.asyncio]
 
+
+@pytest.fixture(autouse=True)
+def _khong_tu_giao_khi_thu(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Bài kiểm nút Giao (còn sống cho lượt cũ / dòng bị bỏ qua) → tắt tự giao.
+    monkeypatch.setenv("CLINICAI_TU_GIAO_KHI_THU", "0")
+
+
 GIA_VON = 70_000
 
 
