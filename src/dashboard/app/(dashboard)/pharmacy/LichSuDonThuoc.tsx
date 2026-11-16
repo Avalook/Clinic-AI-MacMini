@@ -207,9 +207,10 @@ function TheDon({
             </ul>
           ) : null}
           <ul className="divide-y divide-line rounded-control border border-line">
-            {don.dong.map((d) => (
+            {don.dong.map((d, i) => (
               <li
-                key={d.drug_catalog_id ?? d.ten}
+                // Thuốc chưa gắn kho: mỗi dòng kê một mục, hai dòng cùng tên (hay cùng "—") được.
+                key={d.drug_catalog_id ?? `rx-${i}-${d.ten}`}
                 className="flex flex-wrap items-center gap-x-3 gap-y-1 px-3 py-2"
               >
                 <span className="min-w-0 flex-1 basis-40">

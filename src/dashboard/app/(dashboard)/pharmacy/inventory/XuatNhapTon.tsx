@@ -184,7 +184,8 @@ export default function XuatNhapTon({ onXemThe }: { onXemThe: (id: string) => vo
               </tr>
             ) : (
               dong.map((d) => (
-                <tr key={`${d.drug_catalog_id}|${d.don_vi ?? ""}`}>
+                // Đơn vị NULL và "" là hai nhóm riêng ở máy chủ → không gộp chúng trong key.
+                <tr key={`${d.drug_catalog_id}|${d.don_vi ?? "∅"}`}>
                   <td className="px-3 py-2">
                     <button
                       type="button"

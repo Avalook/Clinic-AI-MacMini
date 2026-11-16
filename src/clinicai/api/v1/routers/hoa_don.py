@@ -73,7 +73,9 @@ def _doc_ghi_de(raw: str | None) -> dict[str, str]:
     """`{"id dòng": "thuế suất"}` gõ tay lúc xuất; rác → rỗng (không ném)."""
     try:
         v = json.loads(raw) if raw else {}
-    except (ValueError, TypeError):
+    except (ValueError, TypeError, RecursionError):
+        # RecursionError: JSON lồng rất sâu ("[[[[…") làm json.loads tràn ngăn
+        # xếp — không bắt thì thành 500.
         return {}
     if not isinstance(v, dict) or len(v) > 2000:
         return {}
