@@ -21,6 +21,7 @@ from clinicai.api.exceptions import ConflictError, NotFoundError, ValidationErro
 from clinicai.api.identity import ClinicRole, StaffIdentity
 from clinicai.permissions.can import doi_quyen
 from clinicai.services.audit import record_event
+from clinicai.services.bac_si_phu_trach import VAI_BAC_SI
 from clinicai.services.thu_ky_bac_si import bac_si_cua_thu_ky
 
 logger = structlog.get_logger()
@@ -29,6 +30,42 @@ VAI_DOI_BAC_SI: frozenset[ClinicRole] = frozenset(
     {ClinicRole.TRUONG_CA, ClinicRole.MANAGEMENT}
 )
 _LUOT_CON_MO = ("OPEN", "IN_PROGRESS")
+
+# Một luật cho "ai làm BÁC SĨ của lượt được" — danh sách đổi, [Đổi bác sĩ], [Nhận].
+# Cần CẢ HAI:
+#  - quyền "Khám bệnh" + "Hoàn tất khám" (24/09: BS siêu âm thiếu khối mà được
+#    nhận thì khách kẹt — không ai bắt đầu/khép được);
+#  - VAI bác sĩ (18/11: trên prod mọi vai đều có hai quyền ấy để bấm Hoàn tất
+#    thay bác sĩ; ca tối 16/11 thư ký Sàn chậu bấm [Nhận] thành "bác sĩ" của
+#    lượt, vòng đọc kết quả rơi vào hàng không bàn nào hiện). Vai lấy từ
+#    `VAI_BAC_SI` (nguồn danh tính bác sĩ); MANAGEMENT thêm vì Tuyền 24/09 chốt
+#    quản lý có mặt trong danh sách đổi (nhóm riêng).
+# Ở đây chứ không ở bac_si_phu_trach.py vì tệp ấy đã quá trần 400 dòng (luật 5).
+_VAI_NHAN_LUOT = ", ".join(f"'{v}'" for v in (*VAI_BAC_SI, "MANAGEMENT"))
+_LA_BAC_SI_SQL = f"""
+    EXISTS (SELECT 1 FROM clinic_membership mb
+             WHERE mb.clinic_id = {{cid}} AND mb.staff_id = {{sid}} AND mb.is_active
+               AND mb.role IN ({_VAI_NHAN_LUOT}))
+    AND (SELECT count(DISTINCT q.capability) FROM v_quyen_hieu_luc q
+          WHERE q.clinic_id = {{cid}} AND q.staff_id = {{sid}}
+            AND q.capability IN ('clinical.consult.perform',
+                                 'clinical.consult.finalize')) = 2
+"""
+
+
+async def la_bac_si_kham(
+    conn: asyncpg.Connection, clinic_id: str, staff_id: str
+) -> bool:
+    """Người này làm bác sĩ của lượt được không (đang làm ở phòng khám này)."""
+    dieu_kien = _LA_BAC_SI_SQL.format(cid="$1::uuid", sid="s.id")
+    return bool(
+        await conn.fetchval(
+            f"SELECT EXISTS (SELECT 1 FROM staff s WHERE s.id = $2::uuid"
+            f" AND s.is_active AND {dieu_kien})",
+            clinic_id,
+            staff_id,
+        )
+    )
 
 
 class DoiBacSiService:
@@ -45,8 +82,9 @@ class DoiBacSiService:
         (có ca hôm nay) · ``BAC_SI_KHAC`` · ``QUAN_LY`` (chỉ có vai quản lý, không
         trực hôm nay). Nhóm chỉ để HIỂN THỊ — người được nhận vẫn do QUYỀN quyết.
         """
+        dieu_kien = _LA_BAC_SI_SQL.format(cid="m.clinic_id", sid="m.staff_id")
         rows = await self._pool.fetch(
-            """
+            f"""
             SELECT s.id::text AS id, s.full_name,
                    EXISTS (
                      SELECT 1 FROM work_roster w
@@ -58,14 +96,7 @@ class DoiBacSiService:
               FROM clinic_membership m
               JOIN staff s ON s.id = m.staff_id AND s.is_active
              WHERE m.clinic_id = $1::uuid AND m.is_active
-               -- Nhận làm BÁC SĨ PHỤ TRÁCH = khám được VÀ khép được lượt (quyền
-               -- "Khám bệnh" + "Hoàn tất khám"), không phải có tên vai bác sĩ
-               -- (24/09/2026: bác sĩ siêu âm thiếu khối bị đưa vào danh sách,
-               -- đổi sang là khách kẹt — mô phỏng 20 khách bắt được).
-               AND (SELECT count(DISTINCT q.capability) FROM v_quyen_hieu_luc q
-                     WHERE q.clinic_id = m.clinic_id AND q.staff_id = m.staff_id
-                       AND q.capability IN ('clinical.consult.perform',
-                                            'clinical.consult.finalize')) = 2
+               AND {dieu_kien}
              GROUP BY s.id, s.full_name
              ORDER BY s.full_name
             """,
@@ -135,27 +166,10 @@ class DoiBacSiService:
                 raise ValidationError("Lượt khám đã đóng — không chuyển bác sĩ được.")
             if visit["bac_si_cu"] == bac_si_moi_id:
                 raise ValidationError("Lượt khám đang ở chính bác sĩ này.")
-            la_bac_si = await conn.fetchval(
-                """
-                SELECT EXISTS (
-                    SELECT 1 FROM clinic_membership m
-                      JOIN staff s ON s.id = m.staff_id AND s.is_active
-                     WHERE m.clinic_id = $1::uuid AND m.staff_id = $2::uuid
-                       AND m.is_active
-                       AND (SELECT count(DISTINCT q.capability)
-                              FROM v_quyen_hieu_luc q
-                             WHERE q.clinic_id = m.clinic_id
-                               AND q.staff_id = m.staff_id
-                               AND q.capability IN ('clinical.consult.perform',
-                                                    'clinical.consult.finalize')) = 2)
-                """,
-                identity.clinic_id,
-                bac_si_moi_id,
-            )
-            if not la_bac_si:
+            if not await la_bac_si_kham(conn, identity.clinic_id, bac_si_moi_id):
                 raise ValidationError(
-                    "Người nhận không có đủ quyền Khám bệnh + Hoàn tất khám"
-                    " (hoặc không làm ở đây) — đổi sang người khám được."
+                    "Người nhận không phải bác sĩ khám được ở đây (cần vai bác sĩ"
+                    " + quyền Khám bệnh + Hoàn tất khám) — chọn bác sĩ khác."
                 )
 
             await conn.execute(
@@ -238,19 +252,16 @@ class DoiBacSiService:
     async def _bac_si_nhan(
         self, conn: asyncpg.Connection, identity: StaffIdentity
     ) -> str:
-        """Nhận cho ai: chính người bấm nếu là bác sĩ (Khám bệnh + Hoàn tất
-        khám); thư ký đã phân theo ĐÚNG MỘT bác sĩ → bác sĩ ấy."""
-        if await conn.fetchval(
-            "SELECT count(DISTINCT capability) = 2 FROM v_quyen_hieu_luc"
-            " WHERE clinic_id = $1::uuid AND staff_id = $2::uuid"
-            "   AND capability IN ('clinical.consult.perform',"
-            "                      'clinical.consult.finalize')",
-            identity.clinic_id,
-            identity.staff_id,
-        ):
+        """Nhận cho ai: chính người bấm nếu là bác sĩ (`la_bac_si_kham`); thư ký
+        đã phân theo ĐÚNG MỘT bác sĩ → bác sĩ ấy; còn lại từ chối."""
+        if await la_bac_si_kham(conn, identity.clinic_id, identity.staff_id):
             return identity.staff_id
         ds = await bac_si_cua_thu_ky(conn, identity)
-        if ds is not None and len(ds) == 1:
+        if (
+            ds is not None
+            and len(ds) == 1
+            and await la_bac_si_kham(conn, identity.clinic_id, ds[0])
+        ):
             return ds[0]
         raise ValidationError(
             "Chưa biết nhận khách cho bác sĩ nào — bác sĩ bấm Nhận, hoặc trưởng ca"
