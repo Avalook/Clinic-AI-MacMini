@@ -58,6 +58,32 @@ async def test_nguoi_khong_phai_bac_si_bam_nhan_thi_khong_thanh_bac_si(
     assert await _bac_si_cua_luot(pool, visit) == ca.bac_si.staff_id
 
 
+async def test_thu_ky_phan_dung_mot_bac_si_bam_nhan_thi_giao_bac_si_ay(
+    pool: asyncpg.Pool,  # noqa: F811
+) -> None:
+    """Thư ký đi cùng BS B bấm [Nhận] khách của BS A → khách về BS B."""
+    ca = await _dung(pool)
+    async with pool.acquire() as conn:
+        ql = await _nguoi(conn, ca.loc, "MANAGEMENT")
+        bs_b = await _nguoi(conn, ca.loc, "DOCTOR")
+        tk = await _nguoi(conn, ca.loc, "TKYK")
+        await conn.execute(
+            "INSERT INTO thu_ky_bac_si (clinic_id, thu_ky_staff_id, bac_si_staff_id)"
+            " VALUES ($1::uuid, $2::uuid, $3::uuid)",
+            tk.clinic_id,
+            tk.staff_id,
+            bs_b.staff_id,
+        )
+    for khoi in ("kham", "hoan_tat_kham"):
+        await PermissionService(pool).cap_khoi(
+            identity=ql, staff_id=tk.staff_id, khoi=khoi
+        )
+    visit = await _check_in(pool, ca, await _benh_nhan(pool, ca), ca.loai_kham)
+
+    await DoiBacSiService(pool).nhan_khach(identity=tk, visit_id=visit)
+    assert await _bac_si_cua_luot(pool, visit) == bs_b.staff_id
+
+
 async def test_doi_bac_si_khong_cho_chon_dieu_duong(
     pool: asyncpg.Pool,  # noqa: F811
 ) -> None:

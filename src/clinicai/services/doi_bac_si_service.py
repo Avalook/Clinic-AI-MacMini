@@ -21,6 +21,7 @@ from clinicai.api.exceptions import ConflictError, NotFoundError, ValidationErro
 from clinicai.api.identity import ClinicRole, StaffIdentity
 from clinicai.permissions.can import doi_quyen
 from clinicai.services.audit import record_event
+from clinicai.services.bac_si_phu_trach import VAI_BAC_SI
 from clinicai.services.thu_ky_bac_si import bac_si_cua_thu_ky
 
 logger = structlog.get_logger()
@@ -36,14 +37,17 @@ _LUOT_CON_MO = ("OPEN", "IN_PROGRESS")
 #    nhận thì khách kẹt — không ai bắt đầu/khép được);
 #  - VAI bác sĩ (18/11: trên prod mọi vai đều có hai quyền ấy để bấm Hoàn tất
 #    thay bác sĩ; ca tối 16/11 thư ký Sàn chậu bấm [Nhận] thành "bác sĩ" của
-#    lượt, vòng đọc kết quả rơi vào hàng không bàn nào hiện). MANAGEMENT giữ vì
-#    Tuyền 24/09 chốt quản lý có mặt (nhóm riêng).
-_LA_BAC_SI_SQL = """
+#    lượt, vòng đọc kết quả rơi vào hàng không bàn nào hiện). Vai lấy từ
+#    `VAI_BAC_SI` (nguồn danh tính bác sĩ); MANAGEMENT thêm vì Tuyền 24/09 chốt
+#    quản lý có mặt trong danh sách đổi (nhóm riêng).
+# Ở đây chứ không ở bac_si_phu_trach.py vì tệp ấy đã quá trần 400 dòng (luật 5).
+_VAI_NHAN_LUOT = ", ".join(f"'{v}'" for v in (*VAI_BAC_SI, "MANAGEMENT"))
+_LA_BAC_SI_SQL = f"""
     EXISTS (SELECT 1 FROM clinic_membership mb
-             WHERE mb.clinic_id = {cid} AND mb.staff_id = {sid} AND mb.is_active
-               AND mb.role IN ('DOCTOR', 'ULTRASOUND_DOCTOR', 'MANAGEMENT'))
+             WHERE mb.clinic_id = {{cid}} AND mb.staff_id = {{sid}} AND mb.is_active
+               AND mb.role IN ({_VAI_NHAN_LUOT}))
     AND (SELECT count(DISTINCT q.capability) FROM v_quyen_hieu_luc q
-          WHERE q.clinic_id = {cid} AND q.staff_id = {sid}
+          WHERE q.clinic_id = {{cid}} AND q.staff_id = {{sid}}
             AND q.capability IN ('clinical.consult.perform',
                                  'clinical.consult.finalize')) = 2
 """
@@ -253,7 +257,11 @@ class DoiBacSiService:
         if await la_bac_si_kham(conn, identity.clinic_id, identity.staff_id):
             return identity.staff_id
         ds = await bac_si_cua_thu_ky(conn, identity)
-        if ds is not None and len(ds) == 1:
+        if (
+            ds is not None
+            and len(ds) == 1
+            and await la_bac_si_kham(conn, identity.clinic_id, ds[0])
+        ):
             return ds[0]
         raise ValidationError(
             "Chưa biết nhận khách cho bác sĩ nào — bác sĩ bấm Nhận, hoặc trưởng ca"
