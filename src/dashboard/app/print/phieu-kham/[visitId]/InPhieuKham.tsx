@@ -10,8 +10,11 @@
 // nghề nghiệp…). Chân ký có TÊN bác sĩ của lượt.
 //
 // LÁT 5 (26/09/2026 — bản giao diện mẫu Tuyền duyệt): A4 (KieuInA4), ẨN ô /
-// nhóm / mục trống (trước in "—" cho từng ô, một phiếu vài chục dòng gạch) và
-// KHÔNG in khối tư vấn.
+// nhóm / mục trống (trước in "—" cho từng ô, một phiếu vài chục dòng gạch).
+//
+// MỤC A IN CẢ CHỮ BÁC SĨ TƯ VẤN GHI (Tuyền 18/11/2026). Trước đó mục A chỉ in ô
+// "Ghi chú bổ sung" của phiếu, nên phòng khám thấy khách có khách không: bác sĩ
+// ghi ở ô tư vấn thì bản in mất mục A dù màn khám vẫn hiện.
 //
 // HAI TRANG, BA MỤC (Tuyền 27/09/2026: "cấu trúc thành 2 trang, một trang in
 // ảnh và một trang in thông tin … tách thành 3 mục: Tóm tắt bệnh án, Đơn
@@ -34,6 +37,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 
 import Button from "@/components/ui/Button";
+import { ghiChuTuVanIn } from "@/lib/in-tu-van";
 import {
   NHAN_KET_QUA,
   anhInDuoc,
@@ -147,6 +151,20 @@ function KhoiO({ m, duLieu }: { m: MucPhieu; duLieu: Record<string, ONhap> }) {
               </table>
             ),
           )}
+        </div>
+      ))}
+    </dl>
+  );
+}
+
+function TuVanIn({ ds }: { ds: string[] }) {
+  if (ds.length === 0) return null;
+  return (
+    <dl className="space-y-1">
+      {ds.map((t, i) => (
+        <div key={i} className="in-giu grid grid-cols-[minmax(0,14rem)_minmax(0,1fr)] gap-2">
+          <dt className="text-ink-muted">Bác sĩ tư vấn ghi</dt>
+          <dd className="whitespace-pre-wrap">{t}</dd>
         </div>
       ))}
     </dl>
@@ -457,11 +475,14 @@ export default function InPhieuKham({
       const duLieu = phieu?.du_lieu ?? {};
       const coThuThuat = m.lien_ket?.loai === "chi_dinh_thu_thuat" && thuThuat.length > 0;
       const coO = m.block.some((o) => coNhap(duLieu[o.ma]));
-      if (!coThuThuat && !coO) return [];
+      // Mục A nhận ra bằng mã "A", y như màn khám (`PhieuKham.tsx`).
+      const tuVan = m.ma === "A" ? ghiChuTuVanIn(dau?.tu_van, m, duLieu) : [];
+      if (!coThuThuat && !coO && tuVan.length === 0) return [];
       return [
         <div key={m.ma} className="in-giu space-y-1">
           <h3 className="font-semibold text-ink">{m.ten}</h3>
           {coThuThuat ? <DsChiDinh ds={thuThuat} /> : null}
+          <TuVanIn ds={tuVan} />
           <KhoiO m={m} duLieu={duLieu} />
         </div>,
       ];
