@@ -462,6 +462,9 @@ FT `danh-sach-hoa-don-boundary.test.mts`, E2E `e2e/danh-sach-hoa-don.mjs` (API g
 → `S/xuat_hoa_don_service.py` (`dung_hoa_don` thuần, `xlsx_misa` đổ vào tệp mẫu
 `S/mau/hoa_don_gtgt_1_thue_suat.xlsx`, bỏ 8 dòng chữ hướng dẫn → tiêu đề dòng 1, dữ liệu dòng 2). Dùng lại `DanhSachHoaDonService.xem` (cùng cổng quyền).
 Mỗi phiếu thu trong kỳ = 1 hoá đơn; bỏ phiếu huỷ; trừ dòng đã hoàn xong; ô chưa có dữ liệu để trống.
+**Bác sĩ theo dòng (19/11):** `_THEM_DONG` lấy `bs_chi_dinh` (dịch vụ `service_order.authorized_by`, thuốc
+`prescription.bac_si_chinh_id`) + `bs_thuc_hien` (dịch vụ `bac_si_lam_id`, khám = bác sĩ phiên `PRIMARY`) — đúng máy ghi,
+không suy theo lịch; Excel thêm 2 cột NGOÀI mẫu R/S (`COT_BS_CHI_DINH`/`COT_BS_THUC_HIEN`), màn hiện dưới từng dòng (`DongHangGon`).
 Đổi mẫu = thay tệp `.xlsx` đó (tiêu đề cột ở dòng `TIEU_DE_MAU` = 9). Test `T/unit/test_xuat_hoa_don.py`,
 FT `xuat-hoa-don-boundary.test.mts`.
 **Kế toán — lego #22 + Theo hàng hoá (G5a, 14/10)** — quyền KHÔNG theo vai: khối `ke_toan` /

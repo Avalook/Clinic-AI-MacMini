@@ -15,7 +15,8 @@ Hai hàm đọc (không ghi gì), cùng một nguồn SQL với các màn liệt
   Lịch phòng tính theo NGÀY + GIỜ `luc` (lúc hoàn tất / lúc làm), không theo giờ
   in: in lại phiếu hôm trước phải ra bác sĩ hôm làm.
 * `bac_si_chi_dinh_hien_thi` — "BS chỉ định": ứng viên đầu tiên là bác sĩ trong
-  người duyệt, người ghi, bác sĩ chính của lượt, bác sĩ của lịch hẹn.
+  người duyệt, bác sĩ của phiên khám, người ghi, bác sĩ chính của lượt, bác sĩ
+  của lịch hẹn.
 """
 
 from __future__ import annotations
@@ -77,13 +78,23 @@ def _bac_si_luot_cua_chi_dinh(o: str) -> tuple[str, str]:
 
 def sql_join_bac_si_chi_dinh(o: str = "o", ten: str = "bscd") -> str:
     """``LEFT JOIN LATERAL`` gắn "BS chỉ định" của chỉ định `o` vào bí danh
-    `ten` (cột ``id``, ``full_name``). Thứ tự: người duyệt → người ghi → bác sĩ
-    chính của lượt → bác sĩ của lịch hẹn; chỉ lấy người là bác sĩ."""
+    `ten` (cột ``id``, ``full_name``). Thứ tự: người duyệt → bác sĩ của PHIÊN
+    KHÁM ra chỉ định → người ghi → bác sĩ chính của lượt → bác sĩ của lịch hẹn;
+    chỉ lấy người là bác sĩ.
+
+    Phiên khám đứng trước lượt (Tuyền 19/11/2026): thư ký / điều dưỡng ở bàn khám
+    bấm hộ thì máy ghi CHÍNH họ vào `authorized_by` (luật 23/09) — họ làm cho bác
+    sĩ của phiên; vòng đọc kết quả có thể là bác sĩ khác bác sĩ chính của lượt."""
     luot, lich = _bac_si_luot_cua_chi_dinh(o)
+    phien = (
+        "(SELECT cc.doctor_staff_id FROM public.consultation cc"
+        f"  WHERE cc.id = {o}.consultation_id AND cc.clinic_id = {o}.clinic_id)"
+    )
     return (
         "LEFT JOIN LATERAL ("
         + sql_bac_si_dau_tien(
-            [f"{o}.authorized_by", f"{o}.recorded_by", luot, lich], f"{o}.clinic_id"
+            [f"{o}.authorized_by", phien, f"{o}.recorded_by", luot, lich],
+            f"{o}.clinic_id",
         )
         + f") {ten} ON true"
     )
@@ -201,7 +212,8 @@ async def bac_si_chi_dinh_hien_thi(
     conn: asyncpg.Connection, clinic_id: str, service_order_id: str
 ) -> BacSi | None:
     """ "BS chỉ định" của chỉ định: ứng viên đầu tiên là bác sĩ trong người duyệt,
-    người ghi, bác sĩ chính của lượt, bác sĩ lịch hẹn. Không ai → None."""
+    bác sĩ phiên khám, người ghi, bác sĩ chính của lượt, bác sĩ lịch hẹn. Không
+    ai → None."""
     r = await conn.fetchrow(_BAC_SI_CHI_DINH_SQL, clinic_id, service_order_id)
     return BacSi(r["id"], r["full_name"]) if r else None
 
