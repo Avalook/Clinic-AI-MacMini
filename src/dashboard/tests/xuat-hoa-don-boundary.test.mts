@@ -16,8 +16,15 @@ test("màn chỉ chọn phạm vi + tải file; số tiền do máy chủ tính"
   assert.doesNotMatch(ui, /\.reduce\(/);
   assert.match(read("../app/api/xuat-hoa-don/route.ts"), /\/api\/v1\/hoa-don\/xuat\/xlsx/);
 });
-test("mỗi dòng hiện bác sĩ chỉ định + thực hiện do máy chủ trả (Tuyền 19/11)", () => {
+test("bảng máy tính có 2 CỘT bác sĩ, mỗi dòng hàng một hàng (Tuyền 19/11)", () => {
   const ui = read("../app/(dashboard)/xuat-hoa-don/XuatHoaDon.tsx");
-  assert.match(ui, /BS chỉ định: \{d\.bs_chi_dinh \|\| "—"\}/);
-  assert.match(ui, /BS thực hiện: \{d\.bs_thuc_hien \|\| "—"\}/);
+  // Tiêu đề: 2 cột bác sĩ đứng ngay sau "Hàng hoá / dịch vụ".
+  assert.match(ui, /"Hàng hoá \/ dịch vụ", "BS chỉ định", "BS thực hiện", "Thành tiền"/);
+  // Mỗi dòng hàng một <tr>, key duy nhất theo stt + vị trí (trùng key → DOM mồ côi, 16/11).
+  assert.match(ui, /key=\{`\$\{h\.stt\}-\$\{i\}`\}/);
+  assert.match(ui, /rowSpan=\{n\}/);
+  assert.match(ui, /\{d\.bs_chi_dinh \|\| <span/);
+  assert.match(ui, /\{d\.bs_thuc_hien \|\| <span/);
+  // Thẻ điện thoại vẫn hiện bác sĩ dưới từng dòng.
+  assert.match(ui, /BS chỉ định: \{d\.bs_chi_dinh \|\| "—"\} · BS thực hiện: \{d\.bs_thuc_hien \|\| "—"\}/);
 });

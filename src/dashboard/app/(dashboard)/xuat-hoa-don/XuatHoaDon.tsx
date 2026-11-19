@@ -47,27 +47,33 @@ function OLoc({ ten, children }: { ten: string; children: ReactNode }) {
   );
 }
 
-function DongHangGon({ dong, ghiDe, onThue }: {
-  dong: DongHang[]; ghiDe: Record<string, string>; onThue: (id: string, ma: string) => void;
-}) {
+type SuaThue = { ghiDe: Record<string, string>; onThue: (id: string, ma: string) => void };
+
+/** Một dòng hàng: tên + ô thuế. `bacSi` = hiện bác sĩ ngay dưới (thẻ điện thoại);
+ *  bảng máy tính để bác sĩ ở 2 cột riêng nên không hiện ở đây. */
+function DongHangMot({ d, ghiDe, onThue, bacSi }: SuaThue & { d: DongHang; bacSi: boolean }) {
+  return (
+    <div className="text-body text-ink">
+      {d.ten} <span className="text-meta text-ink-muted">· {d.so_luong} {d.dvt || ""} × {d.don_gia.toLocaleString("vi-VN")}</span>
+      {bacSi ? <span className="block text-meta text-ink-muted">BS chỉ định: {d.bs_chi_dinh || "—"} · BS thực hiện: {d.bs_thuc_hien || "—"}</span> : null}
+      <span className="flex flex-wrap items-center gap-2 text-meta text-ink-muted">
+        Thuế: {tenThueSuat(d.thue_suat) || "chưa đặt"}{d.thue_nguon ? ` (${TEN_NGUON_THUE[d.thue_nguon] ?? d.thue_nguon})` : ""}
+        {d.thanh_tien >= 0 ? (
+          <OChon aria-label={`Sửa thuế suất dòng ${d.ten}`} className="w-44" value={ghiDe[d.id] ?? ""}
+            onChange={e => onThue(d.id, e.target.value)}>
+            <option value="">Theo cài đặt</option>
+            {MUC_THUE.map(([m, ten]) => <option key={m} value={m}>{ten}</option>)}
+          </OChon>
+        ) : null}
+      </span>
+    </div>
+  );
+}
+
+function DongHangGon({ dong, ghiDe, onThue }: SuaThue & { dong: DongHang[] }) {
   return (
     <ul className="space-y-1">
-      {dong.map((d, i) => (
-        <li key={i} className="text-body text-ink">
-          {d.ten} <span className="text-meta text-ink-muted">· {d.so_luong} {d.dvt || ""} × {d.don_gia.toLocaleString("vi-VN")}</span>
-          <span className="block text-meta text-ink-muted">BS chỉ định: {d.bs_chi_dinh || "—"} · BS thực hiện: {d.bs_thuc_hien || "—"}</span>
-          <span className="flex flex-wrap items-center gap-2 text-meta text-ink-muted">
-            Thuế: {tenThueSuat(d.thue_suat) || "chưa đặt"}{d.thue_nguon ? ` (${TEN_NGUON_THUE[d.thue_nguon] ?? d.thue_nguon})` : ""}
-            {d.thanh_tien >= 0 ? (
-              <OChon aria-label={`Sửa thuế suất dòng ${d.ten}`} className="w-44" value={ghiDe[d.id] ?? ""}
-                onChange={e => onThue(d.id, e.target.value)}>
-                <option value="">Theo cài đặt</option>
-                {MUC_THUE.map(([m, ten]) => <option key={m} value={m}>{ten}</option>)}
-              </OChon>
-            ) : null}
-          </span>
-        </li>
-      ))}
+      {dong.map((d, i) => <li key={i}><DongHangMot d={d} ghiDe={ghiDe} onThue={onThue} bacSi /></li>)}
     </ul>
   );
 }
@@ -208,26 +214,40 @@ export default function XuatHoaDon({ coSo }: { coSo: CoSo[] }) {
               <table className="w-full text-body">
                 <thead className="bg-surface-muted text-left text-meta text-ink-muted">
                   <tr>
-                    {["STT", "Ngày", "Khách hàng", "Hình thức", "Hàng hoá / dịch vụ", "Thành tiền", "Ghi chú"].map((t, i) => (
-                      <th key={t} className={`px-3 py-2 font-semibold ${i === 0 || i === 5 ? "text-right" : ""}`}>{t}</th>
+                    {["STT", "Ngày", "Khách hàng", "Hình thức", "Hàng hoá / dịch vụ", "BS chỉ định", "BS thực hiện", "Thành tiền", "Ghi chú"].map((t, i) => (
+                      <th key={t} className={`px-3 py-2 font-semibold ${i === 0 || i === 7 ? "text-right" : ""}`}>{t}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
-                  {/* key = stt, KHÔNG ma_phieu: phiếu tách theo thuế suất thành nhiều hoá
-                      đơn cùng mã phiếu → trùng key, đổi bộ lọc thì React giữ lại hàng của
-                      danh sách cũ (dịch vụ hiện dưới "Thuốc"). Máy chủ đánh stt duy nhất. */}
-                  {ds.map(h => (
-                    <tr key={h.stt} className="border-t border-hairline align-top">
-                      <td className="px-3 py-3 text-right tabular-nums">{h.stt}</td>
-                      <td className="whitespace-nowrap px-3 py-3 tabular-nums">{h.ngay}<span className="block text-meta text-ink-muted">{h.ma_phieu}</span></td>
-                      <td className="px-3 py-3"><KhachHang h={h} /></td>
-                      <td className="whitespace-nowrap px-3 py-3">{h.hinh_thuc || "—"}</td>
-                      <td className="px-3 py-3"><DongHangGon dong={h.dong} ghiDe={ghiDe} onThue={datThueDong} /></td>
-                      <td className="whitespace-nowrap px-3 py-3 text-right tabular-nums">{tien(h.tong)}{h.tien_thue !== null ? <span className="block text-meta text-ink-muted">Thuế {tenThueSuat(h.thue_suat_ma) || "nhiều mức"}: {tien(h.tien_thue)}</span> : null}</td>
-                      <td className="px-3 py-3"><GhiChu h={h} /></td>
-                    </tr>
-                  ))}
+                  {/* Mỗi dòng hàng một <tr> (để 2 cột bác sĩ thẳng hàng với dòng hàng);
+                      ô của hoá đơn rowSpan theo số dòng. key = stt-i, KHÔNG ma_phieu: phiếu
+                      tách theo thuế suất thành nhiều hoá đơn cùng mã phiếu → trùng key, đổi
+                      bộ lọc thì React giữ lại hàng của danh sách cũ. Máy chủ đánh stt duy nhất. */}
+                  {ds.flatMap(h => h.dong.map((d, i) => {
+                    const n = h.dong.length;
+                    return (
+                      <tr key={`${h.stt}-${i}`} className={`align-top ${i === 0 ? "border-t border-hairline" : ""}`}>
+                        {i === 0 ? (
+                          <>
+                            <td rowSpan={n} className="px-3 py-3 text-right tabular-nums">{h.stt}</td>
+                            <td rowSpan={n} className="whitespace-nowrap px-3 py-3 tabular-nums">{h.ngay}<span className="block text-meta text-ink-muted">{h.ma_phieu}</span></td>
+                            <td rowSpan={n} className="px-3 py-3"><KhachHang h={h} /></td>
+                            <td rowSpan={n} className="whitespace-nowrap px-3 py-3">{h.hinh_thuc || "—"}</td>
+                          </>
+                        ) : null}
+                        <td className="px-3 py-2"><DongHangMot d={d} ghiDe={ghiDe} onThue={datThueDong} bacSi={false} /></td>
+                        <td className="px-3 py-2">{d.bs_chi_dinh || <span className="text-ink-muted">—</span>}</td>
+                        <td className="px-3 py-2">{d.bs_thuc_hien || <span className="text-ink-muted">—</span>}</td>
+                        {i === 0 ? (
+                          <>
+                            <td rowSpan={n} className="whitespace-nowrap px-3 py-3 text-right tabular-nums">{tien(h.tong)}{h.tien_thue !== null ? <span className="block text-meta text-ink-muted">Thuế {tenThueSuat(h.thue_suat_ma) || "nhiều mức"}: {tien(h.tien_thue)}</span> : null}</td>
+                            <td rowSpan={n} className="px-3 py-3"><GhiChu h={h} /></td>
+                          </>
+                        ) : null}
+                      </tr>
+                    );
+                  }))}
                 </tbody>
               </table>
             </div>
