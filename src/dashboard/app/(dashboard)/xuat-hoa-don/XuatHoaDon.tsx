@@ -22,6 +22,8 @@ type DongHang = {
   id: string; ten: string; dvt: string; so_luong: number; don_gia: number; thanh_tien: number;
   /** Thuế suất của dòng + tầng quyết định (sửa tay / mặt hàng / nhóm) — máy chủ tính. */
   thue_suat: string | null; thue_nguon: string | null;
+  /** Bác sĩ của dòng như máy đã ghi (rỗng = chưa ghi) — cũng ra cột R, S file Excel. */
+  bs_chi_dinh: string; bs_thuc_hien: string;
 };
 type HoaDon = {
   stt: number; ma_phieu: string; kind: string; ngay: string; ten_khach: string; ma_bn: string | null;
@@ -53,6 +55,7 @@ function DongHangGon({ dong, ghiDe, onThue }: {
       {dong.map((d, i) => (
         <li key={i} className="text-body text-ink">
           {d.ten} <span className="text-meta text-ink-muted">· {d.so_luong} {d.dvt || ""} × {d.don_gia.toLocaleString("vi-VN")}</span>
+          <span className="block text-meta text-ink-muted">BS chỉ định: {d.bs_chi_dinh || "—"} · BS thực hiện: {d.bs_thuc_hien || "—"}</span>
           <span className="flex flex-wrap items-center gap-2 text-meta text-ink-muted">
             Thuế: {tenThueSuat(d.thue_suat) || "chưa đặt"}{d.thue_nguon ? ` (${TEN_NGUON_THUE[d.thue_nguon] ?? d.thue_nguon})` : ""}
             {d.thanh_tien >= 0 ? (

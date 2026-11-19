@@ -16,3 +16,8 @@ test("màn chỉ chọn phạm vi + tải file; số tiền do máy chủ tính"
   assert.doesNotMatch(ui, /\.reduce\(/);
   assert.match(read("../app/api/xuat-hoa-don/route.ts"), /\/api\/v1\/hoa-don\/xuat\/xlsx/);
 });
+test("mỗi dòng hiện bác sĩ chỉ định + thực hiện do máy chủ trả (Tuyền 19/11)", () => {
+  const ui = read("../app/(dashboard)/xuat-hoa-don/XuatHoaDon.tsx");
+  assert.match(ui, /BS chỉ định: \{d\.bs_chi_dinh \|\| "—"\}/);
+  assert.match(ui, /BS thực hiện: \{d\.bs_thuc_hien \|\| "—"\}/);
+});

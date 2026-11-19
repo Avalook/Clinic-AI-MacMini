@@ -38,6 +38,11 @@ from clinicai.services.thue_gtgt import (
     ap_thue_hoa_don,
     nguon_thue_suat,
 )
+from clinicai.services.xuat_hoa_don_bac_si import (
+    doc_bac_si_dong,
+    ghi_bac_si_dong,
+    them_cot_bac_si,
+)
 
 MAU = Path(__file__).parent / "mau" / "hoa_don_gtgt_1_thue_suat.xlsx"
 #: Hàng tiêu đề cột trong TỆP MẪU (dòng 1–8 phía trên là chữ hướng dẫn — bỏ).
@@ -226,6 +231,8 @@ def dung_hoa_don(
                     # "ghi giảm giá trên hoá đơn" (K2); thanh_tien vẫn là SAU giảm.
                     "giam_gia": giam,
                     "truoc_giam": tien + giam,
+                    "bs_chi_dinh": str(them.get("bs_chi_dinh") or ""),
+                    "bs_thuc_hien": str(them.get("bs_thuc_hien") or ""),
                 }
             )
         if not dong:
@@ -304,6 +311,7 @@ def xlsx_misa(hoa_don: Sequence[Mapping[str, Any]]) -> bytes:
         del ws.row_dimensions[r]
     ws.row_dimensions[1].height = cao_tieu_de
     mau_dong = [ws.cell(DONG_DAU, c)._style for c in range(1, 18)]
+    them_cot_bac_si(ws)
     # Xoá dòng ví dụ + công thức mẫu (dữ liệu → hết): file chỉ còn dữ liệu thật,
     # không còn công thức để phần mềm nhập đọc nhầm ô rỗng.
     for row in ws.iter_rows(min_row=DONG_DAU, max_row=max(ws.max_row, DONG_DAU)):
@@ -350,6 +358,7 @@ def xlsx_misa(hoa_don: Sequence[Mapping[str, Any]]) -> bytes:
             ws.cell(r, 15).value = d["so_luong"]
             ws.cell(r, 16).value = d["don_gia"]
             ws.cell(r, 17).value = d["thanh_tien"]
+            ghi_bac_si_dong(ws, r, d, mau_dong[12])
             r += 1
     for sqref, loi_nhac in GOI_Y:
         dv = DataValidation(
@@ -383,8 +392,9 @@ class XuatHoaDonService:
         )
         ids = [p["id"] for k in data["khach"] for p in k["phieu"]]
         async with self.pool.acquire() as conn:
+            bac_si = await doc_bac_si_dong(conn, identity.clinic_id, ids)
             them_dong = {
-                r["id"]: dict(r)
+                r["id"]: {**dict(r), **bac_si.get(r["id"], {})}
                 for r in await conn.fetch(_THEM_DONG, identity.clinic_id, ids)
             }
             them_khach = {
