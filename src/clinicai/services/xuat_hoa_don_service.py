@@ -23,7 +23,6 @@ from typing import Any
 
 import asyncpg
 from openpyxl import load_workbook
-from openpyxl.utils import get_column_letter
 from openpyxl.worksheet.datavalidation import DataValidation
 
 from clinicai.api.identity import StaffIdentity
@@ -39,15 +38,17 @@ from clinicai.services.thue_gtgt import (
     ap_thue_hoa_don,
     nguon_thue_suat,
 )
+from clinicai.services.xuat_hoa_don_bac_si import (
+    doc_bac_si_dong,
+    ghi_bac_si_dong,
+    them_cot_bac_si,
+)
 
 MAU = Path(__file__).parent / "mau" / "hoa_don_gtgt_1_thue_suat.xlsx"
 #: Hàng tiêu đề cột trong TỆP MẪU (dòng 1–8 phía trên là chữ hướng dẫn — bỏ).
 TIEU_DE_MAU = 9
 #: Dòng đầu tiên của dữ liệu trong FILE XUẤT (tiêu đề đã lên dòng 1).
 DONG_DAU = 2
-#: Hai cột NGOÀI mẫu MISA (Tuyền 19/11/2026): bác sĩ của từng dòng.
-COT_BS_CHI_DINH = 18
-COT_BS_THUC_HIEN = 19
 #: Dịch vụ không ghi đơn vị trên phiếu → "Lần" (đúng ví dụ trong mẫu kế toán gửi).
 DVT_DICH_VU = "Lần"
 _NGUON_DICH_VU = frozenset({"exam", "service_order", "lieu_trinh"})
@@ -91,24 +92,11 @@ SELECT bl.id::text id, bl.unit, bl.source_type,
  coalesce(nullif(btrim(dc.ma_hang), ''), nullif(btrim(o.service_code), '')) ma,
  -- Thuế suất theo MẶT HÀNG (kế toán đặt): thuốc → drug_catalog; dịch vụ →
  -- service_price cùng mã; vật tư bán thêm → service_price của dòng vật tư.
- coalesce(dc.thue_suat_ma, sp_dv.thue_suat_ma, sp_vt.thue_suat_ma) thue_mh,
- -- Bác sĩ theo dòng (Tuyền 19/11), đúng như máy đã ghi, không suy theo lịch:
- -- dịch vụ: chỉ định = authorized_by, thực hiện = bac_si_lam_id; thuốc: chỉ
- -- định = bác sĩ kê; khám: thực hiện = bác sĩ phiên khám chính.
- st_cd.full_name bs_chi_dinh, st_th.full_name bs_thuc_hien
+ coalesce(dc.thue_suat_ma, sp_dv.thue_suat_ma, sp_vt.thue_suat_ma) thue_mh
 FROM payment_bill_line bl
 LEFT JOIN drug_catalog dc ON dc.id=bl.drug_catalog_id AND dc.clinic_id=bl.clinic_id
 LEFT JOIN service_order o ON bl.source_type='service_order'
  AND o.clinic_id=bl.clinic_id AND o.id::text=bl.source_id
-LEFT JOIN prescription rx ON bl.source_type='prescription'
- AND rx.clinic_id=bl.clinic_id AND rx.id::text=bl.source_id
-LEFT JOIN LATERAL (
- SELECT c.doctor_staff_id FROM consultation c
- WHERE bl.source_type='exam' AND c.clinic_id=bl.clinic_id
-   AND c.visit_id=bl.visit_id AND c.kind='PRIMARY'
- ORDER BY c.round_no LIMIT 1) kham ON true
-LEFT JOIN staff st_cd ON st_cd.id=coalesce(o.authorized_by, rx.bac_si_chinh_id)
-LEFT JOIN staff st_th ON st_th.id=coalesce(o.bac_si_lam_id, kham.doctor_staff_id)
 LEFT JOIN service_price sp_dv ON sp_dv.clinic_id=bl.clinic_id
  AND sp_dv."group"='dich_vu' AND sp_dv.service_code=o.service_code
 LEFT JOIN luot_vat_tu lv ON bl.source_type='vat_tu'
@@ -308,20 +296,6 @@ def _chu(cell: Any, value: str) -> None:
     cell.data_type = "s"
 
 
-def _them_cot_bac_si(ws: Any) -> None:
-    """Hai cột ngoài mẫu MISA (R, S), mặc áo tiêu đề cột Q, rộng như cột M."""
-    for c, ten in (
-        (COT_BS_CHI_DINH, "Bác sĩ chỉ định"),
-        (COT_BS_THUC_HIEN, "Bác sĩ thực hiện"),
-    ):
-        o = ws.cell(1, c)
-        o._style = copy(ws.cell(1, 17)._style)
-        _chu(o, ten)
-        ws.column_dimensions[get_column_letter(c)].width = max(
-            ws.column_dimensions["M"].width or 0, 24
-        )
-
-
 def xlsx_misa(hoa_don: Sequence[Mapping[str, Any]]) -> bytes:
     """Đổ hoá đơn vào bản sao tệp mẫu; trả bytes .xlsx sửa được như mẫu."""
     with warnings.catch_warnings():
@@ -337,7 +311,7 @@ def xlsx_misa(hoa_don: Sequence[Mapping[str, Any]]) -> bytes:
         del ws.row_dimensions[r]
     ws.row_dimensions[1].height = cao_tieu_de
     mau_dong = [ws.cell(DONG_DAU, c)._style for c in range(1, 18)]
-    _them_cot_bac_si(ws)
+    them_cot_bac_si(ws)
     # Xoá dòng ví dụ + công thức mẫu (dữ liệu → hết): file chỉ còn dữ liệu thật,
     # không còn công thức để phần mềm nhập đọc nhầm ô rỗng.
     for row in ws.iter_rows(min_row=DONG_DAU, max_row=max(ws.max_row, DONG_DAU)):
@@ -384,14 +358,7 @@ def xlsx_misa(hoa_don: Sequence[Mapping[str, Any]]) -> bytes:
             ws.cell(r, 15).value = d["so_luong"]
             ws.cell(r, 16).value = d["don_gia"]
             ws.cell(r, 17).value = d["thanh_tien"]
-            # R, S: bác sĩ của TỪNG dòng (một hoá đơn có nhiều bác sĩ).
-            for c, ten in (
-                (COT_BS_CHI_DINH, d.get("bs_chi_dinh")),
-                (COT_BS_THUC_HIEN, d.get("bs_thuc_hien")),
-            ):
-                ws.cell(r, c)._style = copy(mau_dong[12])
-                if ten:
-                    _chu(ws.cell(r, c), str(ten))
+            ghi_bac_si_dong(ws, r, d, mau_dong[12])
             r += 1
     for sqref, loi_nhac in GOI_Y:
         dv = DataValidation(
@@ -425,8 +392,9 @@ class XuatHoaDonService:
         )
         ids = [p["id"] for k in data["khach"] for p in k["phieu"]]
         async with self.pool.acquire() as conn:
+            bac_si = await doc_bac_si_dong(conn, identity.clinic_id, ids)
             them_dong = {
-                r["id"]: dict(r)
+                r["id"]: {**dict(r), **bac_si.get(r["id"], {})}
                 for r in await conn.fetch(_THEM_DONG, identity.clinic_id, ids)
             }
             them_khach = {
