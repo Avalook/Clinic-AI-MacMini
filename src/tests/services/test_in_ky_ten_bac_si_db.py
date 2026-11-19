@@ -199,6 +199,36 @@ async def test_thu_ky_chi_dinh_thi_bs_chi_dinh_la_bac_si(kb: KichBan) -> None:
     ]
 
 
+async def test_thu_ky_chi_dinh_trong_phien_bac_si_khac_thi_bs_chi_dinh_la_bs_phien(
+    kb: KichBan,
+) -> None:
+    """Tuyền 19/11: thư ký / điều dưỡng ở bàn khám làm cho bác sĩ của PHIÊN KHÁM —
+    chỉ định ra trong phiên nào thì bác sĩ phiên ấy là "BS chỉ định", kể cả khi
+    bác sĩ chính của lượt là người khác (vòng đọc kết quả do bác sĩ khác khám)."""
+    order_id, _ = await _chi_dinh_trong_phong(kb, kb.thu_ky)
+    async with kb.pool.acquire() as conn:
+        con = await conn.fetchval(
+            "UPDATE service_order SET authorized_by = $2::uuid, recorded_by = $2::uuid"
+            " WHERE id = $1::uuid RETURNING consultation_id::text",
+            order_id,
+            kb.thu_ky.staff_id,
+        )
+        assert con, "chỉ định của bài thử phải thuộc một phiên khám"
+        await conn.execute(
+            "UPDATE consultation SET doctor_staff_id = $2::uuid WHERE id = $1::uuid",
+            con,
+            kb.bac_si_2.staff_id,
+        )
+        await conn.execute(
+            "UPDATE visit v SET attending_doctor_id = $2::uuid FROM service_order o"
+            " WHERE o.id = $1::uuid AND v.visit_id = o.visit_id",
+            order_id,
+            kb.bac_si.staff_id,
+        )
+        bs = await bac_si_chi_dinh_hien_thi(conn, CLINIC, order_id)
+    assert bs is not None and bs.ten == await _ten(kb.pool, kb.bac_si_2)
+
+
 async def test_in_lai_phieu_hom_truoc_ra_bac_si_hom_lam(kb: KichBan) -> None:
     order_id, phong = await _chi_dinh_trong_phong(kb, kb.dieu_duong)
     phieu = await _dd_hoan_tat(kb, order_id)
