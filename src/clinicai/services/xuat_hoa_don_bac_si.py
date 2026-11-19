@@ -33,6 +33,7 @@ SELECT bl.id::text id, st_cd.full_name bs_chi_dinh, st_th.full_name bs_thuc_hien
 FROM payment_bill_line bl
 LEFT JOIN service_order o ON bl.source_type='service_order'
  AND o.clinic_id=bl.clinic_id AND o.id::text=bl.source_id
+-- rx:gom-ca-lich-su: dòng đã thu trỏ dòng đơn lúc thu, kể cả dòng đã đính chính
 LEFT JOIN prescription rx ON bl.source_type='prescription'
  AND rx.clinic_id=bl.clinic_id AND rx.id::text=bl.source_id
 LEFT JOIN LATERAL (
