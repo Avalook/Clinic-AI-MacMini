@@ -38,6 +38,23 @@ type XuatData = {
   dong_chua_thue: number; tien_thue: number;
 };
 
+/** Cột bảng máy tính: [tiêu đề, độ rộng, bề rộng tối thiểu của chữ].
+ *  `w-px` + nowrap = co sát nội dung (STT, ngày, hình thức, tiền); cột có phần
+ *  trăm co giãn theo màn; "Hàng hoá / dịch vụ" không đặt rộng → ăn phần còn lại.
+ *  Bề rộng tối thiểu đặt trên <div> trong ô tiêu đề (min-width trên <th> trình
+ *  duyệt không chắc tôn trọng). Bác sĩ sau Ghi chú (Tuyền 19/11). */
+const COT_BANG: [string, string, string][] = [
+  ["STT", "w-px whitespace-nowrap text-right", ""],
+  ["Ngày", "w-px whitespace-nowrap", ""],
+  ["Khách hàng", "w-1/6", "min-w-32"],
+  ["Hình thức", "w-px whitespace-nowrap", ""],
+  ["Hàng hoá / dịch vụ", "", "min-w-64"],
+  ["Thành tiền", "w-px whitespace-nowrap text-right", ""],
+  ["Ghi chú", "w-1/12", "min-w-24"],
+  ["BS chỉ định", "w-1/8", "min-w-32"],
+  ["BS thực hiện", "w-1/8", "min-w-32"],
+];
+
 function OLoc({ ten, children }: { ten: string; children: ReactNode }) {
   return (
     <label className="min-w-0 space-y-1 text-meta text-ink-muted">
@@ -214,8 +231,8 @@ export default function XuatHoaDon({ coSo }: { coSo: CoSo[] }) {
               <table className="w-full text-body">
                 <thead className="bg-surface-muted text-left text-meta text-ink-muted">
                   <tr>
-                    {["STT", "Ngày", "Khách hàng", "Hình thức", "Hàng hoá / dịch vụ", "BS chỉ định", "BS thực hiện", "Thành tiền", "Ghi chú"].map((t, i) => (
-                      <th key={t} className={`px-3 py-2 font-semibold ${i === 0 || i === 7 ? "text-right" : ""}`}>{t}</th>
+                    {COT_BANG.map(([t, rong, toiThieu]) => (
+                      <th key={t} className={`px-3 py-2 font-semibold ${rong}`}><div className={toiThieu}>{t}</div></th>
                     ))}
                   </tr>
                 </thead>
@@ -237,14 +254,16 @@ export default function XuatHoaDon({ coSo }: { coSo: CoSo[] }) {
                           </>
                         ) : null}
                         <td className="px-3 py-2"><DongHangMot d={d} ghiDe={ghiDe} onThue={datThueDong} bacSi={false} /></td>
-                        <td className="px-3 py-2">{d.bs_chi_dinh || <span className="text-ink-muted">—</span>}</td>
-                        <td className="px-3 py-2">{d.bs_thuc_hien || <span className="text-ink-muted">—</span>}</td>
                         {i === 0 ? (
                           <>
                             <td rowSpan={n} className="whitespace-nowrap px-3 py-3 text-right tabular-nums">{tien(h.tong)}{h.tien_thue !== null ? <span className="block text-meta text-ink-muted">Thuế {tenThueSuat(h.thue_suat_ma) || "nhiều mức"}: {tien(h.tien_thue)}</span> : null}</td>
                             <td rowSpan={n} className="px-3 py-3"><GhiChu h={h} /></td>
                           </>
                         ) : null}
+                        {/* Hàng sau của hoá đơn: trình duyệt tự bỏ qua 2 ô Thành tiền / Ghi chú
+                            đang rowSpan từ hàng đầu, nên 2 ô này vẫn rơi đúng cột bác sĩ. */}
+                        <td className="px-3 py-2">{d.bs_chi_dinh || <span className="text-ink-muted">—</span>}</td>
+                        <td className="px-3 py-2">{d.bs_thuc_hien || <span className="text-ink-muted">—</span>}</td>
                       </tr>
                     );
                   }))}

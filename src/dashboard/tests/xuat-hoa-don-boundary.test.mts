@@ -18,8 +18,12 @@ test("màn chỉ chọn phạm vi + tải file; số tiền do máy chủ tính"
 });
 test("bảng máy tính có 2 CỘT bác sĩ, mỗi dòng hàng một hàng (Tuyền 19/11)", () => {
   const ui = read("../app/(dashboard)/xuat-hoa-don/XuatHoaDon.tsx");
-  // Tiêu đề: 2 cột bác sĩ đứng ngay sau "Hàng hoá / dịch vụ".
-  assert.match(ui, /"Hàng hoá \/ dịch vụ", "BS chỉ định", "BS thực hiện", "Thành tiền"/);
+  // Thứ tự cột: 2 cột bác sĩ đứng SAU "Ghi chú" (Tuyền 19/11).
+  const cot = [...ui.matchAll(/^\s*\["([^"]+)", "[^"]*", "[^"]*"\],$/gm)].map(m => m[1]);
+  assert.deepEqual(cot, ["STT", "Ngày", "Khách hàng", "Hình thức", "Hàng hoá / dịch vụ",
+    "Thành tiền", "Ghi chú", "BS chỉ định", "BS thực hiện"]);
+  // Ô bác sĩ là 2 ô CUỐI của hàng (sau ô Ghi chú rowSpan).
+  assert.match(ui, /<GhiChu h=\{h\} \/><\/td>[\s\S]*?\{d\.bs_chi_dinh \|\| <span[\s\S]*?\{d\.bs_thuc_hien \|\| <span[\s\S]*?<\/tr>/);
   // Mỗi dòng hàng một <tr>, key duy nhất theo stt + vị trí (trùng key → DOM mồ côi, 16/11).
   assert.match(ui, /key=\{`\$\{h\.stt\}-\$\{i\}`\}/);
   assert.match(ui, /rowSpan=\{n\}/);
