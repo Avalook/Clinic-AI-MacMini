@@ -44,7 +44,9 @@ MOC_KHO_THAT = datetime.fromisoformat("2026-11-15T12:00:00+07:00")
 UNG_VIEN = """
 SELECT b.id::text, b.location_id::text AS loc, l.name AS co_so, b.noi_chua,
        b.batch_code, b.quantity_on_hand AS ton,
-       public.drug_batch_kha_dung(b.clinic_id, b.id) AS kha_dung
+       public.drug_batch_kha_dung(b.clinic_id, b.id) AS kha_dung,
+       (SELECT count(*) FROM public.inventory_txn t
+         WHERE t.drug_batch_id = b.id) AS so_dong_so
   FROM public.drug_batch b JOIN public.clinic_location l ON l.id = b.location_id
  WHERE b.clinic_id = $1::uuid AND b.batch_code LIKE 'DEMO1709-%'
    AND b.quantity_on_hand <> 0
@@ -174,15 +176,26 @@ async def main() -> int:
                 if r["ton"] <= 0:
                     continue
                 try:
+                    # Khoá theo lô + số dòng sổ của lô: chạy lại lúc chưa đổi gì →
+                    # cùng khoá, không huỷ hai lần; sau hoàn tác (sổ có thêm dòng)
+                    # → khoá mới, huỷ thật. Khoá chỉ theo lô thì lần huỷ lại nhận
+                    # "đã làm" mà không ghi gì (staging 20/11: 80 lô Kim Ngưu).
                     await svc.huy(
                         identity=dataclasses.replace(ident, location_id=r["loc"]),
                         drug_batch_id=r["id"],
                         so_luong=str(r["ton"]),
                         ly_do=LY_DO,
-                        idempotency_key=_khoa("huy", r["id"]),
+                        idempotency_key=_khoa("huy", r["id"], str(r["so_dong_so"])),
                     )
                 except (ConflictError, ValidationError, NotFoundError) as exc:
                     bo[str(exc)[:110]] += 1
+                    continue
+                if await pool.fetchval(
+                    "SELECT quantity_on_hand FROM public.drug_batch"
+                    " WHERE id = $1::uuid",
+                    r["id"],
+                ):
+                    bo["lệnh huỷ trả về nhưng lô vẫn còn tồn"] += 1
                     continue
                 f.write(
                     json.dumps({"id": r["id"], "loc": r["loc"], "so": str(r["ton"])})
@@ -193,6 +206,17 @@ async def main() -> int:
         print(f"  ✓ đã huỷ {xong} lô (bản ghi hoàn tác: {tep})")
         for ly, n in bo.most_common():
             print(f"  ↷ bỏ qua {n} lô: {ly}")
+        con = await pool.fetchval(
+            "SELECT count(*) FROM public.drug_batch WHERE clinic_id = $1::uuid"
+            " AND batch_code LIKE 'DEMO1709-%' AND quantity_on_hand > 0"
+            " AND ($2::uuid[] IS NULL OR id = ANY($2::uuid[]))",
+            ident.clinic_id,
+            chi.split(",") if chi else None,
+        )
+        if con:
+            print(f"  ✗ còn {con} lô mẫu tồn > 0 — CHƯA xong, xem các dòng ↷ ở trên")
+            return 1
+        print("  ✓ kiểm lại: mọi lô mẫu tồn = 0")
         return 0
     finally:
         await pool.close()
