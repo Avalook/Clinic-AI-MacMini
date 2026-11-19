@@ -27,9 +27,12 @@ pytestmark = pytest.mark.skipif(
 
 JOURNALCTL_GIA = r"""#!/usr/bin/env bash
 # journalctl giả: --cursor-file=F; mốc là số dòng cuối đã xuất.
+co_all=""
 for a in "$@"; do
-  case "$a" in --cursor-file=*) F="${a#--cursor-file=}";; esac
+  case "$a" in --cursor-file=*) F="${a#--cursor-file=}";; --all) co_all=1;; esac
 done
+# Thiếu --all thì -o json biến trường > 4096 byte thành null: coi là lỗi.
+[ -n "$co_all" ] || { echo "thieu --all" >&2; exit 2; }
 dau=0; [ -f "$F" ] && dau=$(cat "$F")
 tong=$(cat "$NGUON_TONG")
 [ -n "${JOURNAL_GOI_Y:-}" ] \
@@ -135,6 +138,41 @@ def test_chep_hong_thi_moc_dung_yen_lan_sau_xuat_bu(
     assert _chay(m).returncode == 0  # chạy lại: phải có đủ 4–6
     dong = _dong_da_luu(cfs)
     assert dong == [f'{{"MESSAGE":"dong {i}"}}' for i in range(1, 7)]
+
+
+def test_o_tuot_mount_giua_chung_thi_xoa_tep_va_giu_moc(
+    moi_truong: dict[str, object],
+) -> None:
+    m = moi_truong
+    dem = m["tmp"] / "dem-mount"  # type: ignore[operator]
+    # Lần kiểm đầu: đang mount; lần kiểm lại trước khi ghi mốc: đã tuột.
+    tuot = _tao_bin(
+        m["bin"],  # type: ignore[arg-type]
+        "mountpoint-tuot",
+        f'#!/bin/sh\nn=$(cat "{dem}" 2>/dev/null || echo 0)\n'
+        f'echo $((n+1)) > "{dem}"\n[ "$n" = 0 ]\n',
+    )
+    r = _chay(m, MOUNTPOINT_BIN=str(tuot))
+    assert r.returncode != 0 and "tuột mount" in r.stderr
+    assert list((m["cfs"] / "logs").rglob("*.json.zst*")) == []  # type: ignore[operator]
+    assert _chay(m).returncode == 0  # ổ về lại: xuất đủ 1–3, không mất
+    assert _dong_da_luu(m["cfs"]) == [  # type: ignore[arg-type]
+        f'{{"MESSAGE":"dong {i}"}}' for i in range(1, 4)
+    ]
+
+
+def test_tep_dang_ghi_con_sot_khong_bi_de_va_khong_bi_doc(
+    moi_truong: dict[str, object],
+) -> None:
+    m = moi_truong
+    assert _chay(m).returncode == 0
+    tep = next((m["cfs"] / "logs").rglob("*.json.zst"))  # type: ignore[operator]
+    sot = tep.parent / (tep.name.replace("-01.", "-02.") + ".dang-ghi")
+    sot.write_bytes(b"do dang")
+    m["tong"].write_text("4")  # type: ignore[attr-defined]
+    assert _chay(m).returncode == 0
+    assert sot.read_bytes() == b"do dang"
+    assert _dong_da_luu(m["cfs"])[-1] == '{"MESSAGE":"dong 4"}'  # type: ignore[arg-type]
 
 
 def test_khong_doc_duoc_toan_bo_journal_thi_bao_loi(

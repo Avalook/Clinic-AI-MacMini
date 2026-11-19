@@ -9,9 +9,14 @@ Wants=network-online.target
 [Service]
 Type=oneshot
 User=clinicai
+# Đọc được log MỌI container mà không phải cho tài khoản clinicai vào hẳn nhóm
+# systemd-journal (quyền chỉ có trong lượt chạy này). Thiếu thì script báo lỗi rõ.
+SupplementaryGroups=systemd-journal
 WorkingDirectory=/home/clinicai/clinicai
-# Cần nhóm systemd-journal để đọc log mọi container — thiếu thì script báo lỗi rõ.
 ExecStart=/home/clinicai/clinicai/scripts/day-log-len-viettel.sh
+# Ổ SMB treo (như đêm 15/11) thì `cp` treo mãi, đơn vị kẹt "activating" và timer
+# không bao giờ chạy lại. Quá giờ thì giết — mốc chưa đi nên lượt sau xuất bù.
+TimeoutStartSec=30min
 
 # Việc nền: luôn nhường CPU và đĩa cho phần phục vụ khách. Đo 19/11 giờ cao điểm:
 # 1 giờ log ≈ 0,8 giây CPU, ~1,1MB sau nén.
