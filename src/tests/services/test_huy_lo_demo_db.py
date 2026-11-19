@@ -94,3 +94,9 @@ async def test_huy_lo_demo_va_hoan_tac(co: Co, tmp_path: Path) -> None:  # noqa:
     assert await ton(demo) == 20
     _chay(f"--hoan-tac={tep}")  # khoá gửi trùng: không cộng hai lần
     assert await ton(demo) == 20
+
+    # Huỷ LẠI sau hoàn tác phải huỷ thật — staging 20/11: khoá gửi trùng của lần
+    # chạy 16/11 làm 80 lô "đã huỷ" mà không ghi gì, script vẫn báo xong.
+    ra = _chay(chi, f"--luu={tmp_path / 'lan2.jsonl'}", "--that")
+    assert "đã huỷ 1 lô" in ra, ra
+    assert await ton(demo) == 0
