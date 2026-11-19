@@ -27,7 +27,11 @@ from clinicai.core.clock import CLINIC_TZ, hom_nay_vn
 from clinicai.services import theo_doi_thuoc_service
 from clinicai.services.kiem_ke_ca_service import xnt_theo_ca
 from clinicai.services.payment_service import PaymentService
-from clinicai.services.pharmacy_service import LY_DO_LAY_TU_KHO, PharmacyService
+from clinicai.services.pharmacy_service import (
+    LO_MAU_TIEN_TO,
+    LY_DO_LAY_TU_KHO,
+    PharmacyService,
+)
 from clinicai.services.tu_giao_khi_thu import VI_TRI_LOI
 from tests.services.test_kho_quay_db import (
     Co,
@@ -338,6 +342,24 @@ async def test_h_lo_kho_het_han_khong_bi_lay(co: Co) -> None:  # noqa: F811
             rx,
             co.ds.staff_id,
         )
+
+
+async def test_lo_mau_demo_khong_bao_gio_bi_tu_tru(co: Co) -> None:  # noqa: F811
+    # Prod 19/11: 80 lô mẫu DEMO1709-* còn tồn ở KHO (Hào Nam) và QUẦY (Kim Ngưu).
+    # Lô mẫu hạn GẦN hơn, lại có ở quầy — FEFO mà không loại thì trừ nhầm vào nó.
+    thuoc, mau_kho = await _san_kho(co, 50, han=100)
+    await co.q.pool.execute(
+        "UPDATE drug_batch SET batch_code = $2 WHERE id = $1::uuid",
+        mau_kho,
+        f"{LO_MAU_TIEN_TO}{uuid.uuid4().hex[:6]}",
+    )
+    mau_quay = _id_dich(await _chuyen(co, mau_kho, 10))
+    that = await _nhap_kho(co, thuoc, 30, han=hom_nay_vn() + timedelta(days=900))
+    rx = await _rx(co, thuoc, 10)
+    kq = await _thu(co.q)
+    assert kq["status"] == "PAID"
+    assert await _ton_lo(co, mau_quay, mau_kho, that) == [10, 40, 20]
+    assert await _cho(co.q.pool, rx) == 0
 
 
 async def test_chot_db_dau_kho_chua_thu_tien_bi_chan(co: Co) -> None:  # noqa: F811
