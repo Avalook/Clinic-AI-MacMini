@@ -71,3 +71,32 @@ async def test_lam_tai_ban_kham_ghi_bac_si_thuc_hien(
     )
     await _bam(pool, ca, visit, await _the(pool, ca, visit), "xong")
     assert await _bs_lam(pool, order) == ca.bac_si.staff_id
+
+
+async def test_da_xep_phong_khac_lam_tai_ban_kham_ghep_theo_phong_ban_kham(
+    pool: asyncpg.Pool,  # noqa: F811
+) -> None:
+    """Chỉ định đã xếp phòng X (không bác sĩ trực) rồi bác sĩ làm ngay tại bàn
+    khám: lệnh chuyển chỉ định sang phòng bàn khám TRONG CÙNG giao dịch → ghép
+    bác sĩ phải theo phòng bàn khám, không theo phòng X đọc lúc khoá."""
+    from tests.services.test_review_0710_ban_kham_db import _xep_phong
+    from tests.services.test_thu_tien_xep_phong_mang_sang_db import _chon
+
+    ca = await _dung(pool)
+    laser = await _laser(pool)
+    phong_bk = await _lich_ban_kham(pool, ca)
+    visit = await _check_in(pool, ca, await _benh_nhan(pool, ca), ca.loai_kham)
+    con = await _vao_kham(pool, ca, visit)
+    order = (await _ke(pool, ca, con, laser["ma"]))["order_ids"][0]
+    await _chon(pool, ca, visit, [order])
+    phong_x = await _xep_phong(pool, ca, order)
+    assert phong_x != phong_bk and await _bs_lam(pool, order) is None
+
+    await _bam(pool, ca, visit, await _the(pool, ca, visit), "lam")
+    assert (
+        await pool.fetchval(
+            "SELECT room_id::text FROM service_order WHERE id = $1::uuid", order
+        )
+        == phong_bk
+    )
+    assert await _bs_lam(pool, order) == ca.bac_si.staff_id
