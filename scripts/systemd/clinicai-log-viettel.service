@@ -1,0 +1,19 @@
+[Unit]
+Description=ClinicAI — đẩy log máy chủ (journald) lên Viettel CFS (19/11/2026)
+Documentation=file:///home/clinicai/clinicai/docs/VAN-HANH-MAY-CHU.md
+# Ổ Viettel gắn qua /etc/fstab; chưa gắn thì script tự dừng (kiểm mountpoint),
+# nên chỉ cần chờ mạng.
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=clinicai
+WorkingDirectory=/home/clinicai/clinicai
+# Cần nhóm systemd-journal để đọc log mọi container — thiếu thì script báo lỗi rõ.
+ExecStart=/home/clinicai/clinicai/scripts/day-log-len-viettel.sh
+
+# Việc nền: luôn nhường CPU và đĩa cho phần phục vụ khách. Đo 19/11 giờ cao điểm:
+# 1 giờ log ≈ 0,8 giây CPU, ~1,1MB sau nén.
+Nice=19
+IOSchedulingClass=idle
