@@ -293,16 +293,26 @@ async def _bu_bac_si(
     don: asyncpg.Record,
     *,
     ghi_de: bool,
+    phong: str | None = None,
 ) -> None:
     """Người bấm Bắt đầu (``ghi_de``) / Hoàn tất làm cho bác sĩ nào theo lịch
     thì chỉ định tính cho bác sĩ ấy — KPI không rơi khi lịch xếp muộn hơn lúc
-    Nhận. Ngày cũ bỏ qua: ghép đọc theo lịch HÔM NAY."""
+    Nhận. Ngày cũ bỏ qua: ghép đọc theo lịch HÔM NAY. ``phong``: phòng vừa
+    chuyển trong cùng giao dịch (bàn khám) — `don` còn phòng cũ.
+
+    Gọi ở CẢ đường phòng lẫn đường bàn khám: bàn khám từng không gọi → 12/12
+    chỉ định làm tại bàn khám 04–19/11 trống bác sĩ thực hiện."""
     if don["la_ngay_cu"]:
         return
     from clinicai.services.service_routing_service import ServiceRoutingService
 
     await ServiceRoutingService(pool).bu_bac_si_khi_lam(
-        conn, identity, vid=vid, oid=order_id, rid=don["room_id"], ghi_de=ghi_de
+        conn,
+        identity,
+        vid=vid,
+        oid=order_id,
+        rid=phong or don["room_id"],
+        ghi_de=ghi_de,
     )
 
 
@@ -1411,6 +1421,16 @@ class ServiceExecutionService:
                 order_id,
             )
             await cap_nhat_vi_tri(conn, cid, vid)
+            await _bu_bac_si(
+                self._pool,
+                conn,
+                identity,
+                vid,
+                order_id,
+                don,
+                ghi_de=True,
+                phong=phong if phong is not None else phong_cu,
+            )
             await emit_event(
                 conn,
                 ten="service.started",
@@ -1480,6 +1500,9 @@ class ServiceExecutionService:
                     "EXECUTION_STATE_INVALID", "Chỉ định không đang được làm."
                 )
             lan = await self._lan_ban_kham(conn, cid, order_id, attempt_id)
+            await _bu_bac_si(
+                self._pool, conn, identity, vid, order_id, don, ghi_de=False
+            )
             await conn.execute(
                 "UPDATE service_execution_attempt"
                 "   SET status = 'COMPLETED', completed_by = $3::uuid,"
