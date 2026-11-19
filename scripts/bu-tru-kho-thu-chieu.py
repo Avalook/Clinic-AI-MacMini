@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 """Bù trừ kho cho các lần thu tiền thuốc TRƯỚC khi có "thu xong là giao" — 16/11/2026.
 
-Kho thuốc thật nhập vào prod từ trưa 15/11. Bản "thu xong là giao" (#641: quầy
+Kho thuốc thật nhập vào prod từ 14/11 13:56 (phiếu nhập thật đầu tiên PN-HN-0001,
+soát 19/11 — không phải 15/11 như bản đầu). Tuyền 19/11: LƯU script, CHƯA chạy
+`--that` khi chưa bảo. Bản "thu xong là giao" (#641: quầy
 trước → thiếu thì kho → cả hai thiếu thì sổ đối chiếu) lên prod muộn hơn, nên các
 lần thu trong khoảng đó chưa trừ kho (trừ dòng nhân viên đã bấm Giao tay).
 
@@ -18,8 +20,8 @@ tay không bị trừ hai lần; lần thu đã hoàn tác (VOIDED) / chờ xác
   lô), huỷ dòng đối chiếu, trả số đã giao của dòng đơn.
 
     docker cp scripts/bu-tru-kho-thu-chieu.py <api>:/tmp/bu.py
-    docker exec <api> python /tmp/bu.py --tu=2026-11-15T12:00+07:00          # thử khô
-    docker exec <api> python /tmp/bu.py --tu=2026-11-15T12:00+07:00 \
+    docker exec <api> python /tmp/bu.py --tu=2026-11-14T13:56+07:00          # thử khô
+    docker exec <api> python /tmp/bu.py --tu=2026-11-14T13:56+07:00 \
         --luu=/tmp/bu-tru-kho-1611.jsonl --that
     docker exec <api> python /tmp/bu.py --hoan-tac=/tmp/bu-tru-kho-1611.jsonl
 
@@ -256,7 +258,7 @@ async def main() -> int:
             return await _hoan_tac(pool, ident, tep)
         tu_chu = _tham_so("--tu")
         if not tu_chu:
-            raise SystemExit("✗ Thiếu --tu, vd --tu=2026-11-15T12:00+07:00")
+            raise SystemExit("✗ Thiếu --tu, vd --tu=2026-11-14T13:56+07:00")
         tu = _gio(tu_chu, "--tu")
         den_chu = _tham_so("--den")
         den = _gio(den_chu, "--den") if den_chu else datetime.now().astimezone()
