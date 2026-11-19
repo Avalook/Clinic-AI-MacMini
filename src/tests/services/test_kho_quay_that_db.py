@@ -66,6 +66,14 @@ from tests.services.test_tien_thuoc_cp6_dinh_chinh_db import _thay
 
 pytest_plugins = ["tests.services.test_luot_kham_service_db"]
 pytestmark = [pytest.mark.db, pytest.mark.asyncio]
+
+
+@pytest.fixture(autouse=True)
+def _khong_tu_giao_khi_thu(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Bài kiểm nút Giao (còn sống cho lượt cũ / dòng bị bỏ qua) → tắt tự giao.
+    monkeypatch.setenv("CLINICAI_TU_GIAO_KHI_THU", "0")
+
+
 D = Decimal
 
 
@@ -1170,9 +1178,11 @@ async def test_ngay_dau_tach_kiem_ca_chi_quay_kiem_kho_dung_noi(co: Co) -> None:
 async def test_kiem_kho_hang_kho_khong_tach_phan_cho_gan(co: Co) -> None:
     rx, drug = await _dong_da_xac_dinh(co.q, 3)
     await _bat(co)
-    lo_kho = await _nhap_kho(co, drug, 10)
     await _thu(co.q)
-    await _giao_tu_chon(co.q, co.ds, rx, 3)  # quầy hết, kho còn → vẫn giao, chờ gán
+    # Quầy lẫn kho hết → vẫn giao, chờ gán; hàng kho về SAU (kho còn hàng lúc giao
+    # thì máy đã tự lấy ở kho — 16/11/2026).
+    await _giao_tu_chon(co.q, co.ds, rx, 3)
+    lo_kho = await _nhap_kho(co, drug, 10)
     assert (await _rx(co.q, rx))["dispensed_qty"] == 3
     cho = await PharmacyService(co.q.pool).cho_gan_lo(identity=co.ds)
     dong = next(x for x in cho["dong"] if x["prescription_id"] == rx)
@@ -1186,10 +1196,11 @@ async def test_kiem_kho_hang_kho_khong_tach_phan_cho_gan(co: Co) -> None:
 async def test_quay_het_kho_con_van_giao_gan_lo_tu_quay_sau_khi_chuyen(co: Co) -> None:
     rx, drug = await _dong_da_xac_dinh(co.q, 4)
     await _bat(co)
-    lo_kho = await _nhap_kho(co, drug, 10)
     await _thu(co.q)
+    # Giao lúc quầy lẫn kho chưa có hàng (kho còn hàng thì máy đã lấy ở kho).
     kq = await _giao_tu_chon(co.q, co.ds, rx, 4)
     assert kq["chua_tru_kho"] == 4 and "gán lô ở kho hoặc quầy" in kq["tom_tat"]
+    lo_kho = await _nhap_kho(co, drug, 10)
     quay = str((await _chuyen(co, lo_kho, 6))["dong"][0]["drug_batch_dich_id"])
     dong = await co.q.pool.fetchval(
         "SELECT id::text FROM thuoc_giao_chua_gan_lo WHERE prescription_id = $1::uuid",
@@ -1422,11 +1433,13 @@ async def test_quay_ve_kho_khong_rut_vao_phan_da_giao_cho_gan(co: Co) -> None:
     """Thuốc chờ gán đã rời kệ: rút hết về kho thì không còn gì để gán."""
     await _bat(co)
     rx, drug = await _dong_da_xac_dinh(co.q, 5)
-    lo_kho = await _nhap_kho(co, drug, 10)
-    await _chuyen(co, lo_kho, 4, ly_do=None)
+    lo_dau = await _nhap_kho(co, drug, 4)
+    await _chuyen(co, lo_dau, 4, ly_do=None)
     await _thu(co.q)
+    # Quầy 4, kho 0 → thiếu 1 chờ gán (kho còn hàng thì máy đã lấy ở kho).
     kq = await _giao_tu_chon(co.q, co.ds, rx, 5)
     assert kq["chua_tru_kho"] == 1
+    lo_kho = await _nhap_kho(co, drug, 6)
     hang = await _chuyen(co, lo_kho, 3, ly_do=None)
     quay = str(hang["dong"][0]["drug_batch_dich_id"])
 

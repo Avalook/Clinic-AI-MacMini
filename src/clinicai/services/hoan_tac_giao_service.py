@@ -1,4 +1,5 @@
-"""Hoàn tác GIAO thuốc (Tuyền 31/10/2026): thuốc đã giao về quầy, sổ kho đồng bộ.
+"""Hoàn tác GIAO thuốc (Tuyền 31/10/2026): thuốc đã giao về ĐÚNG lô đã lấy (lô quầy
+về quầy; lô kho — giao khi quầy không đủ — về kho), sổ kho đồng bộ.
 
 Hai cửa, một đường ghi:
 

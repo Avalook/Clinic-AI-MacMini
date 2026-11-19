@@ -39,7 +39,7 @@ function cauHoi(x: XemTruoc | null): string {
       : x.da_thu > 0
         ? "Đã hoàn đủ tiền, không phải trả thêm."
         : "Chưa nhận tiền, không phải trả khách.",
-    ve > 0 ? "Thuốc đã giao tự về quầy — khách đã mang đi thì nhận lại thuốc." : "",
+    ve > 0 ? "Thuốc đã giao tự về đúng chỗ đã lấy (quầy hoặc kho) — khách đã mang đi thì nhận lại thuốc." : "",
     x.co_hoa_don_cong_ty ? "Phiếu này có hoá đơn công ty — báo kế toán xử lý hoá đơn." : "",
     x.da_xuat_misa ? "Phiếu này đã xuất sang MISA — báo kế toán điều chỉnh bên MISA." : "",
   ];
@@ -105,7 +105,7 @@ export default function NutHoanTac({
         d?.tu_ghi_no
           ? `Đã hoàn tác lần thu. Khách đã về mà dịch vụ đã làm — máy đã ghi nợ ${d.tu_ghi_no.so_tien.toLocaleString("vi-VN")}đ (chờ thu hoặc miễn), xem ở "Khách còn nợ".`
           : Number(d?.thuoc_ve_quay?.so_luong ?? 0) > 0
-            ? "Đã hoàn tác lần thu — thuốc đã giao về quầy, lượt về chưa thu; thu lại rồi giao lại."
+            ? "Đã hoàn tác lần thu — thuốc đã giao về đúng chỗ đã lấy (quầy hoặc kho), lượt về chưa thu; thu lại là giao lại."
             : "Đã hoàn tác lần thu — lượt về chưa thu, thu lại khi sẵn sàng.",
       );
     } catch {
