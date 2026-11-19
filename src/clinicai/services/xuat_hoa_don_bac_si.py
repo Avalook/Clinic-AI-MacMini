@@ -3,14 +3,17 @@
 Kế toán cần biết bác sĩ của từng dòng hàng. Luật chung (Tuyền 29/09,
 `bac_si_ky`): ở chỗ ghi "bác sĩ" KHÔNG BAO GIỜ hiện tên người không phải bác sĩ —
 mọi nguồn dưới đây đều lọc qua `sql_bac_si_dau_tien` (vai DOCTOR /
-ULTRASOUND_DOCTOR còn hoạt động); không ai là bác sĩ → trống. Không suy theo lịch
+ULTRASOUND_DOCTOR còn hoạt động); không ai là bác sĩ → trống (trừ ngoại lệ
+"người bấm" của cột thực hiện, dưới). Không suy theo lịch
 / làn (luật tính lương 09/11 là việc khác).
 
 * Dịch vụ: chỉ định = `sql_join_bac_si_chi_dinh` — CÙNG hàm "BS chỉ định" của các
   màn khác (người duyệt → người ghi → BS chính của lượt → BS lịch hẹn). Bẫy đã
   cắn (staging 19/11): thư ký / điều dưỡng bấm hộ thì máy ghi CHÍNH họ vào
   `authorized_by` (luật 23/09 "không bịa tên bác sĩ khác") — đọc thẳng cột ấy
-  là hiện tên thư ký ở cột bác sĩ. Thực hiện = `bac_si_lam_id`.
+  là hiện tên thư ký ở cột bác sĩ. Thực hiện = `bac_si_lam_id`; máy không ghép
+  được (lịch chưa có bác sĩ lúc làm) → người bấm Hoàn tất `performed_by` kèm
+  hậu tố "(người bấm)" — ngoại lệ Tuyền chốt 19/11, chỉ ở màn/file này.
 * Thuốc: chỉ định = bác sĩ kê `prescription.bac_si_chinh_id`.
 * Khám: thực hiện = bác sĩ của phiên khám chính (`consultation` PRIMARY).
 
@@ -34,6 +37,9 @@ TIEU_DE_BAC_SI = (
     (COT_BS_CHI_DINH, "Bác sĩ chỉ định"),
     (COT_BS_THUC_HIEN, "Bác sĩ thực hiện"),
 )
+# Máy không ghép được bác sĩ (lúc làm phòng chưa có bác sĩ trên lịch) → ghi người
+# bấm Hoàn tất, có hậu tố để kế toán không đọc nhầm là bác sĩ (Tuyền 19/11).
+HAU_TO_NGUOI_BAM = " (người bấm)"
 
 
 def _bac_si(cot: str, ten: str) -> str:
@@ -45,10 +51,12 @@ def _bac_si(cot: str, ten: str) -> str:
 _BAC_SI_DONG = f"""
 SELECT bl.id::text id,
  coalesce(bscd.full_name, bsrx.full_name) bs_chi_dinh,
- coalesce(bsth.full_name, bskh.full_name) bs_thuc_hien
+ coalesce(bsth.full_name, bskh.full_name,
+  nb.full_name || '{HAU_TO_NGUOI_BAM}') bs_thuc_hien
 FROM payment_bill_line bl
 LEFT JOIN service_order o ON bl.source_type='service_order'
  AND o.clinic_id=bl.clinic_id AND o.id::text=bl.source_id
+LEFT JOIN staff nb ON nb.id=o.performed_by
 -- rx:gom-ca-lich-su: dòng đã thu trỏ dòng đơn lúc thu, kể cả dòng đã đính chính
 LEFT JOIN prescription rx ON bl.source_type='prescription'
  AND rx.clinic_id=bl.clinic_id AND rx.id::text=bl.source_id
