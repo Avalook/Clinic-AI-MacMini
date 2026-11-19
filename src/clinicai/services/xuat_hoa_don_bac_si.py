@@ -1,11 +1,16 @@
 """Bác sĩ chỉ định + bác sĩ thực hiện của từng dòng hoá đơn khi xuất (Tuyền 19/11/2026).
 
-Kế toán cần biết bác sĩ của từng dòng hàng. Lấy ĐÚNG như máy đã ghi, không suy
-theo lịch / làn (luật tính lương 09/11 là việc khác); không có thì để trống:
+Kế toán cần biết bác sĩ của từng dòng hàng. Luật chung (Tuyền 29/09,
+`bac_si_ky`): ở chỗ ghi "bác sĩ" KHÔNG BAO GIỜ hiện tên người không phải bác sĩ —
+mọi nguồn dưới đây đều lọc qua `sql_bac_si_dau_tien` (vai DOCTOR /
+ULTRASOUND_DOCTOR còn hoạt động); không ai là bác sĩ → trống. Không suy theo lịch
+/ làn (luật tính lương 09/11 là việc khác).
 
-* Dịch vụ: chỉ định = `service_order.authorized_by` (người ký chỉ định — KHÔNG
-  lấy `recorded_by`: đó có thể là điều dưỡng gõ hộ, không phải bác sĩ chỉ định);
-  thực hiện = `service_order.bac_si_lam_id`.
+* Dịch vụ: chỉ định = `sql_join_bac_si_chi_dinh` — CÙNG hàm "BS chỉ định" của các
+  màn khác (người duyệt → người ghi → BS chính của lượt → BS lịch hẹn). Bẫy đã
+  cắn (staging 19/11): thư ký / điều dưỡng bấm hộ thì máy ghi CHÍNH họ vào
+  `authorized_by` (luật 23/09 "không bịa tên bác sĩ khác") — đọc thẳng cột ấy
+  là hiện tên thư ký ở cột bác sĩ. Thực hiện = `bac_si_lam_id`.
 * Thuốc: chỉ định = bác sĩ kê `prescription.bac_si_chinh_id`.
 * Khám: thực hiện = bác sĩ của phiên khám chính (`consultation` PRIMARY).
 
@@ -21,6 +26,8 @@ from typing import Any
 import asyncpg
 from openpyxl.utils import get_column_letter
 
+from clinicai.services.bac_si_ky import sql_bac_si_dau_tien, sql_join_bac_si_chi_dinh
+
 COT_BS_CHI_DINH = 18
 COT_BS_THUC_HIEN = 19
 TIEU_DE_BAC_SI = (
@@ -28,8 +35,17 @@ TIEU_DE_BAC_SI = (
     (COT_BS_THUC_HIEN, "Bác sĩ thực hiện"),
 )
 
-_BAC_SI_DONG = """
-SELECT bl.id::text id, st_cd.full_name bs_chi_dinh, st_th.full_name bs_thuc_hien
+
+def _bac_si(cot: str, ten: str) -> str:
+    """LEFT JOIN LATERAL: `cot` → (id, full_name) nếu người đó LÀ bác sĩ."""
+    con = sql_bac_si_dau_tien([cot], "bl.clinic_id")
+    return f"LEFT JOIN LATERAL ({con}) {ten} ON true"
+
+
+_BAC_SI_DONG = f"""
+SELECT bl.id::text id,
+ coalesce(bscd.full_name, bsrx.full_name) bs_chi_dinh,
+ coalesce(bsth.full_name, bskh.full_name) bs_thuc_hien
 FROM payment_bill_line bl
 LEFT JOIN service_order o ON bl.source_type='service_order'
  AND o.clinic_id=bl.clinic_id AND o.id::text=bl.source_id
@@ -41,8 +57,10 @@ LEFT JOIN LATERAL (
  WHERE bl.source_type='exam' AND c.clinic_id=bl.clinic_id
    AND c.visit_id=bl.visit_id AND c.kind='PRIMARY'
  ORDER BY c.round_no LIMIT 1) kham ON true
-LEFT JOIN staff st_cd ON st_cd.id=coalesce(o.authorized_by, rx.bac_si_chinh_id)
-LEFT JOIN staff st_th ON st_th.id=coalesce(o.bac_si_lam_id, kham.doctor_staff_id)
+{sql_join_bac_si_chi_dinh("o", "bscd")}
+{_bac_si("rx.bac_si_chinh_id", "bsrx")}
+{_bac_si("o.bac_si_lam_id", "bsth")}
+{_bac_si("kham.doctor_staff_id", "bskh")}
 WHERE bl.clinic_id=$1::uuid AND bl.payment_cycle_id=ANY($2::uuid[])
 """
 

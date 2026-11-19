@@ -111,9 +111,10 @@ async def test_xuat_hoa_don_ghi_bac_si_chi_dinh_va_thuc_hien(
 ) -> None:
     """Tuyền 19/11: mỗi dòng có bác sĩ chỉ định + bác sĩ thực hiện.
 
-    Dịch vụ: chỉ định = `authorized_by`, thực hiện = `bac_si_lam_id`. Khám: thực
-    hiện = bác sĩ của phiên khám chính. Thuốc: chỉ định = bác sĩ kê
-    (`bac_si_chinh_id`). Không có dữ liệu → trống, không đoán."""
+    Dịch vụ: chỉ định = `bac_si_ky.sql_join_bac_si_chi_dinh` (người duyệt → người
+    ghi → BS chính của lượt → BS lịch hẹn, chỉ người LÀ bác sĩ), thực hiện =
+    `bac_si_lam_id`. Khám: thực hiện = bác sĩ phiên khám chính. Thuốc: chỉ định =
+    bác sĩ kê. Không bao giờ hiện tên người không phải bác sĩ; không có → trống."""
     q = await tao_quay(pool)
     manager = replace(q.thu_ngan, role=ClinicRole.MANAGEMENT)
     async with pool.acquire() as conn:
@@ -125,6 +126,17 @@ async def test_xuat_hoa_don_ghi_bac_si_chi_dinh_va_thuc_hien(
         bs_lam = await _nguoi(conn, loc, "DOCTOR")
     so_lam = await _chi_dinh(q, f"SA-{q.duoi}", "Siêu âm thử")
     so_trong = await _chi_dinh(q, f"SB-{q.duoi}", "Soi thử")
+    # Thư ký / lễ tân bấm hộ: máy ghi người bấm vào authorized_by + recorded_by
+    # (luật 23/09). Cột "BS chỉ định" KHÔNG được hiện tên người không phải bác sĩ
+    # (luật 29/09, `bac_si_ky`) → lùi về bác sĩ chính của lượt (staging 19/11:
+    # "Vũ Thị Huế" — tài khoản TKYK — hiện ở cột BS chỉ định).
+    so_thu_ky = await _chi_dinh(q, f"SC-{q.duoi}", "Ghế điện thử")
+    await pool.execute(
+        "UPDATE service_order SET authorized_by=$2::uuid, recorded_by=$2::uuid"
+        " WHERE id=$1::uuid",
+        so_thu_ky,
+        q.thu_ngan.staff_id,
+    )
     await pool.execute(
         "UPDATE service_order SET bac_si_lam_id=$2::uuid, bac_si_lam_boi=$2::uuid,"
         " bac_si_lam_luc=now() WHERE id=$1::uuid",
@@ -171,6 +183,7 @@ async def test_xuat_hoa_don_ghi_bac_si_chi_dinh_va_thuc_hien(
     for cid, kind, src, sid, ten in (
         (cycle, "dich_vu", "service_order", so_lam, "Siêu âm thử"),
         (cycle, "dich_vu", "service_order", so_trong, "Soi thử"),
+        (cycle, "dich_vu", "service_order", so_thu_ky, "Ghế điện thử"),
         (cycle, "dich_vu", "exam", f"exam-{q.visit_id}", "Khám thử"),
         (cycle, "dich_vu", "vat_tu", str(uuid4()), "Que thử"),
         (cycle_thuoc, "thuoc", "prescription", rx, "Thuốc kê thử"),
@@ -203,6 +216,8 @@ async def test_xuat_hoa_don_ghi_bac_si_chi_dinh_va_thuc_hien(
     } == {
         "Siêu âm thử": (bs_cd, bs_th),
         "Soi thử": (bs_cd, ""),
+        # Người bấm không phải bác sĩ → bác sĩ chính của lượt (tao_quay: bs_cd).
+        "Ghế điện thử": (bs_cd, ""),
         "Khám thử": ("", bs_th),
         "Que thử": ("", ""),
         "Thuốc kê thử": (bs_cd, ""),
