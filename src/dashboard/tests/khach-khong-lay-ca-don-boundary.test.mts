@@ -59,6 +59,9 @@ test("gọi đúng thao tác qua proxy danh sách trắng, không tự suy luậ
   assert.match(khoi, /goi\(\s*"mo-lai-ca-don"/);
   assert.match(dong, /tt\.mo_lai \?/);
   assert.match(dong, /goi\("mo-lai-dong", \{ prescription_id: dong\.id \}\)/);
-  assert.match(board, /<KhachKhongLayCaDon key=\{luot\.visit_id\} luot=\{luot\} \/>/);
+  // Key vẫn theo lượt, nhưng có tiền tố riêng: `key={luot.visit_id}` trần trùng key
+  // anh em `BanLeThu` → khung bán lẻ gắn lại + DOM mồ côi (16/11/2026,
+  // tests/nha-thuoc-key-anh-em-boundary).
+  assert.match(board, /<KhachKhongLayCaDon key=\{`khong-lay:\$\{luot\.visit_id\}`\} luot=\{luot\} \/>/);
   assert.doesNotMatch(khoi, /window\.confirm|giai_doan|lan_thu|refusal_reason/);
 });
