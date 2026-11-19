@@ -100,3 +100,7 @@ async def test_huy_lo_demo_va_hoan_tac(co: Co, tmp_path: Path) -> None:  # noqa:
     ra = _chay(chi, f"--luu={tmp_path / 'lan2.jsonl'}", "--that")
     assert "đã huỷ 1 lô" in ra, ra
     assert await ton(demo) == 0
+    # …và hoàn tác lần hai cũng phải cộng thật (khoá cố định theo lô → nhận
+    # "đã làm" mà không cộng gì).
+    assert "đã cộng lại 1 lô" in _chay(f"--hoan-tac={tmp_path / 'lan2.jsonl'}")
+    assert await ton(demo) == 20

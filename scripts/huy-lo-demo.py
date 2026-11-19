@@ -37,9 +37,9 @@ import asyncpg
 DOT = "[HUY-LO-DEMO-1611]"
 LY_DO = f"Lô mẫu DEMO17/09 nhân bản 08/10 — không có thật (Tuyền 16/11) {DOT}"
 LY_DO_HOAN = f"Hoàn tác huỷ lô mẫu DEMO {DOT}"
-#: Kho thật nhập prod trưa 15/11 (giờ VN) — lần giao vào lô mẫu sau mốc này là
-#: bán thật bị trừ nhầm vào lô giả: nhắc kiểm kho chỉnh lô thật.
-MOC_KHO_THAT = datetime.fromisoformat("2026-11-15T12:00:00+07:00")
+#: Kho thật nhập prod từ 14/11 13:56 (PN-HN-0001, giờ VN) — lần giao vào lô mẫu
+#: sau mốc này là bán thật bị trừ nhầm vào lô giả: nhắc kiểm kho chỉnh lô thật.
+MOC_KHO_THAT = datetime.fromisoformat("2026-11-14T13:56:00+07:00")
 
 UNG_VIEN = """
 SELECT b.id::text, b.location_id::text AS loc, l.name AS co_so, b.noi_chua,
@@ -110,12 +110,20 @@ async def _hoan_tac(pool: asyncpg.Pool, ident: Any, tep: str) -> int:
     with open(tep, encoding="utf-8") as f:
         ds = [json.loads(x) for x in f if x.strip()]
     for d in ds:
+        # Khoá theo LẦN HUỶ thứ mấy của lô: chạy lại cùng tệp → cùng khoá, không
+        # cộng hai lần; huỷ lại rồi hoàn tác lần hai → khoá mới, cộng thật.
+        lan_huy = await pool.fetchval(
+            "SELECT count(*) FROM public.inventory_txn WHERE drug_batch_id = $1::uuid"
+            " AND txn_type = 'DISCARD' AND reason = $2",
+            d["id"],
+            LY_DO,
+        )
         await svc.dieu_chinh(
             identity=dataclasses.replace(ident, location_id=d["loc"]),
             drug_batch_id=d["id"],
             so_luong=d["so"],
             ly_do=LY_DO_HOAN,
-            idempotency_key=_khoa("hoan", d["id"]),
+            idempotency_key=_khoa("hoan", d["id"], str(lan_huy)),
         )
     print(f"  ✓ đã cộng lại {len(ds)} lô mẫu (ADJUST, lý do có mã {DOT})")
     return 0
