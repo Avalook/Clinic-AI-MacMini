@@ -34,6 +34,12 @@ pytestmark = [pytest.mark.db, pytest.mark.asyncio]
 
 
 @pytest.fixture(autouse=True)
+def _khong_tu_giao_khi_thu(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Bài kiểm nút Giao (còn sống cho lượt cũ / dòng bị bỏ qua) → tắt tự giao.
+    monkeypatch.setenv("CLINICAI_TU_GIAO_KHI_THU", "0")
+
+
+@pytest.fixture(autouse=True)
 def _tat_kho_thuoc(monkeypatch: pytest.MonkeyPatch) -> None:
     # Chế độ đang chạy trên prod: thu tiền thuốc không chờ kho.
     monkeypatch.setenv("CLINICAI_DRUG_PAYMENT_REQUIRES_INVENTORY", "0")

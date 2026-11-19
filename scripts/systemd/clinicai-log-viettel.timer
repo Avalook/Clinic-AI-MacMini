@@ -1,0 +1,12 @@
+[Unit]
+Description=Đẩy log máy chủ lên Viettel CFS mỗi giờ
+
+[Timer]
+# Phút 07 mỗi giờ: tránh trùng các mốc 00/15/30/45 của sao lưu 15 phút.
+OnCalendar=*-*-* *:07:00
+# Máy tắt lúc tới giờ thì chạy bù khi bật lại; mốc (cursor) lo phần không hở.
+Persistent=true
+RandomizedDelaySec=60
+
+[Install]
+WantedBy=timers.target

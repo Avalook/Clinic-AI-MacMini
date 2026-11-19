@@ -13,6 +13,41 @@ Sổ tay cho người có sudo (Tuyền/Quang). Viết 27/09/2026 sau kiểm to�
 | Bản sao lưu ở Mac | `cat ~/Projects/ClinicAI-Backups/TRANG-THAI.txt` → phải "BÌNH THƯỜNG", tuổi < 30 giờ |
 | Log một lỗi cụ thể (có "mã lỗi" 8 ký tự) | `ssh clinic-vps-moi` rồi `sudo journalctl CONTAINER_NAME=clinicai_prod-api-1 --since "2 hours ago" \| grep <mã>` — log giữ qua deploy từ 27/09 (đã chuyển journald). Container đang chạy thì `docker logs clinicai_prod-api-1` cũng được. Muốn bỏ `sudo`: `sudo usermod -aG systemd-journal clinicai` (đăng nhập lại) |
 
+### Log cũ trên Viettel (từ 19/11/2026)
+
+Journal trên VPS chỉ giữ ~4 ngày (trần 2G đã đầy). Timer `clinicai-log-viettel`
+(`scripts/day-log-len-viettel.sh`) mỗi giờ phút 07 đẩy phần log mới lên
+`/mnt/viettel-cfs/logs/YYYY/MM/DD/YYYYMMDD-HHMMSS-01.json.zst`, giữ 180 ngày.
+
+- Thư mục ngày là **ngày CHẠY**, không phải ngày của dòng log: mỗi tệp chứa mọi
+  dòng từ tệp trước tới giờ ghi trong tên. Tệp ĐẦU TIÊN (lần chạy đầu) chứa cả
+  ~4 ngày journal còn giữ lúc bật; sau khi Viettel rớt, tệp kế tiếp dài hơn 1 giờ.
+  ⇒ Tìm một ngày D thì đọc thư mục D **và** D+1 (hoặc rộng hơn), lọc theo giờ.
+- Không bao giờ mất dòng; hiếm khi (máy tắt đúng giữa lúc chép xong và ghi mốc)
+  một đoạn có hai lần ⇒ khử bằng `__CURSOR`.
+
+```bash
+ssh clinic-vps-moi
+# Mọi lệnh POST chuyển kho từ 16/11 00:00 tới 17/11 00:00 giờ VN (Caddy):
+# (VPS không có jq — dùng python3; lọc theo giờ, khử trùng theo __CURSOR)
+zstd -dc /mnt/viettel-cfs/logs/2026/11/1[6-7]/*.json.zst | python3 -c '
+import sys, json, datetime as d
+tz = d.timezone(d.timedelta(hours=7))
+tu, den = (int(d.datetime(2026, 11, n, tzinfo=tz).timestamp() * 1e6) for n in (16, 17))
+thay = set()
+for l in sys.stdin:
+    r = json.loads(l)
+    if r.get("CONTAINER_NAME") != "clinicai_prod-caddy-1" or r["__CURSOR"] in thay: continue
+    thay.add(r["__CURSOR"])
+    if tu <= int(r["__REALTIME_TIMESTAMP"]) < den: print(r.get("MESSAGE"))
+' | grep chuyen-kho
+# Lần đẩy gần nhất có ổn không:
+systemctl status clinicai-log-viettel.service --no-pager
+```
+
+Query trong URL đã bị Caddy cắt (`?…`) và thân request không bao giờ được ghi —
+log cho biết CÓ lệnh nào, trả mã gì, không chứa số khách gõ.
+
 Cảnh báo tự gửi Telegram khi đặt `TELEGRAM_OPS_CHAT_ID` (id nhóm Telegram
 riêng cho kỹ thuật) vào `.env.prod`, rồi deploy lại. Không đặt thì cảnh báo vẫn
 hiện ở `/ops`.

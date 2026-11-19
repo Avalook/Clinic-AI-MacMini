@@ -315,7 +315,11 @@ export default function PharmacyBoard({
               {xemLuot ? <XemLuot visitId={xemLuot} onDong={() => setXemLuot(null)} /> : null}
               {/* Lượt bán lẻ: kê thêm + thu tiền thuốc ngay tại quầy (V8). */}
               {luot.ban_le && man.duoc_mo_ban_le ? (
-                <BanLeThu key={luot.visit_id} visitId={luot.visit_id} />
+                // KEY CÓ TIỀN TỐ RIÊNG (16/11/2026): `KhachKhongLayCaDon` bên dưới là anh
+                // em cùng thẻ — trùng key `visit_id` thì React so con theo key lạc một
+                // fiber: khung bán lẻ bị GẮN LẠI và bản cũ nằm lại thành DOM mồ côi (prod:
+                // khung hiện 2–3 lần, gõ Số lượng vào bản chết không ăn).
+                <BanLeThu key={`ban-le:${luot.visit_id}`} visitId={luot.visit_id} />
               ) : null}
               {man.co_quyen_ghi && luot.dong.length > 0 ? (
                 <div className="space-y-1">
@@ -336,7 +340,7 @@ export default function PharmacyBoard({
                 </div>
               ) : null}
               {/* Khách không mua cả đơn / mở lại cả đơn — máy chủ quyết nút nào hiện. */}
-              <KhachKhongLayCaDon key={luot.visit_id} luot={luot} />
+              <KhachKhongLayCaDon key={`khong-lay:${luot.visit_id}`} luot={luot} />
               {luot.dong.map((d) => (
                 // Khoá theo trạng thái của dòng: mỗi lần ghi xong (xác định
                 // thuốc, chọn lô, giao…) dòng dựng lại với ô nhập mới — số còn

@@ -96,6 +96,11 @@ from clinicai.services.service_selection_service import (
     validate_input,
 )
 from clinicai.services.tai_khoan_nhan_service import chon_cho_lan_thu
+from clinicai.services.tu_giao_khi_thu import (
+    KetQuaTuGiao,
+    ghi_loi_tu_giao,
+    tu_giao_khi_thu,
+)
 from clinicai.services.vat_tu_ban_service import dong_bo_ban_vat_tu
 
 logger = structlog.get_logger()
@@ -447,6 +452,7 @@ class PaymentService:
         if chon is not None:
             raise ValidationError("Lựa chọn dịch vụ chỉ đi kèm lần thu tiền dịch vụ.")
 
+        tu_giao: KetQuaTuGiao | None = None
         async with self._pool.acquire() as conn:
             async with conn.transaction():
                 status_row = await _khoa_luot_thu(conn, visit_id, identity)
@@ -674,6 +680,11 @@ class PaymentService:
                     await _phat_thuoc_bi_bo(
                         conn, identity=identity, visit_id=visit_id, cycle_id=cycle_id
                     )
+                if kind == "thuoc" and payment_id is not None and not phan_lo:
+                    # Thu xong là giao luôn: trừ kho quầy ngay (Tuyền 16/11/2026).
+                    tu_giao = await tu_giao_khi_thu(
+                        conn, identity=identity, cycle_id=cycle_id
+                    )
                 if phan_lo:
                     # Chờ xác minh: phân lô thành phần GIỮ của lần thu này.
                     # Tiền mặt: PAID ngay → bán luôn, cùng giao dịch.
@@ -710,9 +721,13 @@ class PaymentService:
             method=method,
             by_staff_id=identity.staff_id,
         )
+        if tu_giao is not None:
+            await ghi_loi_tu_giao(self._pool, tu_giao)
         return {
             "payment_cycle_id": cycle_id,
             "status": CHO_XAC_MINH if dien_tu else "PAID",
+            # Dòng thuốc chưa tự giao được lúc thu — màn nhắc bấm Giao.
+            "tu_giao_bo_qua": tu_giao.bo_qua if tu_giao else [],
         }
 
     async def _thu_dich_vu(
@@ -1107,6 +1122,7 @@ class PaymentService:
         if ma is not None and len(ma) > 100:
             raise ValidationError("Mã giao dịch ngân hàng dài quá 100 ký tự.")
         thuc_nhan = doc_so_thuc_nhan(so_tien_thuc_nhan)
+        tu_giao: KetQuaTuGiao | None = None
         async with self._pool.acquire() as conn:
             async with conn.transaction():
                 lan, phan_lo = await self._khoa_lan_thu(
@@ -1263,6 +1279,11 @@ class PaymentService:
                         visit_id=visit_id,
                         cycle_id=payment_cycle_id,
                     )
+                    if not phan_lo:
+                        # Tiền vừa nhận → giao luôn, trừ kho quầy (16/11/2026).
+                        tu_giao = await tu_giao_khi_thu(
+                            conn, identity=identity, cycle_id=payment_cycle_id
+                        )
                 if (
                     kind == "thuoc"
                     and bool(phan_lo)
@@ -1307,9 +1328,12 @@ class PaymentService:
                             else None
                         ),
                     )
+        if tu_giao is not None:
+            await ghi_loi_tu_giao(self._pool, tu_giao)
         return {
             "payment_cycle_id": payment_cycle_id,
             "status": "PAID",
+            "tu_giao_bo_qua": tu_giao.bo_qua if tu_giao else [],
             "can_doi_soat": can_doi_soat,
             "doi_soat_ly_do": ly_do_doi_soat,
             "so_tien_chuyen_khoan": so_ck,
