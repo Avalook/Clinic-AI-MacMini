@@ -12,6 +12,7 @@ from openpyxl import load_workbook
 from clinicai.api.identity import ClinicRole
 from clinicai.core.clock import now_vn
 from clinicai.services.quay_thu_service import ma_phieu
+from clinicai.services.xuat_hoa_don_bac_si import HAU_TO_NGUOI_BAM
 from clinicai.services.xuat_hoa_don_service import (
     DONG_DAU,
     XuatHoaDonService,
@@ -143,6 +144,13 @@ async def test_xuat_hoa_don_ghi_bac_si_chi_dinh_va_thuc_hien(
         so_lam,
         bs_lam.staff_id,
     )
+    # Người bấm Hoàn tất (điều dưỡng) — bác sĩ đã ghép vẫn thắng; không ghép được
+    # (lịch chưa có bác sĩ lúc làm) → ghi người bấm kèm hậu tố (Tuyền 19/11).
+    await pool.execute(
+        "UPDATE service_order SET performed_by=$2::uuid WHERE id = ANY($1::uuid[])",
+        [so_lam, so_trong],
+        q.thu_ngan.staff_id,
+    )
     await pool.execute(
         "UPDATE consultation SET doctor_staff_id=$2::uuid WHERE id=$1::uuid",
         q.consultation_id,
@@ -210,12 +218,13 @@ async def test_xuat_hoa_don_ghi_bac_si_chi_dinh_va_thuc_hien(
         await _ten(pool, q.bac_si.staff_id),
         await _ten(pool, bs_lam.staff_id),
     )
+    nguoi_bam = await _ten(pool, q.thu_ngan.staff_id) + HAU_TO_NGUOI_BAM
     assert {
         d["ten"]: (d["bs_chi_dinh"], d["bs_thuc_hien"])
         for d in hd["dong"] + hd_thuoc["dong"]
     } == {
         "Siêu âm thử": (bs_cd, bs_th),
-        "Soi thử": (bs_cd, ""),
+        "Soi thử": (bs_cd, nguoi_bam),
         # Người bấm không phải bác sĩ → bác sĩ của PHIÊN KHÁM ra chỉ định (bài
         # này đặt phiên cho bs_lam), không phải người bấm, không phải BS của lượt.
         "Ghế điện thử": (bs_th, ""),
