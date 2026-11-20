@@ -535,14 +535,16 @@ export default function ClinicalRecordForm({
       ...NHIP_NGHE_TIN,
     });
     const changed = (ev: Event) => {
-      const table = (ev as CustomEvent<string>).detail;
-      if (["clinical_record", "patient_medical_profile", "prescription", "lab_result", "visit", "vital_measurement"].includes(table)) nhip.nhan();
+      const table = (ev as CustomEvent<string | null>).detail;
+      // `null` = RealtimeRefresher vừa bắt kịp (tab hiện lại / dòng nối lại) hoặc
+      // tin méo: người vừa nhìn lại màn hình thì nạp NGAY, không chờ khoảng.
+      if (table === null) nhip.batKip();
+      else if (["clinical_record", "patient_medical_profile", "prescription", "lab_result", "visit", "vital_measurement"].includes(table)) nhip.nhan();
     };
     window.addEventListener(SU_KIEN_BANG, changed);
-    // Tab ẩn thì huỷ hẳn nhịp 60s; hiện lại thì nạp lại MỘT lần (30/09/2026).
-    // Bỏ tay nghe `focus`: bấm sang cửa sổ bên cạnh rồi bấm lại thì tab vẫn hiện
-    // suốt, dòng SSE vẫn mở — không có gì để bắt kịp.
-    const goNhip = nhipKhiHien(() => nhip.nhan(), 60_000);
+    // Tab ẩn thì huỷ hẳn nhịp 60s. Hiện lại thì `null` ở trên đã nạp một lần —
+    // nhịp không hỏi thêm (`hoiKhiHien: false`).
+    const goNhip = nhipKhiHien(() => nhip.nhan(), 60_000, { hoiKhiHien: false });
     return () => {
       nhip.dung(); goNhip();
       window.removeEventListener(SU_KIEN_BANG, changed);

@@ -444,6 +444,70 @@ test("tin lẻ sau lúc yên: vẫn làm mới trong ~1 giây như cũ", () => {
   assert.ok(lan[1] - 20_000 <= 1_000, `chờ ${lan[1] - 20_000}ms`);
 });
 
+test("bão DÀY kéo dài: khoảng nới lên 6 giây — 3 cửa sổ cùng tài khoản vẫn dưới trần", () => {
+  const tg = taoThoiGian();
+  const lan: number[] = [];
+  const nhip = nhipThat(tg, lan);
+  for (let t = 0; t < 60_000; t += 100) {
+    tg.toi(t);
+    nhip.nhan();
+  }
+  tg.toi(80_000);
+  // ≤ 12 lượt × 7 API × 3 cửa sổ ≈ 250/phút < 400.
+  assert.ok(lan.length <= 12, `dựng lại ${lan.length} lần trong 60 giây`);
+  const giua = lan.slice(2).map((t, i) => t - lan[i + 1]);
+  assert.ok(giua.every((d) => d >= 6_000), `khoảng sau khi nới: ${giua.join(", ")}`);
+});
+
+test("bão qua, yên lại: tin lẻ quay về ~1 giây; tin THƯA (người bấm) không làm nới", () => {
+  const tg = taoThoiGian();
+  const lan: number[] = [];
+  const nhip = nhipThat(tg, lan);
+  for (let t = 0; t < 20_000; t += 100) {
+    tg.toi(t);
+    nhip.nhan();
+  }
+  tg.toi(60_000);
+  const truoc = lan.length;
+  nhip.nhan();
+  tg.toi(61_000);
+  assert.equal(lan.length, truoc + 1);
+  assert.ok(lan[lan.length - 1] - 60_000 <= 1_000, "yên rồi thì nhanh như cũ");
+  // Quầy đông: 3 tin mỗi 2 giây suốt 60 giây — giữ khoảng 3 giây, không nới.
+  const tu = lan.length;
+  for (let t = 70_000; t < 130_000; t += 2_000) {
+    for (const d of [0, 50, 100]) {
+      tg.toi(t + d);
+      nhip.nhan();
+    }
+  }
+  tg.toi(140_000);
+  const moi = lan.slice(tu);
+  const giua = moi.slice(1).map((t, i) => t - moi[i]);
+  assert.ok(giua.every((d) => d < 6_000), `quầy đông bị chậm: ${giua.join(", ")}`);
+});
+
+test("đồng hồ máy bị chỉnh lùi: không chờ quá một khoảng", () => {
+  let bay = 100_000;
+  const hens: Array<{ ms: number }> = [];
+  const nhip = taoNhipLamMoi({
+    lamMoi: () => {},
+    dangAn: () => false,
+    hen: (_fn, ms) => {
+      hens.push({ ms });
+      return hens.length;
+    },
+    huy: () => {},
+    bayGio: () => bay,
+    rand: () => 0,
+    ...NHIP_NGHE_TIN,
+  });
+  nhip.batKip(); // lượt cuối ghi ở 100.000
+  bay = 0; // NTP kéo lùi 100 giây
+  nhip.nhan();
+  assert.ok(hens[0].ms <= 6_000, `chờ ${hens[0].ms}ms`);
+});
+
 test("bắt kịp (quay lại tab) vẫn làm mới NGAY, kể cả ngay sau một lượt", () => {
   const tg = taoThoiGian();
   const lan: number[] = [];
