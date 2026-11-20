@@ -3,6 +3,7 @@ import test from "node:test";
 
 import {
   moDongTheoHien,
+  NHIP_NGHE_TIN,
   taoKhoTrangThai,
   taoNhipLamMoi,
   TRE_MAC_DINH,
@@ -358,4 +359,97 @@ test("kho trạng thái dòng: đổi mới báo, trùng thì im, thôi nghe là
   kho.dat("rot");
   assert.equal(kho.doc(), "rot");
   assert.equal(soLanBao, 1, "đã thôi nghe thì không được gọi nữa");
+});
+
+// ------------------------------------------------- bão tin (prod 20/11) ----
+//
+// 11:20 chạy xoá lô giả + bù trừ kho: ~1.000 dòng ghi liền, tin realtime đổ về
+// suốt vài chục giây. Nhịp cũ (gộp 250ms, trần 600ms) → mỗi tab dựng lại trang
+// ~1 lần/giây, mỗi lần 6–7 API → /me 429 (trần 400/phút/tài khoản) → layout ném
+// "Máy chủ đang bận". Đồng hồ ảo dưới đây chạy hẹn theo đúng thời điểm.
+
+function taoThoiGian() {
+  let bay = 0;
+  let dem = 0;
+  const hens = new Map<number, { luc: number; fn: () => void }>();
+  return {
+    bayGio: () => bay,
+    hen: (fn: () => void, ms: number): Hen => {
+      const k = ++dem;
+      hens.set(k, { luc: bay + ms, fn });
+      return k;
+    },
+    huy: (h: Hen) => {
+      hens.delete(h as number);
+    },
+    /** Chạy tới thời điểm `t`, nổ mọi hẹn tới hạn theo đúng thứ tự. */
+    toi: (t: number) => {
+      for (;;) {
+        const den = [...hens.entries()]
+          .filter(([, h]) => h.luc <= t)
+          .sort((a, b) => a[1].luc - b[1].luc)[0];
+        if (!den) break;
+        hens.delete(den[0]);
+        bay = den[1].luc;
+        den[1].fn();
+      }
+      bay = t;
+    },
+  };
+}
+
+function nhipThat(tg: ReturnType<typeof taoThoiGian>, lan: number[]) {
+  return taoNhipLamMoi({
+    lamMoi: () => lan.push(tg.bayGio()),
+    dangAn: () => false,
+    hen: tg.hen,
+    huy: tg.huy,
+    bayGio: tg.bayGio,
+    rand: () => 0.5,
+    ...NHIP_NGHE_TIN,
+  });
+}
+
+test("bão tin 60 giây: mỗi tab dựng lại trang tối đa ~20 lần/phút, không phải ~100", () => {
+  const tg = taoThoiGian();
+  const lan: number[] = [];
+  const nhip = nhipThat(tg, lan);
+  for (let t = 0; t < 60_000; t += 100) {
+    tg.toi(t);
+    nhip.nhan();
+  }
+  tg.toi(70_000);
+  // 7 API mỗi lượt × 21 lượt ≈ 150/phút — dưới ngưỡng cảnh báo 200, xa trần 400.
+  assert.ok(lan.length <= 21, `dựng lại ${lan.length} lần trong 60 giây`);
+  for (let i = 1; i < lan.length; i++) {
+    assert.ok(lan[i] - lan[i - 1] >= 3_000, `hai lượt cách ${lan[i] - lan[i - 1]}ms`);
+  }
+  // Không bỏ sót: lượt cuối nổ SAU tin cuối → màn hiện số cuối cùng.
+  assert.ok(lan[lan.length - 1] >= 59_900, "phải có một lượt sau tin cuối");
+});
+
+test("tin lẻ sau lúc yên: vẫn làm mới trong ~1 giây như cũ", () => {
+  const tg = taoThoiGian();
+  const lan: number[] = [];
+  const nhip = nhipThat(tg, lan);
+  tg.toi(10_000);
+  nhip.nhan();
+  tg.toi(20_000);
+  assert.equal(lan.length, 1);
+  assert.ok(lan[0] - 10_000 <= 1_000, `chờ ${lan[0] - 10_000}ms`);
+  // Hai thao tác cách nhau 5 giây (người bấm thật): cả hai đều ~1 giây.
+  nhip.nhan();
+  tg.toi(30_000);
+  assert.equal(lan.length, 2);
+  assert.ok(lan[1] - 20_000 <= 1_000, `chờ ${lan[1] - 20_000}ms`);
+});
+
+test("bắt kịp (quay lại tab) vẫn làm mới NGAY, kể cả ngay sau một lượt", () => {
+  const tg = taoThoiGian();
+  const lan: number[] = [];
+  const nhip = nhipThat(tg, lan);
+  nhip.nhan();
+  tg.toi(2_000);
+  nhip.batKip();
+  assert.deepEqual(lan.length, 2, "người vừa nhìn vào màn hình không phải chờ");
 });

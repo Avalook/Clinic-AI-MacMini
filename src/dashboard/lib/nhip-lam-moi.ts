@@ -81,6 +81,18 @@ export interface CongCuNhip {
    * đa `choToiDa` (+ `jitter`) kể từ tin đầu rồi làm mới, tin còn chảy tiếp cũng vậy.
    */
   choToiDa?: number;
+  /**
+   * KHOẢNG TỐI THIỂU giữa hai lượt làm mới do TIN gây ra (mặc định: không có).
+   *
+   * VÌ SAO (prod 20/11/2026, 11:21–11:27). Script ghi ~1.000 dòng liền → tin đổ
+   * về suốt vài chục giây; `choToiDa` 600ms nghĩa là mỗi tab dựng lại trang ~1
+   * lần/giây, mỗi lần kéo 6–7 API (`/me`, `/phan-quyen/toi`…) → một tài khoản
+   * 400+ lượt/phút → `/me` 429 → layout ném "Máy chủ đang bận". Có khoảng này thì
+   * tin LẺ sau lúc yên vẫn làm mới sau ~1 giây như cũ; chỉ khi tin dồn mới phải
+   * chờ tới đủ khoảng kể từ lượt trước — và vẫn luôn có một lượt SAU tin cuối.
+   * `batKip` (người vừa nhìn lại tab) không bị chặn bởi khoảng này.
+   */
+  khoangToiThieu?: number;
   /** Đồng hồ (ms). Mặc định `Date.now`; test tiêm đồng hồ giả. */
   bayGio?: () => number;
   /** Số ngẫu nhiên [0,1). Mặc định `Math.random`; test tiêm số cố định. */
@@ -116,6 +128,13 @@ export function taoNhipLamMoi(cong: CongCuNhip): Nhip {
   let hen: Hen | null = null;
   // Giờ của tin ĐẦU trong chuỗi đang chờ; chỉ có nghĩa khi `hen !== null`.
   let dauChuoi = 0;
+  // Giờ lượt làm mới gần nhất (để giữ `khoangToiThieu`).
+  let lanCuoi = Number.NEGATIVE_INFINITY;
+
+  function lamMoi() {
+    lanCuoi = bayGio();
+    cong.lamMoi();
+  }
 
   function huyHen() {
     if (hen !== null) {
@@ -144,12 +163,17 @@ export function taoNhipLamMoi(cong: CongCuNhip): Nhip {
       }
       huyHen();
       const lech = jitter > 0 ? Math.floor(rand() * (jitter + 1)) : 0;
+      // Tin dồn: chưa đủ khoảng kể từ lượt trước thì dời tới đúng lúc đủ. Tin
+      // tới tiếp trong lúc chờ rơi vào nhánh `choToiDa` ở trên (đã quá trần →
+      // giữ nguyên hẹn), nên hẹn này không bị dời mãi.
+      const conThieu =
+        cong.khoangToiThieu !== undefined ? lanCuoi + cong.khoangToiThieu - bay : 0;
       hen = cong.hen(() => {
         hen = null;
         // Kiểm lại lúc nổ: 250ms vừa qua người ta có thể đã chuyển tab.
         if (cong.dangAn()) return;
-        cong.lamMoi();
-      }, cho + lech);
+        lamMoi();
+      }, Math.max(cho + lech, conThieu));
     },
 
     batKip() {
@@ -158,7 +182,7 @@ export function taoNhipLamMoi(cong: CongCuNhip): Nhip {
       // thấy số đúng là 250ms nhìn vào số sai. Cũng không lệch ngẫu nhiên: đây
       // là một tab vừa được nhìn, không phải mười tab cùng nhận một tin.
       huyHen();
-      cong.lamMoi();
+      lamMoi();
     },
 
     dung: huyHen,
@@ -169,8 +193,11 @@ export function taoNhipLamMoi(cong: CongCuNhip): Nhip {
  * Nhịp mặc định cho người NGHE TIN (`useNgheBang`, `RealtimeRefresher`): gộp
  * 250ms, trần 600ms kể từ tin đầu, lệch thêm 0–400ms. Xấu nhất ~1 giây từ lúc có
  * thay đổi thật tới lúc màn hỏi lại — đủ để người đứng quầy không thấy độ trễ.
+ * Tin DỒN (script ghi hàng loạt, nhiều người cùng thao tác) thì hai lượt cách nhau
+ * ít nhất 3 giây: ≤ ~20 lượt/phút × ~7 API ≈ 140, dưới ngưỡng cảnh báo 200 của
+ * `runaway_guard` (trần 400/phút/tài khoản).
  */
-export const NHIP_NGHE_TIN = { choToiDa: 600, jitter: 400 } as const;
+export const NHIP_NGHE_TIN = { choToiDa: 600, jitter: 400, khoangToiThieu: 3_000 } as const;
 
 export interface CongCuNoiLai {
   /** Đóng dòng hỏng và mở dòng mới. */
