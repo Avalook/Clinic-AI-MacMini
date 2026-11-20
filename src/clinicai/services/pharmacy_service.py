@@ -3686,10 +3686,6 @@ NOI_KHO_DANG_O = "Lô này đang ở KHO — chuyển sang quầy rồi mới b�
 #: (migration 20261116150000) so ĐÚNG chuỗi này — đổi chữ phải đổi cả migration.
 LY_DO_LAY_TU_KHO = "Quầy không đủ — lấy từ kho"
 
-#: Lô mẫu nạp 17/09/2026 để thử màn (`scripts/huy-lo-demo.py` đưa về 0). Còn tồn thì
-#: tự giao vẫn KHÔNG được chọn: hạn gần, có ở quầy — FEFO sẽ trừ nhầm vào nó.
-LO_MAU_TIEN_TO = "DEMO1709-"
-
 
 async def tach_kho_quay_bat(conn: Any, identity: StaffIdentity) -> bool:
     """Cơ sở đang đứng đã BẬT tách kho / quầy chưa (G7). Mặc định tắt: một kho,
@@ -3708,9 +3704,8 @@ async def khoa_lo_de_giao(
     conn: Any, *, clinic_id: str, co_so: str | None, thuoc_ids: list[str]
 ) -> list[str]:
     """Khoá (FOR UPDATE, id tăng dần, MỘT câu) mọi lô có thể giao tự chọn của các
-    thuốc này ở cơ sở `co_so`: còn tồn, còn hạn, không phải lô mẫu, ở QUẦY — và ở
-    KHO chỉ khi cơ sở ĐÃ BẬT tách kho/quầy (chưa tách thì như cũ: chỉ lô QUẦY).
-    Trả id các lô.
+    thuốc này ở cơ sở `co_so`: còn tồn, còn hạn, ở QUẦY — và ở KHO chỉ khi cơ sở
+    ĐÃ BẬT tách kho/quầy (chưa tách thì như cũ: chỉ lô QUẦY). Trả id các lô.
 
     Một lần thu nhiều thuốc gọi hàm này cho MỌI thuốc trước khi giao từng dòng
     (`tu_giao_khi_thu`): khoá theo từng thuốc một thì kiểm ca / hoàn tác kiểm kho /
@@ -3729,7 +3724,6 @@ async def khoa_lo_de_giao(
                 OR (b.noi_chua = 'KHO' AND coalesce(l.tach_kho_quay, false)))
            AND b.quantity_on_hand > 0
            AND (b.expiry_date IS NULL OR b.expiry_date >= $4::date)
-           AND NOT starts_with(b.batch_code, $5)
          ORDER BY b.id
            FOR UPDATE OF b
         """,
@@ -3737,7 +3731,6 @@ async def khoa_lo_de_giao(
         co_so,
         sorted(set(thuoc_ids)),
         now_vn().date(),
-        LO_MAU_TIEN_TO,
     )
     return [r["id"] for r in rows]
 

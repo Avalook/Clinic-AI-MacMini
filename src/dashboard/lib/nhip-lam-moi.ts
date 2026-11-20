@@ -1,53 +1,10 @@
 // NHỊP LÀM MỚI VÀ DÒNG SỰ KIỆN — phần quyết định, tách khỏi React để test được.
 //
-// VÌ SAO FILE NÀY RA ĐỜI (đo 21/08/2026 trên staging, trình duyệt thật).
-//
-// Người dùng báo "đơ 5–10 phút, bấm nút không ăn, bấm năm lần mới ghi nhận", và
-// đơ CẢ KHI DÙNG 4G. Giả thuyết ban đầu là bão render: 91 lời gọi
-// router.refresh() nhân với số tab đang mở, dồn lên một tiến trình Node.
-//
-// Đo xong thì nguyên nhân chính là chuyện khác, và nằm hẳn trong TRÌNH DUYỆT.
-//
-// EventSource là một kết nối HTTP không bao giờ đóng. Trên HTTP/1.1 (chưa có
-// TLS nên chưa có HTTP/2) trình duyệt chỉ cho 6 kết nối tới một origin. Mỗi tab
-// mở một EventSource, nên mỗi tab NUỐT VĨNH VIỄN một trong sáu chỗ ấy:
-//
-//     số tab mở   1    2    4    5    6
-//     còn lại     5    4    2    1    0
-//
-// Đo bằng cách bắn 6 request /home cùng lúc rồi đếm số chạy song song — ra đúng
-// dãy trên. Tới tab thứ SÁU thì không còn chỗ nào: tab mới không tải nổi trang
-// (navigate treo hết 300 giây), và fetch từ tab cũ cũng treo. Đúng lúc đó CPU
-// trên máy chủ là dashboard 0.03%, api 0.25%, db 0.39%, load 0.43 — MÁY CHỦ
-// RỖNG. Đó là lý do đơ cả trên 4G: nó không xảy ra ở mạng, cũng không ở máy chủ.
-//
-// Phòng khám mở khoảng mười tab. Nên hệ thống không "chậm" — nó ĐỨNG HẲN, và
-// mọi phép đo phía máy chủ đều báo khoẻ trong lúc ấy.
-//
-// CÁCH CHỮA: TAB NÀO KHÔNG AI NHÌN THÌ KHÔNG GIỮ GÌ CẢ.
-//
-// Một tab đang ẩn không vẽ gì, nên nó không cần tin tức, và nó cũng không cần
-// một kết nối. Đóng dòng lúc ẩn, mở lại lúc hiện, rồi làm mới một lượt để bắt
-// kịp. Mười tab mở mà một tab đang nhìn thì hệ thống dùng MỘT kết nối, còn năm
-// chỗ trống — thay vì mười tab nuốt sạch sáu chỗ.
-//
-// ĐÃ CÂN NHẮC VÀ BỎ: bầu một "tab chủ" giữ dòng chung rồi phát lại cho các tab
-// khác qua BroadcastChannel. Nó cũng ra một kết nối, nhưng cách bầu duy nhất
-// đáng tin là `navigator.locks`, mà Web Locks CHỈ CÓ trong secure context.
-// Kiểm trên chính staging 21/08: `window.isSecureContext` là false và
-// `typeof navigator.locks` là "undefined" — prod cũng vậy, cả hai đều là HTTP
-// thường trên một địa chỉ IP. Nghĩa là bản bầu-tab-chủ sẽ âm thầm rơi về cách
-// cũ ĐÚNG Ở HAI CHỖ CẦN NÓ NHẤT, và test vẫn xanh vì test có Web Locks giả.
-// Tự viết bầu cử bằng nhịp tim qua BroadcastChannel thì vướng chuyện trình
-// duyệt bóp nhịp hẹn giờ của tab nền xuống một lần mỗi phút — tức tab chủ đang
-// ẩn trông y như đã chết. Cách theo tầm nhìn không đụng gì tới hai thứ đó.
-//
-// KHÔNG THAY CHO HTTP/2. Bật HTTP/2 (cần HTTPS + tên miền) xoá hẳn giới hạn 6
-// kết nối. Chừng nào chưa có tên miền thì đây là bản thay thế rẻ, và kể cả khi
-// có HTTP/2 thì phần "tab ẩn không dựng lại trang" vẫn đáng giữ — nó cắt việc
-// thừa, không chỉ né một giới hạn. Dựng /home tốn ~163ms CPU (đo qua cgroup:
-// 60 lượt = 9.76s CPU của container dashboard) trên MỘT tiến trình Node, mà
-// broker phát theo clinic_id tới MỌI tab đang nghe (change_broker.py).
+// Hai luật, lý do và số đo đầy đủ ở docs/adr/0016-nhip-lam-moi.md:
+// 1. Tab ẩn không giữ kết nối SSE và không dựng lại trang (21/08/2026: HTTP/1.1
+//    chỉ 6 kết nối mỗi origin — tab thứ sáu làm cả trình duyệt đứng).
+// 2. Tin dồn không biến thành một lượt dựng trang mỗi giây (20/11/2026: /me 429
+//    → "Máy chủ đang bận"). Xem `khoangToiThieu`.
 
 /** Một cái hẹn giờ. Kiểu do bên gọi định đoạt để test tiêm đồng hồ giả vào. */
 export type Hen = unknown;
@@ -81,6 +38,16 @@ export interface CongCuNhip {
    * đa `choToiDa` (+ `jitter`) kể từ tin đầu rồi làm mới, tin còn chảy tiếp cũng vậy.
    */
   choToiDa?: number;
+  /**
+   * KHOẢNG TỐI THIỂU giữa hai lượt làm mới do TIN gây ra (mặc định: không có).
+   * Phải đi kèm `choToiDa` (không có trần thì tin chảy đều sẽ dời hẹn mãi).
+   *
+   * VÌ SAO — xem docs/adr/0016-nhip-lam-moi.md mục 20/11/2026: tin dồn → mỗi tab
+   * dựng lại trang ~1 lần/giây → `/me` 429 → "Máy chủ đang bận". Tin LẺ sau lúc
+   * yên vẫn ~1 giây như cũ; tin dồn thì chờ đủ khoảng (bão dày ≥ `TIN_DAY` tin:
+   * gấp đôi), luôn có một lượt SAU tin cuối. `batKip` không bị chặn.
+   */
+  khoangToiThieu?: number;
   /** Đồng hồ (ms). Mặc định `Date.now`; test tiêm đồng hồ giả. */
   bayGio?: () => number;
   /** Số ngẫu nhiên [0,1). Mặc định `Math.random`; test tiêm số cố định. */
@@ -100,6 +67,10 @@ export interface Nhip {
  *  vài bảng) thành một lần dựng trang, đủ ngắn để người dùng không thấy độ trễ. */
 export const TRE_MAC_DINH = 250;
 
+/** Số tin trong MỘT lần chờ coi là bão dày (script ghi hàng loạt). Quầy đông
+ *  khách: vài tin mỗi vài giây — không chạm. */
+export const TIN_DAY = 10;
+
 /**
  * Gộp nhịp làm mới, và KHÔNG làm mới tab đang ẩn.
  *
@@ -116,6 +87,18 @@ export function taoNhipLamMoi(cong: CongCuNhip): Nhip {
   let hen: Hen | null = null;
   // Giờ của tin ĐẦU trong chuỗi đang chờ; chỉ có nghĩa khi `hen !== null`.
   let dauChuoi = 0;
+  // Giờ lượt làm mới gần nhất (để giữ `khoangToiThieu`).
+  let lanCuoi = Number.NEGATIVE_INFINITY;
+  // Bão DÀY (≥ TIN_DAY tin trong một lần chờ — script ghi hàng loạt, không phải
+  // người bấm) thì nhân đôi khoảng; yên đủ lâu thì về 1.
+  let heSo = 1;
+  let soTinCho = 0;
+  const khoang = () => (cong.khoangToiThieu ?? 0) * heSo;
+
+  function lamMoi() {
+    lanCuoi = bayGio();
+    cong.lamMoi();
+  }
 
   function huyHen() {
     if (hen !== null) {
@@ -135,7 +118,10 @@ export function taoNhipLamMoi(cong: CongCuNhip): Nhip {
       let cho = tre;
       if (hen === null) {
         dauChuoi = bay;
+        soTinCho = 1;
+        if (bay - lanCuoi >= 4 * (cong.khoangToiThieu ?? 0)) heSo = 1;
       } else if (cong.choToiDa !== undefined) {
+        soTinCho += 1;
         const daCho = bay - dauChuoi;
         // Quá trần thì GIỮ NGUYÊN hẹn đang chạy — hẹn lại là dời nó thêm một
         // lượt lệch ngẫu nhiên, và dòng tin chảy mãi sẽ dời mãi.
@@ -144,12 +130,18 @@ export function taoNhipLamMoi(cong: CongCuNhip): Nhip {
       }
       huyHen();
       const lech = jitter > 0 ? Math.floor(rand() * (jitter + 1)) : 0;
+      // Tin dồn: chưa đủ khoảng kể từ lượt trước thì dời tới đúng lúc đủ. Tin
+      // tới tiếp trong lúc chờ rơi vào nhánh `choToiDa` ở trên (đã quá trần →
+      // giữ nguyên hẹn), nên hẹn này không bị dời mãi. Kẹp ≤ một khoảng: đồng hồ
+      // máy bị chỉnh lùi thì `lanCuoi` nằm ở tương lai (đo test: chờ 103 giây).
+      const conThieu = Math.min(lanCuoi + khoang() - bay, khoang());
       hen = cong.hen(() => {
         hen = null;
+        heSo = soTinCho >= TIN_DAY ? 2 : 1;
         // Kiểm lại lúc nổ: 250ms vừa qua người ta có thể đã chuyển tab.
         if (cong.dangAn()) return;
-        cong.lamMoi();
-      }, cho + lech);
+        lamMoi();
+      }, Math.max(cho + lech, conThieu));
     },
 
     batKip() {
@@ -158,7 +150,7 @@ export function taoNhipLamMoi(cong: CongCuNhip): Nhip {
       // thấy số đúng là 250ms nhìn vào số sai. Cũng không lệch ngẫu nhiên: đây
       // là một tab vừa được nhìn, không phải mười tab cùng nhận một tin.
       huyHen();
-      cong.lamMoi();
+      lamMoi();
     },
 
     dung: huyHen,
@@ -169,8 +161,11 @@ export function taoNhipLamMoi(cong: CongCuNhip): Nhip {
  * Nhịp mặc định cho người NGHE TIN (`useNgheBang`, `RealtimeRefresher`): gộp
  * 250ms, trần 600ms kể từ tin đầu, lệch thêm 0–400ms. Xấu nhất ~1 giây từ lúc có
  * thay đổi thật tới lúc màn hỏi lại — đủ để người đứng quầy không thấy độ trễ.
+ * Tin DỒN (script ghi hàng loạt, nhiều người cùng thao tác) thì hai lượt cách nhau
+ * ít nhất 3 giây: ≤ ~20 lượt/phút × ~7 API ≈ 140, dưới ngưỡng cảnh báo 200 của
+ * `runaway_guard` (trần 400/phút/tài khoản).
  */
-export const NHIP_NGHE_TIN = { choToiDa: 600, jitter: 400 } as const;
+export const NHIP_NGHE_TIN = { choToiDa: 600, jitter: 400, khoangToiThieu: 3_000 } as const;
 
 export interface CongCuNoiLai {
   /** Đóng dòng hỏng và mở dòng mới. */
