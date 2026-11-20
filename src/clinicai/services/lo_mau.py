@@ -17,5 +17,7 @@ LO_MAU_TIEN_TO = "DEMO1709-"
 def khong_phai_lo_mau(bang: str = "b") -> str:
     """Điều kiện SQL: dòng `drug_batch` (bí danh `bang`) không phải lô mẫu.
 
-    Tiền tố là hằng của code, không phải dữ liệu người gõ → ghép thẳng an toàn."""
+    Tiền tố là hằng của code, không phải dữ liệu người gõ → ghép thẳng an toàn.
+    Câu SQL nhận điều kiện này qua f-string: thêm `{` `}` thật vào câu ấy (vd
+    `'{}'::jsonb`) thì phải viết `{{` `}}`."""
     return f"NOT starts_with({bang}.batch_code, '{LO_MAU_TIEN_TO}')"

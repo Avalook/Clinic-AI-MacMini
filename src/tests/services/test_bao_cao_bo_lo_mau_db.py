@@ -59,6 +59,24 @@ async def test_bao_cao_kho_mot_dong_chi_lo_that(co: Co) -> None:  # noqa: F811
     assert [(d["don_vi"], d["nhap"], d["ton_cuoi"]) for d in dong] == [("viên", 30, 30)]
 
 
+async def test_bao_cao_kho_thuoc_chi_co_lo_mau_khong_hien(co: Co) -> None:  # noqa: F811
+    # 40 thuốc trên prod chỉ có lô mẫu (chưa nhập lô thật) → dòng "tồn đầu 20,
+    # huỷ 20, tồn cuối 0" phải biến mất hẳn.
+    await _bat(co)
+    thuoc = await _thuoc(co.q)
+    mau = await _nhap_kho(co, thuoc, 20)
+    await co.q.pool.execute(
+        "UPDATE drug_batch SET batch_code = $2 WHERE id = $1::uuid",
+        mau,
+        f"{LO_MAU_TIEN_TO}{uuid.uuid4().hex[:6]}",
+    )
+    hom_nay = hom_nay_vn().isoformat()
+    kq = await kho_thuoc_service.xuat_nhap_ton(
+        co.q.pool, identity=co.ds, tu=hom_nay, den=hom_nay
+    )
+    assert [d for d in kq["dong"] if d["drug_catalog_id"] == thuoc] == []
+
+
 async def test_hang_hoa_khoi_quay_khong_co_lo_mau(co: Co) -> None:  # noqa: F811
     thuoc, *_ = await _lo_mau_va_lo_that(co)
     async with co.q.pool.acquire() as conn:
