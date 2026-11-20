@@ -53,8 +53,8 @@ export interface PhanHoi {
 }
 
 /** Hàm gửi cho hàng đợi: đọc `doc()` NGAY LÚC GỬI. 409 (phiếu đã chốt / đổi ở
- *  máy khác) → `tuChoi` để màn bỏ phần chưa lưu và nạp lại, không hỏi "Rời trang?"
- *  mãi. */
+ *  máy khác) → `tuChoi(pid, câu máy chủ)` để màn báo câu ấy, bỏ phần chưa lưu và
+ *  nạp lại, không hỏi "Rời trang?" mãi. */
 export function taoGuiDem({
   doc,
   laThuCong,
@@ -66,7 +66,7 @@ export function taoGuiDem({
   laThuCong: () => boolean;
   post: (pid: string, dong: DongGui[], keepalive: boolean) => Promise<PhanHoi | null>;
   daLuu: (pid: string, phieu: unknown) => void;
-  tuChoi: (pid: string) => void;
+  tuChoi: (pid: string, cau: string) => void;
 }): (keepalive: boolean) => Promise<KetQuaGui> {
   return async (keepalive) => {
     const m = doc();
@@ -78,8 +78,9 @@ export function taoGuiDem({
     if (r.status >= 400) {
       const d = r.data as { message?: string; detail?: unknown } | null;
       const cau = d?.message ?? (typeof d?.detail === "string" ? d.detail : null);
-      if (r.status === 409) tuChoi(m.pid);
-      return { ok: false, loi: cau ?? "Không lưu được số đếm.", thuLai: nenThuLai(r.status) };
+      const loi = cau ?? "Không lưu được số đếm.";
+      if (r.status === 409) tuChoi(m.pid, loi);
+      return { ok: false, loi, thuLai: nenThuLai(r.status) };
     }
     daLuu(m.pid, r.data);
     return { ok: true };
@@ -104,8 +105,15 @@ export async function luuTay(q: HangLuu, datThuCong: (b: boolean) => void): Prom
 }
 
 /** Đổi ca / ngày / mở phiếu khác / dùng số ca trước: XẢ phần chưa lưu của phiếu
- *  đang mở TRƯỚC, rồi mới đổi — không để bản chưa gửi bị thay bằng phiếu mới. */
-export async function doiPhieu(q: HangLuu, lam: () => void | Promise<void>): Promise<void> {
-  await q.luuNgay();
+ *  đang mở TRƯỚC, rồi mới đổi — không để bản chưa gửi bị thay bằng phiếu mới.
+ *  Xả HỎNG (rớt mạng, 422) → KHÔNG đổi, trả `false`: đổi lúc ấy thì `nap()` đè nháp
+ *  phiếu cũ, còn lần tự thử lại sẽ gửi dòng của phiếu MỚI (soát lần 2, 20/11). */
+export async function doiPhieu(q: HangLuu, lam: () => void | Promise<void>): Promise<boolean> {
+  if (!(await q.luuNgay())) return false;
   await lam();
+  return true;
 }
+
+/** Thân POST vượt ~64KB thì `fetch` keepalive ném lỗi (trần của trình duyệt) — khi
+ *  ấy gửi thường, còn hơn hỏng lặng lẽ lúc đóng tab. */
+export const TRAN_KEEPALIVE = 60_000;

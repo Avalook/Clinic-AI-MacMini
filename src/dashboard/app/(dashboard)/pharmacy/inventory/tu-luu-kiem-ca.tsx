@@ -11,7 +11,14 @@ import { useCallback, useEffect, useRef } from "react";
 import type { TrangThaiLuu } from "@/lib/tu-luu";
 import { useTuLuu } from "@/lib/use-tu-luu";
 
-import { doiPhieu, luuTay, taoGuiDem, type DongGui, type ManDem } from "./gui-dem";
+import {
+  doiPhieu,
+  luuTay,
+  taoGuiDem,
+  TRAN_KEEPALIVE,
+  type DongGui,
+  type ManDem,
+} from "./gui-dem";
 
 /** 1,5 giây sau phím cuối — như các màn tự lưu khác. */
 const CHO_LUU_MS = 1_500;
@@ -30,8 +37,8 @@ export function useTuLuuKiemCa<P>({
   url: (phieuId: string) => string;
   /** Máy chủ trả phiếu sau khi lưu. KHÔNG nạp lại ô nhập (đè phím đang gõ). */
   daLuu: (phieuId: string, phieu: P) => void;
-  /** 409: phiếu đã chốt / đổi ở máy khác → màn nạp lại phiếu. */
-  tuChoi: (phieuId: string) => void;
+  /** 409: phiếu đã chốt / đổi ở máy khác → màn báo `cau` và nạp lại phiếu. */
+  tuChoi: (phieuId: string, cau: string) => void;
 }) {
   const thuCong = useRef(false);
   // 409 → bỏ phần chưa lưu (thôi hỏi "Rời trang?" mãi) rồi màn nạp lại. Hẹn sau
@@ -43,19 +50,20 @@ export function useTuLuuKiemCa<P>({
         doc: () => man,
         laThuCong: () => thuCong.current,
         post: async (pid: string, dong: DongGui[], ka: boolean) => {
+          const body = JSON.stringify({ dong });
           const r = await fetch(url(pid), {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ dong }),
-            keepalive: ka,
+            body,
+            keepalive: ka && body.length < TRAN_KEEPALIVE,
           }).catch(() => null);
           return r ? { status: r.status, data: await r.json().catch(() => null) } : null;
         },
         daLuu: (pid, p) => daLuu(pid, p as P),
-        tuChoi: (pid) =>
+        tuChoi: (pid, cau) =>
           setTimeout(() => {
             lamSachRef.current();
-            tuChoi(pid);
+            tuChoi(pid, cau);
           }),
       })(keepalive),
     [man, url, daLuu, tuChoi],
@@ -74,7 +82,7 @@ export function useTuLuuKiemCa<P>({
       () => luuTay({ danhDau, luuNgay }, (b) => (thuCong.current = b)),
       [danhDau, luuNgay],
     ),
-    /** Xả phần chưa lưu rồi mới đổi ca / ngày / phiếu. */
+    /** Xả phần chưa lưu rồi mới đổi ca / ngày / phiếu; xả hỏng → không đổi, `false`. */
     doiPhieu: useCallback(
       (lam: () => void | Promise<void>) => doiPhieu({ danhDau, luuNgay }, lam),
       [danhDau, luuNgay],

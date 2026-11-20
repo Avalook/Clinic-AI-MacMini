@@ -41,6 +41,8 @@ const boDauThuoc = (s: string) =>
 const homNayVn = () => new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Ho_Chi_Minh" });
 const URL_GOC = "/api/pharmacy/kiem-ke-ca";
 const urlDem = (pid: string) => `${URL_GOC}/${pid}/dem`;
+const CAU_CHUA_DOI =
+  "Chưa lưu được số đếm của phiếu đang mở nên chưa đổi phiếu — kiểm mạng / số nhập rồi thử lại.";
 
 export default function KiemKeCa({
   batches,
@@ -59,6 +61,8 @@ export default function KiemKeCa({
   loaiCoDinh?: Loai;
 }) {
   const [ngay, setNgay] = useState(() => ngayDau ?? homNayVn());
+  // Giá trị đang hiện ở ô Ngày — đi trước `ngay` trong lúc chờ xả tự lưu.
+  const [ngayO, setNgayO] = useState(ngay);
   const [ca, setCa] = useState<Ca>(caDau ?? "SANG");
   // Ca mở từ link được giữ cho tới khi người dùng tự đổi ngày; không thì "ca hiện
   // tại" máy chủ nhắc sẽ đè lên ca của báo cáo đang xem.
@@ -119,8 +123,22 @@ export default function KiemKeCa({
     tat: man === null,
     url: urlDem,
     daLuu: useCallback((pid: string, p: Phieu) => setPhieu((c) => (c?.id === pid ? p : c)), []),
-    tuChoi: (pid) => void docLai(pid),
+    // 409 về muộn (đã đổi sang phiếu khác) thì chỉ báo câu, không nạp phiếu cũ đè lên.
+    tuChoi: (pid, cau) => {
+      setLoi(cau);
+      if (phieuHien.current === pid) void docLai(pid);
+    },
   });
+  const phieuHien = useRef<string | null>(null);
+  useEffect(() => {
+    phieuHien.current = phieu?.id ?? null;
+  }, [phieu]);
+  /** Mọi lối đổi phiếu đi qua đây: xả tự lưu trước; xả hỏng thì ở lại phiếu cũ. */
+  const doi = async (lam: () => void | Promise<void>): Promise<boolean> => {
+    const ok = await tuLuu.doiPhieu(lam);
+    if (!ok) setLoi(CAU_CHUA_DOI);
+    return ok;
+  };
 
   const nap = (p: Phieu) => {
     setPhieu(p);
@@ -149,7 +167,7 @@ export default function KiemKeCa({
   const moCu = (id: string) =>
     chay(async () => {
       setKetQuaDC(null);
-      await tuLuu.doiPhieu(() => docLai(id));
+      await doi(() => docLai(id));
     });
 
   const loaiDangKiem = loaiCoDinh ?? loai;
@@ -231,12 +249,12 @@ export default function KiemKeCa({
     });
 
   const dungSoTruoc = () =>
-    chay(() =>
-      tuLuu.doiPhieu(async () => {
+    chay(async () => {
+      await doi(async () => {
         const p = await buocPhieu("dung-so-cuoi-ca-truoc");
         if (p) nap(p);
-      }),
-    );
+      });
+    });
 
   const dieuChinh = () =>
     chay(async () => {
@@ -313,10 +331,14 @@ export default function KiemKeCa({
           <span className="mb-1 block text-meta text-ink-soft">Ngày</span>
           <input
             type="date"
-            value={ngay}
+            value={ngayO}
             onChange={(e) => {
               const v = e.target.value || homNayVn();
-              void tuLuu.doiPhieu(() => {
+              // Ô hiện ngay ngày vừa chọn (gõ từng phần không bị nhảy về), phiếu
+              // chỉ đổi sau khi xả tự lưu; xả hỏng thì ô về lại ngày đang mở.
+              setNgayO(v);
+              const cu = ngay;
+              void doi(() => {
                 giuCaDau.current = false;
                 daTuMoPhieu.current = null;
                 setNgay(v);
@@ -324,6 +346,8 @@ export default function KiemKeCa({
                 setDs(null);
                 setLoi(null);
                 setKetQuaDC(null);
+              }).then((ok) => {
+                if (!ok) setNgayO((o) => (o === v ? cu : o));
               });
             }}
             className={INPUT}
@@ -341,7 +365,7 @@ export default function KiemKeCa({
               value={ca}
               onChange={(e) => {
                 const v = e.target.value as Ca;
-                void tuLuu.doiPhieu(() => {
+                void doi(() => {
                   giuCaDau.current = true;
                   daTuMoPhieu.current = null;
                   setCa(v);
@@ -369,7 +393,7 @@ export default function KiemKeCa({
                         className="h-auto! py-1 text-left whitespace-normal!"
                         variant={phieu?.id === p.id ? "primary" : "secondary"}
                         onClick={() =>
-                          void tuLuu.doiPhieu(() => {
+                          void doi(() => {
                             daTuMoPhieu.current = `${ngay}:${p.ca}:${p.loai}`;
                             setCa(p.ca);
                             return moCu(p.id);
@@ -395,7 +419,7 @@ export default function KiemKeCa({
               value={loai}
               onChange={(e) => {
                 const v = e.target.value as Loai;
-                void tuLuu.doiPhieu(() => setLoai(v));
+                void doi(() => setLoai(v));
               }}
               className={INPUT}
             >
@@ -595,7 +619,9 @@ export default function KiemKeCa({
                             value={nhap[d.khoa] ?? ""}
                             inputMode="decimal"
                             aria-label={`Số đếm — ${d.ten}`}
-                            disabled={!ghiDuoc}
+                            // Đang hỏi "Chốt?" thì khoá: bảng lệch đã tính theo số đã lưu,
+                            // số gõ lúc này sẽ bị bản chốt đè mất.
+                            disabled={!ghiDuoc || hoiChot === phieu.id}
                             onChange={(e) => {
                               setGioGo((g) => ({ ...g, [d.khoa]: new Date().toISOString() }));
                               setNhap((n) => ({ ...n, [d.khoa]: e.target.value }));

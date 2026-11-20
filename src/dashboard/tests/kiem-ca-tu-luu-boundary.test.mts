@@ -148,6 +148,42 @@ test("Đổi ca/ngày trong 1,5 giây sau khi gõ: bản chưa gửi về ĐÚNG
   );
 });
 
+test("Đổi phiếu lúc RỚT MẠNG: không đổi, nháp phiếu cũ còn nguyên và về đúng phiếu cũ khi có mạng", async () => {
+  const mc = mayChu();
+  let rot = true;
+  const s = dung(phieu("A"), {
+    ...mc,
+    post: (pid: string, dong: DongGui[]) => (rot ? Promise.resolve(null) : mc.post(pid, dong)),
+  } as ReturnType<typeof mayChu>);
+  s.go("t1|viên", "3");
+  let daDoi = false;
+  const ok = await doiPhieu(s.q, () => {
+    daDoi = true;
+    s.man.m = phieu("B");
+  });
+  assert.equal(ok, false, "xả hỏng phải báo false");
+  assert.equal(daDoi, false, "xả hỏng thì KHÔNG đổi phiếu");
+  assert.equal(s.man.m?.pid, "A");
+  rot = false; // có mạng lại — hàng đợi tự thử lại
+  await s.troi(2_000);
+  await mc.tha();
+  assert.equal(mc.so.A?.["t1"], "3", "số phiếu A tới đúng phiếu A");
+  assert.equal(mc.so.B, undefined);
+});
+
+test("409 mang câu máy chủ tới màn", async () => {
+  const lan: Array<[string, string]> = [];
+  const gui = taoGuiDem({
+    doc: () => phieu("A", { "t1|viên": "2" }),
+    laThuCong: () => false,
+    post: async () => ({ status: 409, data: { message: "Phiếu đã chốt ở máy khác" } }),
+    daLuu: () => {},
+    tuChoi: (pid, cau) => lan.push([pid, cau]),
+  });
+  await gui(false);
+  assert.deepEqual(lan, [["A", "Phiếu đã chốt ở máy khác"]]);
+});
+
 test("Xoá trống ô vừa gõ lúc lần lưu đầu còn bay: máy chủ bỏ dòng, không giữ số cũ", async () => {
   const mc = mayChu();
   const s = dung(phieu("A"), mc);
