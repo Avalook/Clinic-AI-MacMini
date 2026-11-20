@@ -18,6 +18,8 @@ Tên nhánh (hoặc "nhánh hiện tại") và, nếu có, đường dẫn kế 
    file trong diff. Đọc mục kế hoạch của PR này (phạm vi, "xong khi", "không được làm").
 3. Kiểm từng mục, mỗi mục trả **ĐẠT / VI PHẠM (file:dòng, một câu vì sao) / KHÔNG ÁP DỤNG**:
    - **Phạm vi:** diff có làm thứ kế hoạch không giao? có bỏ sót thứ "xong khi" đòi?
+     Yêu cầu có "giống/na ná X" mà thân PR thiếu BẢNG ĐỐI CHIẾU đã chốt (skill lam-mot-pr
+     bước 0) → CẦN TUYỀN QUYẾT. Có bảng → mọi dòng GIỮ đã có trong diff chưa?
    - **Luật 1 — một câu hỏi một hàm:** hàm tính mới có trùng câu hỏi với hàm có sẵn không?
      (tìm bằng Serena/grep tên gần giống, bảng giống).
    - **Luật 2 — đường cũ:** có đường mới không? Thân PR/commit có dòng "Đường cũ: … → …"? Có test đếm?
@@ -28,6 +30,17 @@ Tên nhánh (hoặc "nhánh hiện tại") và, nếu có, đường dẫn kế 
    - **Luật 6 — SQL có nhà:** SQL trong router hoặc `src/dashboard/app/api/**`? ghi bảng của module khác?
    - **Luật 7 — hợp đồng:** cửa mới thiếu `response_model`? TSX tự suy luật / `if` theo vai?
    - **Luật 8 — dữ liệu:** khoá bằng tên? thiếu `clinic_id`? tiền không phải numeric? giờ đổi múi sai chỗ?
+   - **Luật 9 — chữ trên màn** (`.claude/rules/giao-dien.md` mục 7): diff (so `origin/main`) có
+     thêm ⚠, icon cảnh báo, khung amber/yellow/orange/red-50..200, chữ "Lưu ý / Chú ý / Cảnh báo",
+     dòng giải thích kỹ thuật trong `src/dashboard/**`? Mỗi chú thích `canh-bao-duoc-giao:` có khớp
+     một dòng "CẢNH BÁO CẦN CÓ" trong phiếu/thân PR không? Không khớp → CHẶN.
+     Tìm ứng viên bằng **`git grep -P`** (cùng mẫu với lệnh kiểm kê trong `docs/DANG-LAM.md`;
+     `-E` trên Mac không hiểu `\b`, `\s` nên đếm thiếu), rồi chỉ giữ dòng nằm trong
+     `git diff -U0 origin/main...HEAD -- <file>` có dấu `+`:
+     ```bash
+     git diff --name-only --diff-filter=AM origin/main...HEAD -- 'src/dashboard/app/*.tsx' 'src/dashboard/components/*.tsx' \
+       | xargs -r git grep -nP '⚠|AlertTriangle|AlertCircle|<CanhBao|\b(bg|border)-(amber|yellow|orange|red)-(50|100|200)\b|(>|["'"'"'`])\s*(Lưu ý|Chú ý|Cảnh báo)' --
+     ```
    - **Migration:** sửa migration cũ? thiếu ràng buộc cho bất biến tranh chấp? bảng mới chưa khai `modules.py`?
      cần notify mà thiếu trigger + `LIVE_TABLES`?
    - **Test:** mỗi ca biên kế hoạch nêu có test chưa? Có test nào bị sửa cho xanh (đổi kỳ vọng mà không giải thích)?

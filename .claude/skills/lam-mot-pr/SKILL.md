@@ -1,12 +1,43 @@
 ---
 name: lam-mot-pr
-description: Quy trình làm MỘT PR Mức 2/3 của ClinicAI từ lúc nhận việc tới lúc chờ Tuyền merge — test ca biên trước, thử ngược phải thấy đỏ, kiểm nhanh trước CI, CI đúng SHA, agent soát, thân PR đủ khuôn. Dùng mỗi khi bắt đầu một PR có code/test/migration (mọi chặng của kế hoạch xét nghiệm đối tác và việc Mức 2/3 khác), hoặc khi Tuyền nói "làm PR", "làm chặng", "sửa lỗi này".
+description: Quy trình làm MỘT PR Mức 2/3 của ClinicAI từ lúc nhận việc tới lúc chờ Tuyền merge — test ca biên trước, thử ngược phải thấy đỏ, kiểm nhanh trước CI, CI đúng SHA, agent soát, thân PR đủ khuôn. Dùng mỗi khi bắt đầu một PR có code/test/migration (mọi chặng của kế hoạch xét nghiệm đối tác và việc Mức 2/3 khác), hoặc khi Tuyền nói "làm PR", "làm chặng", "sửa lỗi này", "làm giống/na ná màn X", "làm tính năng mới", "sửa nóng". Bước 0 (đối chiếu và hỏi) áp cho mọi việc CÓ SỬA CODE (Mức 1–3); Mức 0 (hỏi/tra/giải thích) không cần.
 ---
 
 # Làm một PR — từ nhận việc tới chờ merge
 
 Rút từ chặng 0 xét nghiệm đối tác (05/11/2026). Mỗi bước có lý do đã cắn thật.
 Luật thiết kế: `.claude/rules/thiet-ke-code.md`. Khuôn báo cáo: SO-LUAT 12.4.
+
+## 0. Đối chiếu và hỏi — trước khi viết dòng code nào
+
+Rút từ kho vật tư (13/11/2026): bảo "na ná kho thuốc" mà ra kho thiếu hạn dùng.
+AI không được tự quyết phạm vi. Phạm vi là quyết nghiệp vụ (CLAUDE.md, mục MỨC VIỆC).
+Áp cho mọi việc có sửa code (Mức 1–3); Mức 0 không cần.
+
+**A. Yêu cầu có "giống / na ná / như / tương tự X"** → lập BẢNG ĐỐI CHIẾU từ CODE của X
+(không từ trí nhớ): đọc service, router, migration, màn TSX của X. Mỗi dòng một tính năng:
+
+| # | Tính năng của X | Ở đâu trong X (file:dòng / bảng.cột) | Đề xuất cho Y | Tuyền chốt |
+|---|---|---|---|---|
+| 1 | Lô + hạn dùng | `drug_batch.expiry_date` | GIỮ | |
+| 2 | … | … | GIỮ / BỎ / KHÁC: … | |
+
+Phải quét đủ các nhóm: trường dữ liệu · luật (hạn, tồn tối thiểu, lô, quy đổi đơn vị) ·
+màn + nút + lối vào (SITEMAP mục B) · báo cáo / xuất file · in phiếu · quyền theo vai ·
+sự kiện / notify / LIVE_TABLES · hoàn tác · nhật ký (audit).
+Gửi bảng cho Tuyền, **dừng**, chờ cột "Tuyền chốt" đủ rồi mới code.
+
+**B. Tính năng mới, không giống màn nào** → hỏi đủ 6 mục (mục nào Tuyền đã nói thì ghi lại,
+không hỏi lại): ai dùng (vai) · màn + lối vào · dữ liệu (trường bắt buộc / tuỳ chọn) ·
+luật + ca biên · KHÔNG làm gì · nghiệm thu bằng cách bấm gì.
+
+**C. Sửa nóng** → 3 câu nếu chưa rõ: lỗi tái hiện thế nào · đúng phải ra sao ·
+chỉ chỗ này hay mọi chỗ tương tự. Rồi test đỏ trước (mục 2).
+
+Cách hỏi: dùng công cụ hỏi lựa chọn (AskUserQuestion) nếu có, tối đa 4 câu một lượt,
+mỗi câu kèm phương án đề xuất đứng đầu. Câu trả lời đã chốt → chép vào thân PR
+(mục "Phạm vi đã chốt") và vào kế hoạch nếu là Mức 3.
+**Không có bảng/câu trả lời đã chốt thì `soat-thiet-ke` kết luận CẦN TUYỀN QUYẾT.**
 
 ## 1. Trước khi viết code
 1. Dòng đầu: "Mức N · ước ~X phút". Mức 3 thì kế hoạch phải đã duyệt — dẫn mục.

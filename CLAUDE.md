@@ -65,11 +65,22 @@ khi nhận việc: "Mức N · ước ~X phút".** Sai mức thì Tuyền nói n
   là đổi code/route, phải CI). Có tệp nào khác `.md` → theo mức của tệp đó.
 - **Kiểm nhanh khi đang làm, CI đầy đủ một lần ở cuối** — không chạy `ci-may.sh` giữa chừng.
 - **Chỉ hỏi khi cần Tuyền quyết nghiệp vụ**; chọn lựa kỹ thuật thì tự chọn, báo lý do một dòng.
+  "Quyết nghiệp vụ" gồm (Tuyền 13/11/2026) — **luôn hỏi trước khi code**, theo bước 0
+  của skill `lam-mot-pr`:
+  - giữ / bỏ / đổi một tính năng khi yêu cầu nói **"giống / na ná / như / tương tự X"**;
+  - thêm trường dữ liệu, cột, bộ lọc, báo cáo, quyền, cảnh báo **mà yêu cầu không nêu**;
+  - bỏ bớt thứ yêu cầu có nêu.
+  Chọn lựa thuần kỹ thuật (tên hàm, cách chia file, thư viện có sẵn) vẫn tự chọn.
 - **Việc độc lập chạy song song bằng agent nền**, báo trước giờ xong dự kiến.
 - **Báo cáo một khuôn:** kết quả trước · một bảng · cuối là việc Tuyền làm (lệnh bấm được).
 - **Mức 2/3: làm theo skill `lam-mot-pr`** (test ca biên trước · thử ngược phải đỏ ·
   kiểm trước CI · CI đúng SHA · agent soát · dừng chờ Tuyền merge). Chế độ tự động chặn
   AI tự merge PR của mình — đúng ý, không tìm đường vòng.
+- **Sửa lỗi hành vi ở MỌI mức cũng "test đỏ trước"** (kể cả sửa nóng đi đường Mức 1;
+  không áp cho sửa chữ, màu, docs): viết test tái hiện → chạy thấy **ĐỎ** → sửa → **XANH**
+  → chạy test của file liên quan. Không tái hiện được bằng test thì nói rõ và hỏi Tuyền
+  cách tái hiện, không sửa mò. Báo cáo sửa nóng có dòng
+  **"Đã chạy test: <tệp> — trước đỏ, sau xanh"**.
 
 > Máy Mac **không chạy prod** (chữ "MacMini" trong tên thư mục là dấu vết lịch sử).
 > Nó là máy dev — stack thử (`scripts/dev-up.sh`), staging local từ bản sao lưu
@@ -171,11 +182,21 @@ khách → Caddy (TLS Let's Encrypt) → dashboard (Next.js, chỉ giao diện)
   - lỗi giao diện / console / network: chrome-devtools hoặc playwright, chỉ local/staging;
   - đọc log dài, nhiều file: subagent (`tim-cho-sua`), chỉ mang kết luận về.
   Công cụ lỗi (MCP rớt, `jg` chưa có key) thì nói rõ rồi dùng cái kế tiếp, không lách im.
+  - Mọi câu khẳng định về code **hiện tại** phải kèm `file:dòng` **đã đọc trong phiên
+    này**. Chưa đọc → nói "chưa đọc", đọc xong mới trả lời. **Không trả lời theo trí nhớ,
+    kể cả trí nhớ từ đầu phiên.**
+  - Bị Tuyền chỉ ra sai → không xin lỗi chung chung; trả lời 3 dòng: **sai ở đâu
+    (file:dòng) · vì sao sai (đọc thiếu / đoán / nhớ cũ) · đã kiểm lại thế nào**.
 - **Hook sau khi sửa** (`.claude/hooks/kiem-sau-sua.sh`): chạy đúng bản ruff của CI
-  trên file `.py` vừa sửa; báo lỗi thì sửa ngay.
+  trên file `.py` vừa sửa; báo lỗi thì sửa ngay. `.claude/hooks/kiem-chu-thua.sh` soi dòng
+  mới thêm trong `.ts/.tsx` của `src/dashboard/app|components` — chữ/khung cảnh báo không
+  ai giao thì gỡ (luật `giao-dien.md` mục 7).
 - **Comment:** giữ comment nói *vì sao* / *bẫy đã cắn*; comment chỉ kể *đổi lúc nào*
   thì đưa vào commit message. Đụng file nào, gọt comment lịch sử lỗi thời của file đó.
 - **PR nhỏ:** quá ~400 dòng (không tính test, migration, tệp sinh) thì tách.
+- **Một việc một phiên:** mỗi việc (một PR, một lỗi) một phiên mới hoặc sau `/clear`.
+  Phiên đã dài mà đổi sang việc khác → nhắc Tuyền mở phiên mới thay vì làm tiếp trên
+  ngữ cảnh cũ.
 
 ## Đang làm dở
 

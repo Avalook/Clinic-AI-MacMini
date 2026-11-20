@@ -30,6 +30,12 @@ KẾT QUẢ CẦN ĐẠT (hành vi quan sát được, không phải cách code)
   - Ca biên: <dữ liệu rỗng / ngày rác / hai người cùng bấm / đã thu – chưa thu…>
   - Chỉ chỗ này hay MỌI chỗ tương tự: <…>
 
+GIỐNG MÀN NÀO (nếu có):
+  <route/màn X> — AI phải lập BẢNG ĐỐI CHIẾU (skill lam-mot-pr bước 0) và chờ chốt trước khi code.
+
+CẢNH BÁO CẦN CÓ (để trống = KHÔNG được thêm cảnh báo nào lên màn):
+  - <nội dung> — hiện khi <điều kiện> — ai thấy <vai>.
+
 CÁCH KIỂM:
   - Test: <tệp test có sẵn cần xanh> + test mới cho <ca biên> (thử ngược: làm hỏng code thấy đỏ).
   - Bấm thật: <màn> ở cỡ 375 và 1280, vai <…>, các bước <1-2-3>.
@@ -39,7 +45,8 @@ CÁCH KIỂM:
 
 KHÔNG ĐƯỢC ĐỤNG:
   <màn/luật/bảng giữ nguyên> · không luật nghiệp vụ trong TSX · đổi DB chỉ bằng
-  migration mới · không deploy, không đụng prod.
+  migration mới · không deploy, không đụng prod · không thêm chữ/khung cảnh báo
+  ngoài mục CẢNH BÁO CẦN CÓ.
 
 ĐẦU RA:
   Nhánh việc từ origin/main → PR. ./scripts/ci-may.sh --bao-github xanh (đã chạy

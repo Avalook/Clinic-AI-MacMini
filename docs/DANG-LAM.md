@@ -1,6 +1,32 @@
 # ĐANG LÀM — đọc file này trước khi bắt tay
 
-Cập nhật: **09/11/2026** — mục "09/11" ngay dưới là mới nhất; các mục sau là nền/lịch sử, đọc kèm.
+Cập nhật: **13/11/2026** — mục "13/11" ngay dưới là mới nhất; các mục sau là nền/lịch sử, đọc kèm.
+
+## 13/11/2026 — GÓI LUẬT LÀM VIỆC VỚI AI: 2 VIỆC RIÊNG CHỜ LÀM SAU (chưa code)
+
+Gói luật (quyết nghiệp vụ, bước 0 đối chiếu và hỏi, test đỏ trước khi sửa nóng, hook
+`kiem-chu-thua.sh`, Luật 9 soát) vào repo ở PR "gói luật AI 13/11". Hai việc dưới đây **mỗi
+việc một PR riêng, làm sau**.
+
+**A. Kiểm kê chữ/khung cảnh báo đang có trên màn.**
+- 13/11/2026: **61 dòng / 33 file** trong `src/dashboard/app|components/**.tsx` khớp mẫu (⚠, icon
+  cảnh báo, khung amber/yellow/orange/red-50..200, "Lưu ý/Chú ý/Cảnh báo"). Hiện mọi dòng đều ở
+  `app/`, `components/` 0 dòng.
+- Việc: lập bảng `file:dòng · màn · chữ đang hiện · vai thấy · đề xuất GIỮ/GỠ` → Tuyền tick → PR gỡ
+  dòng GỠ; dòng GIỮ gắn `canh-bao-duoc-giao: giữ theo kiểm kê <ngày>` để hook không báo khi sửa lân cận.
+- Lệnh đếm lại — **phải `-P`**: `git grep -E` trên Mac không hiểu `\b`, `\s` nên chỉ ra 50/28 (thiếu):
+  ```bash
+  git grep -nP '⚠|AlertTriangle|AlertCircle|<CanhBao|\b(bg|border)-(amber|yellow|orange|red)-(50|100|200)\b|(>|["'"'"'`])\s*(Lưu ý|Chú ý|Cảnh báo)' -- 'src/dashboard/app/*.tsx' 'src/dashboard/components/*.tsx'
+  ```
+
+**B. Kho vật tư thiếu lô + hạn dùng** (ví dụ đầu tiên của skill `lam-mot-pr` bước 0).
+- Kho thuốc có lô + hạn (`drug_batch.expiry_date`: 42 chỗ trong `pharmacy_service.py`, 13 trong
+  `kho_thuoc_service.py`; hạn tuỳ chọn từ migration `20261014130000_lo_thuoc_han_tuy_chon.sql`).
+  Kho vật tư (6 bảng `vat_tu_ban|goi_y|nhap_cho_duyet|phieu|ton|txn`, 8 file `services/vat_tu_*`)
+  **không có lô, không có hạn** (0 chỗ `expiry|han_dung|het_han`).
+- Bước đầu = **bảng đối chiếu kho thuốc ↔ kho vật tư** theo bước 0 (đủ các nhóm: lô, hạn, cảnh báo
+  sắp hết hạn, xuất theo hạn gần nhất, kiểm kê, tồn tối thiểu, báo cáo, quyền, notify…). Tuyền chốt
+  từng dòng → có thêm cột/bảng thì là **Mức 3** (migration) → kế hoạch ngắn cho Tuyền duyệt.
 
 ## 09/11/2026 — KẾT QUẢ ĐỐI TÁC QUA GMAIL: G0–G4 ĐỦ 7 PR, CI XANH, CHỜ MERGE
 

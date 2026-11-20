@@ -37,6 +37,17 @@ thu ngân cũ (`/tasks`), trong khi màn đang dùng là `/thu-ngan/*`.
    - bấm trên trình duyệt, ở cỡ 375 và 1280 (nghiệm thu đủ 375/768/1280 khi đổi cỡ).
 
    Kiểm bằng API không chứng minh được giao diện.
+7. **Chữ trên màn là cho nhân viên, không phải cho tester** (Tuyền chốt 13/11/2026).
+   - KHÔNG thêm khung cảnh báo, ký hiệu ⚠, icon cảnh báo, "Lưu ý / Chú ý / Cảnh báo",
+     dòng giải thích kỹ thuật, trừ khi phiếu giao việc có mục
+     **"CẢNH BÁO CẦN CÓ: <nội dung> — hiện khi <điều kiện>"**.
+   - Cảnh báo được giao → đặt chú thích `canh-bao-duoc-giao: <trích đúng câu trong phiếu>`
+     ngay trên dòng đó (hook `kiem-chu-thua.sh` đọc chú thích này).
+   - Lỗi thật khi bấm → MỘT câu ngắn nói người dùng phải làm gì tiếp, không nói chuyện hệ thống
+     ("Không lưu được, bấm Lưu lại" — không phải "Lỗi 503 từ backend-proxy").
+   - Muốn báo điều gì cho người phát triển → log hoặc `/ops`, không lên màn nhân viên.
+   - `DESIGN.md` mục 6.6 ("Cảnh báo nằm trong hàng…, nền vàng nhạt") nói cảnh báo ĐƯỢC GIAO
+     trông ra sao; mục này nói khi nào được có. Hai luật cùng áp.
 
 Worktree mới chưa có `src/dashboard/node_modules` → LSP TypeScript báo mọi import
 là không tìm thấy. Sửa TSX trong worktree thì chạy `(cd src/dashboard && npm ci)` trước.
