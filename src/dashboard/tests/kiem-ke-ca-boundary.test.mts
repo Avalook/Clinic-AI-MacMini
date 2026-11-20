@@ -164,8 +164,15 @@ test("Kiểm đầu/cuối ca: tìm từng thuốc, giữ số đã nhập khi l
   assert.match(kiem, /return tuLuu\.luuTay\(\);/);
   assert.match(kiem, /tuLuu\.danhDau\(\);/);
   assert.match(kiem, /<ChuTuLuu tt=\{tuLuu\.trangThai\} \/>/);
-  // Đổi ngày / ca / loại / mở phiếu khác / dùng số ca trước: xả phần chưa lưu TRƯỚC.
-  assert.equal((kiem.match(/tuLuu\.doiPhieu\(/g) ?? []).length >= 6, true);
+  // Đổi ngày / ca / loại / mở phiếu khác / dùng số ca trước: xả phần chưa lưu TRƯỚC,
+  // qua MỘT helper `doi` (xả hỏng → ở lại phiếu cũ + báo câu, soát lần 2).
+  assert.match(kiem, /const ok = await tuLuu\.doiPhieu\(lam\);\s*if \(!ok\) setLoi\(CAU_CHUA_DOI\);/);
+  assert.equal((kiem.match(/(?:void|await) doi\(/g) ?? []).length >= 6, true);
+  assert.equal((kiem.match(/tuLuu\.doiPhieu\(/g) ?? []).length, 1, "chỉ helper `doi` gọi doiPhieu");
+  // 409 về muộn khi đã sang phiếu khác: không nạp phiếu cũ đè lên.
+  assert.match(kiem, /if \(phieuHien\.current === pid\) void docLai\(pid\);/);
+  // Đang hỏi "Chốt?" thì khoá ô đếm.
+  assert.match(kiem, /disabled=\{!ghiDuoc \|\| hoiChot === phieu\.id\}/);
   assert.match(kiem, /Đã đếm/);
   assert.match(kiem, /hangHien\.map/);
   assert.doesNotMatch(kiem, /Đếm số thuốc thực tế trên kệ quầy/);
