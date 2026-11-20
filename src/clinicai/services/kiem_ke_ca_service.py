@@ -43,6 +43,7 @@ from clinicai.core.tran import canh_bao_neu_day
 from clinicai.events import emit_event, nguoi
 from clinicai.events.catalogue import KiemKeLech
 from clinicai.services.don_vi_thuoc import chuan
+from clinicai.services.kiem_ke_chua_khop import cau_cho_dong
 from clinicai.services.pharmacy_service import (
     DIEU_CHINH,
     PharmacyService,
@@ -1409,7 +1410,10 @@ async def chot(
                     )
                     da_ghi_so = da_ghi_so or da_ap != 0
                     if da_ap != lech:
-                        chua_ap, chua_ap_ly_do = lech - da_ap, thieu_ly_do
+                        cu_the = await cau_cho_dong(
+                            conn, identity.clinic_id, _co_so(identity), x
+                        )
+                        chua_ap, chua_ap_ly_do = lech - da_ap, cu_the or thieu_ly_do
             await conn.execute(
                 "UPDATE public.kiem_ke_ca_dong SET ton_may = $4, lech = $5,"
                 " giao_chua_gan_lo = $6, giao_da_tach = $7, ly_do = $8,"

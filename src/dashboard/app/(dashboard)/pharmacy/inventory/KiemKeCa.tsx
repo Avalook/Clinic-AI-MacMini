@@ -16,9 +16,17 @@ import { INPUT, TBL_DIV, TBL_HEAD, TBL_WRAP } from "../../form-ui";
 import type { InvBatch } from "./InventoryBoard";
 import { dongCanDem, khoaDong } from "./dong-kiem-ca";
 import { soKho } from "./gui-kho";
-
-type Ca = "SANG" | "CHIEU" | "TOI";
-type Loai = "DAU" | "CUOI" | "DOT_XUAT";
+import { ChuTuLuu, useTuLuuKiemCa, type DongGui } from "./tu-luu-kiem-ca";
+import {
+  goi,
+  type Ca,
+  type DongLech,
+  type KetQuaDieuChinh,
+  type Loai,
+  type Nhac,
+  type Phieu,
+  type TomTat,
+} from "./kiem-ca-kieu";
 
 const NHAN_CA: Record<Ca, string> = { SANG: "Ca sáng", CHIEU: "Ca chiều", TOI: "Ca tối" };
 const NHAN_LOAI: Record<Loai, string> = {
@@ -29,108 +37,9 @@ const NHAN_LOAI: Record<Loai, string> = {
 const boDauThuoc = (s: string) =>
   s.normalize("NFD").replace(/\p{Diacritic}/gu, "").replace(/đ/gi, "d").toLowerCase();
 
-interface DongKiem {
-  drug_catalog_id: string;
-  ten: string;
-  ma_hang: string | null;
-  don_vi: string;
-  dem: number;
-  ton_may: number | null;
-  lech: number | null;
-  giao_chua_gan_lo: number | null;
-  ly_do: string | null;
-  chua_ap: number | null;
-  chua_ap_ly_do: string | null;
-  /** Có giá trị = phiếu từ 31/10: chốt đã ghi sổ, không còn bước điều chỉnh riêng. */
-  giao_da_tach: number | null;
-}
-
-/** Dòng lệch máy chủ tính trước khi chốt. */
-interface DongLech {
-  drug_catalog_id: string;
-  don_vi: string;
-  ten: string;
-  dem: number;
-  ton_may: number;
-  giao_chua_gan_lo: number;
-  lech: number;
-}
-
-interface Phieu {
-  id: string;
-  ngay: string;
-  ca: Ca;
-  loai: Loai;
-  trang_thai: "NHAP" | "CHOT";
-  phien_ban: number;
-  phieu_truoc_id: string | null;
-  phieu_sau_id: string | null;
-  ly_do_sua: string | null;
-  mot_phan: boolean;
-  dung_so_ca_truoc: boolean;
-  chot_luc: string | null;
-  moc_ton_luc: string | null;
-  dieu_chinh_luc: string | null;
-  dieu_chinh_ly_do: string | null;
-  hoan_tac_luc: string | null;
-  nguoi_chot: string | null;
-  nguoi_dieu_chinh: string | null;
-  dong: DongKiem[];
-}
-
-interface TomTat {
-  id: string;
-  ca: Ca;
-  loai: Loai;
-  trang_thai: "NHAP" | "CHOT";
-  phien_ban: number;
-  phieu_truoc_id: string | null;
-  phieu_sau_id: string | null;
-  ly_do_sua: string | null;
-  so_lech: number;
-  so_chua_ap: number;
-  dieu_chinh_luc: string | null;
-  hoan_tac_luc: string | null;
-}
-
-interface Nhac {
-  ca: Ca;
-  thieu_dau_ca: boolean;
-  thieu_cuoi_ca_truoc: boolean;
-}
-
-interface KetQuaDieuChinh {
-  bo_qua: { ly_do: string }[];
-}
-
-type KetQua<T> = { ok: true; data: T } | { ok: false; loi: string | null };
-
-async function goi<T>(method: "GET" | "POST", url: string, body?: unknown): Promise<KetQua<T>> {
-  try {
-    const r = await fetch(url, {
-      method,
-      cache: "no-store",
-      headers: body === undefined ? undefined : { "Content-Type": "application/json" },
-      body: body === undefined ? undefined : JSON.stringify(body),
-    });
-    const d = (await r.json().catch(() => null)) as
-      | (T & { message?: string; detail?: unknown; error?: string })
-      | null;
-    if (r.ok && d) return { ok: true, data: d };
-    const ct = typeof d?.detail === "string" ? d.detail : null;
-    const thongDiep = d?.message ?? ct ?? d?.error ?? "Máy chủ từ chối.";
-    const loiKyThuat = /mã lỗi\s*[a-f\d-]+|lỗi chưa lường trước/i.test(thongDiep);
-    return {
-      ok: false,
-      loi: loiKyThuat ? null : thongDiep,
-    };
-  } catch {
-    return { ok: false, loi: "Mất kết nối — CHƯA lưu." };
-  }
-}
-
 const homNayVn = () => new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Ho_Chi_Minh" });
 const URL_GOC = "/api/pharmacy/kiem-ke-ca";
+const urlDem = (pid: string) => `${URL_GOC}/${pid}/dem`;
 
 export default function KiemKeCa({
   batches,
@@ -196,6 +105,11 @@ export default function KiemKeCa({
   }, [ngay]);
 
   const dong = useMemo(() => dongCanDem(batches, phieu?.dong ?? []), [batches, phieu]);
+  const tuLuu = useTuLuuKiemCa<Phieu>({
+    tat: !ghiDuoc || !phieu || phieu.trang_thai === "CHOT",
+    url: urlDem,
+    daLuu: useCallback((pid: string, p: Phieu) => setPhieu((c) => (c?.id === pid ? p : c)), []),
+  });
 
   const nap = (p: Phieu) => {
     setPhieu(p);
@@ -254,21 +168,24 @@ export default function KiemKeCa({
     })();
   }, [ca, ds, ghiDuoc, loaiDangKiem, ngay, taiDs]);
 
-  /** Lưu nháp: gửi dòng có số + dòng đã có mà người dùng xoá trống (= bỏ dòng). */
-  const luu = async (): Promise<boolean> => {
-    if (!phieu) return false;
-    const gui = dong
+  /** Dòng gửi lưu: dòng có số + dòng đã có mà người dùng xoá trống (= bỏ dòng). */
+  const dongGui = (p: Phieu, n: Record<string, string>): DongGui[] =>
+    dong
       .filter(
         (d) =>
-          (nhap[d.khoa] ?? "").trim() !== "" ||
-          phieu.dong.some((x) => khoaDong(x.drug_catalog_id, x.don_vi) === d.khoa),
+          (n[d.khoa] ?? "").trim() !== "" ||
+          p.dong.some((x) => khoaDong(x.drug_catalog_id, x.don_vi) === d.khoa),
       )
       .map((d) => ({
         drug_catalog_id: d.thuoc,
         don_vi: d.dv,
-        dem: (nhap[d.khoa] ?? "").trim() || null,
+        dem: (n[d.khoa] ?? "").trim() || null,
         dem_luc: gioGo.current[d.khoa] ?? null,
       }));
+
+  const luu = async (): Promise<boolean> => {
+    if (!phieu || !(await tuLuu.luuNgay())) return false;
+    const gui = dongGui(phieu, nhap);
     if (gui.length === 0) {
       setLoi("Chưa đếm thuốc nào — nhập số đếm rồi mới lưu.");
       return false;
@@ -561,6 +478,7 @@ export default function KiemKeCa({
               >
                 Chốt kiểm kê
               </Button>
+              <ChuTuLuu tt={tuLuu.trangThai} />
             </div>
           ) : null}
           {!daChot && ghiDuoc && hoiChot === phieu.id ? (
@@ -672,7 +590,9 @@ export default function KiemKeCa({
                             disabled={!ghiDuoc}
                             onChange={(e) => {
                               gioGo.current[d.khoa] = new Date().toISOString();
-                              setNhap({ ...nhap, [d.khoa]: e.target.value });
+                              const moi = { ...nhap, [d.khoa]: e.target.value };
+                              setNhap(moi);
+                              tuLuu.ghi(phieu.id, dongGui(phieu, moi));
                             }}
                             className={`${INPUT} w-24 text-right`}
                           />
