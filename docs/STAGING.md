@@ -79,13 +79,15 @@ Caddy — không database, không api nào của hai bên.
   ở `command:` của `db` trong `docker-compose.supabase.staging.yml`, **không**
   `ALTER SYSTEM` (nằm trong volume, dựng lại là mất; tham số dòng lệnh cũng
   thắng `postgresql.auto.conf`).
-- **Giờ khám (7h–21h giờ VN) — `deploy-staging.sh` dừng, kèm cách đi tiếp (14/10).**
+- **Giờ khám — `deploy-staging.sh` dừng, kèm cách đi tiếp (14/10; khung đổi 11/11):
+  thứ 2–6 16h–23h, thứ 7 + Chủ nhật 7h–23h (giờ VN).** Ngày thường trước 16h deploy thoải mái.
   Staging chung 4 nhân với prod; đo 14/10 prod ~14 req/giây, CPU dashboard 130% /
   API 60% / DB 110% lúc cao điểm, p95 1,3s. Dựng ảnh trong giờ ấy làm khách thấy
   chậm. Ngoài giờ khám không đổi gì. Cố ý dựng giữa giờ (sửa khẩn, hoặc Tuyền xác
   nhận phòng khám đang vắng) thì đặt biến đứng đầu lệnh — script vẫn dựng, chỉ in
   cảnh báo: `ssh clinic-vps-moi "cd ~/clinicai-staging && CHO_PHEP_GIO_KHAM=1 ./scripts/deploy-staging.sh 301"`.
-  Đổi khung: `GIO_KHAM_TU` / `GIO_KHAM_DEN` (mặc định 7 / 21). Giờ tính từ UTC+7,
+  Đổi khung: `GIO_KHAM_TU` (thứ 2–6, mặc định 16) / `GIO_KHAM_TU_CUOI_TUAN` (mặc định 7) /
+  `GIO_KHAM_DEN` (mặc định 23). Giờ và thứ tính từ UTC+7,
   không phụ thuộc múi giờ của VPS. Chỉ áp kiểu `chung` (staging VPS riêng không xét).
   `nice -n 19` + `ionice -c3` (client) và builder buildx `cpu-shares 128` đã có từ
   trước; chúng chỉ nhường lúc tranh chấp, không thay được việc né giờ khám.
