@@ -1411,7 +1411,7 @@ async def chot(
                     da_ghi_so = da_ghi_so or da_ap != 0
                     if da_ap != lech:
                         cu_the = await cau_cho_dong(
-                            conn, identity.clinic_id, _co_so(identity), x
+                            conn, identity.clinic_id, _co_so(identity), x, da_ap - lech
                         )
                         chua_ap, chua_ap_ly_do = lech - da_ap, cu_the or thieu_ly_do
             await conn.execute(

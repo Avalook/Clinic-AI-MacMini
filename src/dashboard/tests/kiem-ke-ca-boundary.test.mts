@@ -49,11 +49,13 @@ const MOCK = {
   "./dong-kiem-ca": DONG_KIEM,
   // 20/11: kiểu + lời gọi API và tự lưu nháp tách khỏi KiemKeCa.tsx.
   "./kiem-ca-kieu": { goi: () => new Promise(() => {}) },
+  "./gui-dem": { dongCanGui: () => [] },
   "./tu-luu-kiem-ca": {
     useTuLuuKiemCa: () => ({
       trangThai: { dang_luu: false, chua_luu: false, loi: null, luu_luc: null, tu_thu_lai: false },
-      luuNgay: async () => true,
-      ghi: () => {},
+      danhDau: () => {},
+      luuTay: async () => true,
+      doiPhieu: async (lam: () => unknown) => lam(),
     }),
     ChuTuLuu: () => null,
   },
@@ -156,10 +158,14 @@ test("Kiểm đầu/cuối ca: tìm từng thuốc, giữ số đã nhập khi l
   assert.match(kiem, /aria-label="Tìm thuốc cần kiểm kê"/);
   assert.match(kiem, /const hangHien = hang\.filter/);
   assert.match(kiem, /normalize\("NFD"\)/);
-  // Một hàm dựng dòng gửi cho cả "Lưu nháp" lẫn tự lưu (20/11) — vẫn gửi mọi số đã nhập.
-  assert.match(kiem, /const dongGui = \(p: Phieu, n: Record<string, string>\): DongGui\[\] =>\s*dong\s*\.filter/);
-  assert.match(kiem, /tuLuu\.ghi\(phieu\.id, dongGui\(phieu, moi\)\)/);
+  // MỘT đường ghi số đếm (20/11, soát): màn không tự POST /dem — "Lưu nháp"/"Chốt"
+  // đi chung hàng đợi tự lưu (gui-dem.ts dựng dòng từ bản MỚI NHẤT lúc gửi).
+  assert.doesNotMatch(kiem, /goi<[^>]*>\("POST", `\$\{URL_GOC\}\/\$\{phieu\.id\}\/dem`/);
+  assert.match(kiem, /return tuLuu\.luuTay\(\);/);
+  assert.match(kiem, /tuLuu\.danhDau\(\);/);
   assert.match(kiem, /<ChuTuLuu tt=\{tuLuu\.trangThai\} \/>/);
+  // Đổi ngày / ca / loại / mở phiếu khác / dùng số ca trước: xả phần chưa lưu TRƯỚC.
+  assert.equal((kiem.match(/tuLuu\.doiPhieu\(/g) ?? []).length >= 6, true);
   assert.match(kiem, /Đã đếm/);
   assert.match(kiem, /hangHien\.map/);
   assert.doesNotMatch(kiem, /Đếm số thuốc thực tế trên kệ quầy/);
@@ -266,6 +272,8 @@ test("Chốt: dòng lệch bắt lý do từng dòng, giờ gõ gửi kèm số 
   assert.match(nguon, /xem-lech/);
   assert.match(nguon, /ly_do_dong/);
   assert.match(nguon, /choDongY=\{\(lechCho \?\? \[\]\)\.every/);
-  assert.match(nguon, /dem_luc: gioGo\.current/);
+  // Giờ gõ từng ô gửi kèm số (20/11: dựng ở gui-dem.ts, màn ghi giờ lúc gõ).
+  assert.match(nguon, /setGioGo\(\(g\) => \(\{ \.\.\.g, \[d\.khoa\]: new Date\(\)\.toISOString\(\) \}\)\)/);
+  assert.match(doc("app/(dashboard)/pharmacy/inventory/gui-dem.ts"), /dem_luc: m\.gioGo\[d\.khoa\]/);
   assert.match(nguon, /Còn dòng chưa khớp/);
 });
