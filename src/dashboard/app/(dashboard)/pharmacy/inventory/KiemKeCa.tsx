@@ -16,7 +16,8 @@ import { INPUT, TBL_DIV, TBL_HEAD, TBL_WRAP } from "../../form-ui";
 import type { InvBatch } from "./InventoryBoard";
 import { dongCanDem, khoaDong } from "./dong-kiem-ca";
 import { soKho } from "./gui-kho";
-import { ChuTuLuu, useTuLuuKiemCa, type DongGui } from "./tu-luu-kiem-ca";
+import { dongCanGui, type ManDem } from "./gui-dem";
+import { ChuTuLuu, useTuLuuKiemCa } from "./tu-luu-kiem-ca";
 import {
   goi,
   type Ca,
@@ -68,7 +69,7 @@ export default function KiemKeCa({
   const [phieu, setPhieu] = useState<Phieu | null>(null);
   const [nhap, setNhap] = useState<Record<string, string>>({});
   // Lúc gõ từng ô: số đếm đúng tại lúc ấy, có thể bấm lưu sau một lúc.
-  const gioGo = useRef<Record<string, string>>({});
+  const [gioGo, setGioGo] = useState<Record<string, string>>({});
   const [lechCho, setLechCho] = useState<DongLech[] | null>(null);
   const [lyDoDong, setLyDoDong] = useState<Record<string, string>>({});
   const [timThuoc, setTimThuoc] = useState("");
@@ -105,14 +106,25 @@ export default function KiemKeCa({
   }, [ngay]);
 
   const dong = useMemo(() => dongCanDem(batches, phieu?.dong ?? []), [batches, phieu]);
+  // Trạng thái hàng đợi tự lưu đọc LÚC GỬI (gui-dem.ts) — một đường ghi duy nhất.
+  const man = useMemo<ManDem | null>(
+    () =>
+      phieu && ghiDuoc && phieu.trang_thai !== "CHOT"
+        ? { pid: phieu.id, laBanSua: Boolean(phieu.phieu_truoc_id), hang: dong, nhap, gioGo }
+        : null,
+    [phieu, ghiDuoc, dong, nhap, gioGo],
+  );
   const tuLuu = useTuLuuKiemCa<Phieu>({
-    tat: !ghiDuoc || !phieu || phieu.trang_thai === "CHOT",
+    man,
+    tat: man === null,
     url: urlDem,
     daLuu: useCallback((pid: string, p: Phieu) => setPhieu((c) => (c?.id === pid ? p : c)), []),
+    tuChoi: (pid) => void docLai(pid),
   });
 
   const nap = (p: Phieu) => {
     setPhieu(p);
+    setGioGo({});
     setNhap(
       Object.fromEntries(p.dong.map((d) => [khoaDong(d.drug_catalog_id, d.don_vi), String(d.dem)])),
     );
@@ -137,7 +149,7 @@ export default function KiemKeCa({
   const moCu = (id: string) =>
     chay(async () => {
       setKetQuaDC(null);
-      await docLai(id);
+      await tuLuu.doiPhieu(() => docLai(id));
     });
 
   const loaiDangKiem = loaiCoDinh ?? loai;
@@ -168,35 +180,14 @@ export default function KiemKeCa({
     })();
   }, [ca, ds, ghiDuoc, loaiDangKiem, ngay, taiDs]);
 
-  /** Dòng gửi lưu: dòng có số + dòng đã có mà người dùng xoá trống (= bỏ dòng). */
-  const dongGui = (p: Phieu, n: Record<string, string>): DongGui[] =>
-    dong
-      .filter(
-        (d) =>
-          (n[d.khoa] ?? "").trim() !== "" ||
-          p.dong.some((x) => khoaDong(x.drug_catalog_id, x.don_vi) === d.khoa),
-      )
-      .map((d) => ({
-        drug_catalog_id: d.thuoc,
-        don_vi: d.dv,
-        dem: (n[d.khoa] ?? "").trim() || null,
-        dem_luc: gioGo.current[d.khoa] ?? null,
-      }));
-
+  /** "Lưu nháp" / trước "Chốt": cùng hàng đợi tự lưu (không POST riêng — bản chụp
+   *  lúc bấm từng đè số vừa gõ). Lỗi hiện ở dòng trạng thái cạnh nút. */
   const luu = async (): Promise<boolean> => {
-    if (!phieu || !(await tuLuu.luuNgay())) return false;
-    const gui = dongGui(phieu, nhap);
-    if (gui.length === 0) {
+    if (!man || dongCanGui(man, false).length === 0) {
       setLoi("Chưa đếm thuốc nào — nhập số đếm rồi mới lưu.");
       return false;
     }
-    const r = await goi<Phieu>("POST", `${URL_GOC}/${phieu.id}/dem`, { dong: gui });
-    if (!r.ok) {
-      setLoi(r.loi);
-      return false;
-    }
-    nap(r.data);
-    return true;
+    return tuLuu.luuTay();
   };
 
   const buocPhieu = async (b: string, body: unknown = {}): Promise<Phieu | null> => {
@@ -240,10 +231,12 @@ export default function KiemKeCa({
     });
 
   const dungSoTruoc = () =>
-    chay(async () => {
-      const p = await buocPhieu("dung-so-cuoi-ca-truoc");
-      if (p) nap(p);
-    });
+    chay(() =>
+      tuLuu.doiPhieu(async () => {
+        const p = await buocPhieu("dung-so-cuoi-ca-truoc");
+        if (p) nap(p);
+      }),
+    );
 
   const dieuChinh = () =>
     chay(async () => {
@@ -322,13 +315,16 @@ export default function KiemKeCa({
             type="date"
             value={ngay}
             onChange={(e) => {
-              giuCaDau.current = false;
-              daTuMoPhieu.current = null;
-              setNgay(e.target.value || homNayVn());
-              setPhieu(null);
-              setDs(null);
-              setLoi(null);
-              setKetQuaDC(null);
+              const v = e.target.value || homNayVn();
+              void tuLuu.doiPhieu(() => {
+                giuCaDau.current = false;
+                daTuMoPhieu.current = null;
+                setNgay(v);
+                setPhieu(null);
+                setDs(null);
+                setLoi(null);
+                setKetQuaDC(null);
+              });
             }}
             className={INPUT}
           />
@@ -344,12 +340,15 @@ export default function KiemKeCa({
               aria-label="Ca"
               value={ca}
               onChange={(e) => {
-                giuCaDau.current = true;
-                daTuMoPhieu.current = null;
-                setCa(e.target.value as Ca);
-                setPhieu(null);
-                setLoi(null);
-                setKetQuaDC(null);
+                const v = e.target.value as Ca;
+                void tuLuu.doiPhieu(() => {
+                  giuCaDau.current = true;
+                  daTuMoPhieu.current = null;
+                  setCa(v);
+                  setPhieu(null);
+                  setLoi(null);
+                  setKetQuaDC(null);
+                });
               }}
               className="min-h-9 w-40 shrink-0 rounded-md border-0 bg-transparent px-2 text-sm font-medium text-ink outline-none focus:ring-2 focus:ring-brand-600/15"
             >
@@ -369,11 +368,13 @@ export default function KiemKeCa({
                         size="sm"
                         className="h-auto! py-1 text-left whitespace-normal!"
                         variant={phieu?.id === p.id ? "primary" : "secondary"}
-                        onClick={() => {
-                          daTuMoPhieu.current = `${ngay}:${p.ca}:${p.loai}`;
-                          setCa(p.ca);
-                          void moCu(p.id);
-                        }}
+                        onClick={() =>
+                          void tuLuu.doiPhieu(() => {
+                            daTuMoPhieu.current = `${ngay}:${p.ca}:${p.loai}`;
+                            setCa(p.ca);
+                            return moCu(p.id);
+                          })
+                        }
                       >
                         {NHAN_CA[p.ca]} · {NHAN_LOAI[p.loai]} ·{" "}
                         {p.trang_thai === "CHOT" ? `đã chốt (${p.so_lech} lệch)` : "đang nhập — chưa chốt"}
@@ -390,7 +391,14 @@ export default function KiemKeCa({
         {loaiCoDinh ? null : (
           <label className="block">
             <span className="mb-1 block text-meta text-ink-soft">Loại</span>
-            <select value={loai} onChange={(e) => setLoai(e.target.value as Loai)} className={INPUT}>
+            <select
+              value={loai}
+              onChange={(e) => {
+                const v = e.target.value as Loai;
+                void tuLuu.doiPhieu(() => setLoai(v));
+              }}
+              className={INPUT}
+            >
               {(Object.keys(NHAN_LOAI) as Loai[]).map((l) => (
                 <option key={l} value={l}>
                   {NHAN_LOAI[l]}
@@ -589,10 +597,9 @@ export default function KiemKeCa({
                             aria-label={`Số đếm — ${d.ten}`}
                             disabled={!ghiDuoc}
                             onChange={(e) => {
-                              gioGo.current[d.khoa] = new Date().toISOString();
-                              const moi = { ...nhap, [d.khoa]: e.target.value };
-                              setNhap(moi);
-                              tuLuu.ghi(phieu.id, dongGui(phieu, moi));
+                              setGioGo((g) => ({ ...g, [d.khoa]: new Date().toISOString() }));
+                              setNhap((n) => ({ ...n, [d.khoa]: e.target.value }));
+                              tuLuu.danhDau();
                             }}
                             className={`${INPUT} w-24 text-right`}
                           />

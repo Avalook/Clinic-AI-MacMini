@@ -34,14 +34,18 @@ def cau_chua_khop(
     ton_may: Decimal,
     moc: datetime,
     ra_sau: list[tuple[datetime, Decimal]],
+    con_thieu: Decimal,
 ) -> str | None:
     """Câu cho dòng lệch ÂM không trừ hết vì quầy đã bán / giao SAU lúc đếm.
-    `ra_sau` = (giờ, số) các lần giao ròng sau mốc đếm. Không có lần nào → None
-    (người gọi giữ câu chung). Thuần."""
+    `ra_sau` = (giờ, số) các lần giao sau mốc đếm (âm = hoàn giao). Chỉ khẳng định
+    nguyên nhân "bán sau lúc đếm" khi giao ròng ĐỦ phần chưa trừ (`con_thieu`);
+    thiếu (còn chuyển quầy / huỷ lô sau mốc…) hoặc không có → None, người gọi giữ
+    câu chung — không nói sai nguyên nhân. Thuần."""
     tong = sum((so for _, so in ra_sau), Decimal(0))
-    if tong <= 0:
+    giao = [luc for luc, so in ra_sau if so > 0]
+    if tong <= 0 or tong < con_thieu or not giao:
         return None
-    dau, cuoi = _gio(ra_sau[0][0]), _gio(ra_sau[-1][0])
+    dau, cuoi = _gio(giao[0]), _gio(giao[-1])
     khi = f"lúc {dau}" if dau == cuoi else f"từ {dau} tới {cuoi}"
     return (
         f"Quầy không còn đủ để trừ phần lệch: đếm {_so(dem)} {don_vi} lúc"
@@ -52,11 +56,17 @@ def cau_chua_khop(
 
 
 async def cau_cho_dong(
-    conn: asyncpg.Connection, clinic_id: str, location_id: str, dong: Any
+    conn: asyncpg.Connection,
+    clinic_id: str,
+    location_id: str,
+    dong: Any,
+    con_thieu: Decimal,
 ) -> str | None:
     """Câu "Chưa khớp" cho một dòng của `_tinh_lech` (cần `thuoc`, `don_vi`, `dem`,
     `ton_may`, `moc`, `lech`). None khi không dựng được câu cụ thể hơn câu chung:
-    lệch dương (thiếu lô để cộng — câu chung đã đúng) hoặc không có mốc đếm."""
+    lệch dương (thiếu lô để cộng — câu chung đã đúng) hoặc không có mốc đếm.
+    Mốc so là `performed_at > moc`, CÙNG mốc với `kiem_ke_ca_service.phat_sinh_sau_dem`
+    — đổi một bên thì đổi cả hai."""
     if dong["moc"] is None or dong["lech"] >= 0:
         return None
     rows = await conn.fetch(
@@ -64,6 +74,7 @@ async def cau_cho_dong(
         SELECT t.performed_at AS luc, sum(-t.quantity) AS so
           FROM public.inventory_txn t
           JOIN public.drug_batch b ON b.id = t.drug_batch_id
+           AND b.clinic_id = t.clinic_id
          WHERE b.clinic_id = $1::uuid AND b.location_id = $2::uuid
            AND b.noi_chua = 'QUAY' AND b.drug_catalog_id = $3::uuid
            AND lower(btrim(b.unit)) = $4
@@ -85,4 +96,5 @@ async def cau_cho_dong(
         ton_may=Decimal(str(dong["ton_may"])),
         moc=dong["moc"],
         ra_sau=[(r["luc"], Decimal(str(r["so"]))) for r in rows],
+        con_thieu=con_thieu,
     )

@@ -1,76 +1,85 @@
 "use client";
 
 // TỰ LƯU NHÁP PHIẾU KIỂM KÊ CA (Tuyền 20/11/2026: "đang nhập dở ở kiểm kê mà sang
-// tab khác thì nó mất"). Trước đây số đếm chỉ nằm trong state của màn cho tới khi
-// bấm "Lưu nháp" — đổi tab Kho/Quầy, đổi màn là mất cả số lẫn GIỜ ĐẾM từng dòng.
-//
-// Dùng lại hàng đợi chung (`lib/use-tu-luu`): lưu tuần tự, gộp phím gõ, lưu nốt khi
-// rời màn / ẩn tab, gửi `keepalive` khi đóng tab, tự thử lại khi rớt mạng. Mỗi bản
-// gửi mang MÃ PHIẾU lúc gõ — đổi ca / ngày giữa chừng thì bản cũ vẫn về đúng phiếu
-// cũ, không bao giờ đổ số của ca này sang phiếu ca khác.
+// tab khác thì nó mất"). Móc React mỏng quanh hàng đợi chung (`lib/use-tu-luu`:
+// tuần tự, gộp phím gõ, lưu nốt khi rời màn / ẩn tab, `keepalive` khi đóng tab, tự
+// thử lại khi rớt mạng). Phần quyết định — dòng gửi, một đường ghi, xả trước khi
+// đổi phiếu — ở `gui-dem.ts`, test bằng hàng đợi thật.
 
-import { useCallback, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
 
-import { LOI_MAT_KET_NOI, nenThuLai, type TrangThaiLuu } from "@/lib/tu-luu";
-import { useTuLuu, type KetQuaGui } from "@/lib/use-tu-luu";
+import type { TrangThaiLuu } from "@/lib/tu-luu";
+import { useTuLuu } from "@/lib/use-tu-luu";
 
-export interface DongGui {
-  drug_catalog_id: string;
-  don_vi: string;
-  dem: string | null;
-  dem_luc: string | null;
-}
+import { doiPhieu, luuTay, taoGuiDem, type DongGui, type ManDem } from "./gui-dem";
 
 /** 1,5 giây sau phím cuối — như các màn tự lưu khác. */
 const CHO_LUU_MS = 1_500;
 
 export function useTuLuuKiemCa<P>({
+  man,
   tat,
   url,
   daLuu,
+  tuChoi,
 }: {
+  /** Trạng thái MỚI NHẤT của màn (render này) — hàng đợi đọc lúc gửi. */
+  man: ManDem | null;
   /** Không quyền ghi / chưa có phiếu / phiếu đã chốt. */
   tat: boolean;
   url: (phieuId: string) => string;
-  /** Máy chủ trả phiếu sau khi lưu. KHÔNG nạp lại ô nhập: phím gõ trong lúc
-   *  lần lưu đang bay sẽ bị đè. */
+  /** Máy chủ trả phiếu sau khi lưu. KHÔNG nạp lại ô nhập (đè phím đang gõ). */
   daLuu: (phieuId: string, phieu: P) => void;
+  /** 409: phiếu đã chốt / đổi ở máy khác → màn nạp lại phiếu. */
+  tuChoi: (phieuId: string) => void;
 }) {
-  const ban = useRef<{ pid: string; dong: DongGui[] } | null>(null);
+  const thuCong = useRef(false);
+  // 409 → bỏ phần chưa lưu (thôi hỏi "Rời trang?" mãi) rồi màn nạp lại. Hẹn sau
+  // một nhịp: hàng đợi đang xử lý chính kết quả lỗi này.
+  const lamSachRef = useRef<() => void>(() => {});
   const gui = useCallback(
-    async (keepalive: boolean): Promise<KetQuaGui> => {
-      const b = ban.current;
-      if (!b || b.dong.length === 0) return { ok: true };
-      const r = await fetch(url(b.pid), {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ dong: b.dong }),
-        keepalive,
-      }).catch(() => null);
-      if (!r) return { ok: false, loi: LOI_MAT_KET_NOI, thuLai: true };
-      const d = (await r.json().catch(() => null)) as
-        | (P & { message?: string; detail?: unknown })
-        | null;
-      if (!r.ok || !d) {
-        const cau = d?.message ?? (typeof d?.detail === "string" ? d.detail : null);
-        return { ok: false, loi: cau ?? "Không lưu được số đếm.", thuLai: nenThuLai(r.status) };
-      }
-      if (ban.current === b) ban.current = null;
-      daLuu(b.pid, d);
-      return { ok: true };
-    },
-    [url, daLuu],
+    (keepalive: boolean) =>
+      taoGuiDem({
+        doc: () => man,
+        laThuCong: () => thuCong.current,
+        post: async (pid: string, dong: DongGui[], ka: boolean) => {
+          const r = await fetch(url(pid), {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ dong }),
+            keepalive: ka,
+          }).catch(() => null);
+          return r ? { status: r.status, data: await r.json().catch(() => null) } : null;
+        },
+        daLuu: (pid, p) => daLuu(pid, p as P),
+        tuChoi: (pid) =>
+          setTimeout(() => {
+            lamSachRef.current();
+            tuChoi(pid);
+          }),
+      })(keepalive),
+    [man, url, daLuu, tuChoi],
   );
   const tl = useTuLuu({ gui, choMs: CHO_LUU_MS, tat });
-  const { danhDau } = tl;
-  const ghi = useCallback(
-    (pid: string, dong: DongGui[]) => {
-      ban.current = { pid, dong };
-      danhDau();
-    },
-    [danhDau],
-  );
-  return { trangThai: tl.trangThai, luuNgay: tl.luuNgay, ghi };
+  const { danhDau, luuNgay, lamSach } = tl;
+  useEffect(() => {
+    lamSachRef.current = lamSach;
+  }, [lamSach]);
+  return {
+    trangThai: tl.trangThai,
+    /** Có phím gõ mới — hẹn tự lưu. */
+    danhDau,
+    /** "Lưu nháp" / trước "Chốt": cùng hàng đợi, không POST riêng. */
+    luuTay: useCallback(
+      () => luuTay({ danhDau, luuNgay }, (b) => (thuCong.current = b)),
+      [danhDau, luuNgay],
+    ),
+    /** Xả phần chưa lưu rồi mới đổi ca / ngày / phiếu. */
+    doiPhieu: useCallback(
+      (lam: () => void | Promise<void>) => doiPhieu({ danhDau, luuNgay }, lam),
+      [danhDau, luuNgay],
+    ),
+  };
 }
 
 function gioVn(d: Date): string {
