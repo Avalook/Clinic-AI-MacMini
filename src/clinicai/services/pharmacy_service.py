@@ -71,6 +71,7 @@ from clinicai.services.hoan_tac_giao_service import (
     huy_cho_gan_lo,
     phat_hoan_tac_giao,
 )
+from clinicai.services.lo_mau import khong_phai_lo_mau
 from clinicai.services.moc_kham_xong import kham_xong_sql
 from clinicai.services.phan_lo_service import chua_giao_cua_dong, khoa_lo, so
 from clinicai.services.vat_tu_trung_ma import thuoc_la_vat_tu
@@ -433,6 +434,9 @@ class PharmacyService:
                   LEFT JOIN public.drug_catalog c
                     ON c.id = b.drug_catalog_id
                  WHERE b.clinic_id = $1::uuid AND b.location_id = $4::uuid
+                   AND """
+                + khong_phai_lo_mau("b")
+                + """
                  ORDER BY b.expiry_date NULLS LAST, c.name_base
                 """,
                 identity.clinic_id,
@@ -3686,10 +3690,6 @@ NOI_KHO_DANG_O = "Lô này đang ở KHO — chuyển sang quầy rồi mới b�
 #: (migration 20261116150000) so ĐÚNG chuỗi này — đổi chữ phải đổi cả migration.
 LY_DO_LAY_TU_KHO = "Quầy không đủ — lấy từ kho"
 
-#: Lô mẫu nạp 17/09/2026 để thử màn (`scripts/huy-lo-demo.py` đưa về 0). Còn tồn thì
-#: tự giao vẫn KHÔNG được chọn: hạn gần, có ở quầy — FEFO sẽ trừ nhầm vào nó.
-LO_MAU_TIEN_TO = "DEMO1709-"
-
 
 async def tach_kho_quay_bat(conn: Any, identity: StaffIdentity) -> bool:
     """Cơ sở đang đứng đã BẬT tách kho / quầy chưa (G7). Mặc định tắt: một kho,
@@ -3718,7 +3718,7 @@ async def khoa_lo_de_giao(
     if not thuoc_ids or not co_so:
         return []
     rows = await conn.fetch(
-        """
+        f"""
         SELECT b.id::text AS id
           FROM public.drug_batch b
           JOIN public.clinic_location l
@@ -3729,7 +3729,7 @@ async def khoa_lo_de_giao(
                 OR (b.noi_chua = 'KHO' AND coalesce(l.tach_kho_quay, false)))
            AND b.quantity_on_hand > 0
            AND (b.expiry_date IS NULL OR b.expiry_date >= $4::date)
-           AND NOT starts_with(b.batch_code, $5)
+           AND {khong_phai_lo_mau("b")}
          ORDER BY b.id
            FOR UPDATE OF b
         """,
@@ -3737,7 +3737,6 @@ async def khoa_lo_de_giao(
         co_so,
         sorted(set(thuoc_ids)),
         now_vn().date(),
-        LO_MAU_TIEN_TO,
     )
     return [r["id"] for r in rows]
 

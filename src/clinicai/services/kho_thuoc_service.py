@@ -45,6 +45,7 @@ from clinicai.services.kiem_ke_ca_service import (
     giao_chua_gan_lo_theo_don_vi,
     lo_co_kiem_sau,
 )
+from clinicai.services.lo_mau import khong_phai_lo_mau
 from clinicai.services.pharmacy_service import (
     DIEU_CHINH,
     PharmacyService,
@@ -282,7 +283,7 @@ async def xuat_nhap_ton(
     moc_cuoi = dau_ngay_vn(b + timedelta(days=1))
     async with pool.acquire() as conn:
         rows = await conn.fetch(
-            """
+            f"""
             WITH so AS (
                 SELECT t.drug_batch_id,
                        sum(t.quantity) AS tu_dau,
@@ -315,6 +316,7 @@ async def xuat_nhap_ton(
                   FROM public.drug_batch b
                   LEFT JOIN so ON so.drug_batch_id = b.id
                  WHERE b.clinic_id = $1::uuid AND b.location_id = $5::uuid
+                   AND {khong_phai_lo_mau("b")}
             )
             -- Một dòng mỗi (thuốc, đơn vị lô) — không cộng hộp với viên (29/09).
             SELECT c.id::text AS drug_catalog_id, c.name_raw AS ten, c.ma_hang,

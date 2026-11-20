@@ -26,12 +26,9 @@ import pytest
 from clinicai.core.clock import CLINIC_TZ, hom_nay_vn
 from clinicai.services import theo_doi_thuoc_service
 from clinicai.services.kiem_ke_ca_service import xnt_theo_ca
+from clinicai.services.lo_mau import LO_MAU_TIEN_TO
 from clinicai.services.payment_service import PaymentService
-from clinicai.services.pharmacy_service import (
-    LO_MAU_TIEN_TO,
-    LY_DO_LAY_TU_KHO,
-    PharmacyService,
-)
+from clinicai.services.pharmacy_service import LY_DO_LAY_TU_KHO, PharmacyService
 from clinicai.services.tu_giao_khi_thu import VI_TRI_LOI
 from tests.services.test_kho_quay_db import (
     Co,

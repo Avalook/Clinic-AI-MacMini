@@ -43,6 +43,7 @@ from clinicai.core.tran import canh_bao_neu_day
 from clinicai.events import emit_event, nguoi
 from clinicai.events.catalogue import KiemKeLech
 from clinicai.services.don_vi_thuoc import chuan
+from clinicai.services.lo_mau import khong_phai_lo_mau
 from clinicai.services.pharmacy_service import (
     DIEU_CHINH,
     PharmacyService,
@@ -303,7 +304,7 @@ async def xnt_theo_ca(
     `location_id` rỗng = mọi cơ sở của phòng khám. Chưa tách kho/quầy thì mọi lô
     đều ở QUẦY (mặc định cột `noi_chua`) — số cũ không đổi."""
     rows = await conn.fetch(
-        """
+        f"""
         WITH so AS (
             SELECT t.drug_batch_id,
                    sum(t.quantity) AS tu_dau,
@@ -335,6 +336,7 @@ async def xnt_theo_ca(
           LEFT JOIN so ON so.drug_batch_id = b.id
          WHERE b.clinic_id = $1::uuid AND b.noi_chua = 'QUAY'
            AND ($2::uuid IS NULL OR b.location_id = $2::uuid)
+           AND {khong_phai_lo_mau("b")}
          GROUP BY b.drug_catalog_id, lower(btrim(b.unit))
         HAVING coalesce(sum(abs(b.quantity_on_hand - coalesce(so.tu_dau, 0))
                           + abs(b.quantity_on_hand - coalesce(so.tu_cuoi, 0))
