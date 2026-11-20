@@ -5,6 +5,18 @@ import { BANG_LAYOUT, canDungLaiTrang, laManTuTai } from "./man-tu-tai.ts";
 
 const TAT_CA = new Set(["visit", "payment", "appointment", "work_roster", "queue_entry"]);
 
+test("form nhập khách /patients/new là màn tự tải; làm mới theo lịch vẫn giữ", () => {
+  assert.equal(laManTuTai("/patients/new"), true);
+  assert.equal(laManTuTai("/patients/new/"), true);
+  assert.equal(laManTuTai("/patients/new/x"), false);
+  // visit/payment/null không dựng lại form; lịch bác sĩ (layout) thì có.
+  assert.equal(canDungLaiTrang("/patients/new", "visit", TAT_CA), false);
+  assert.equal(canDungLaiTrang("/patients/new", "payment", TAT_CA), false);
+  assert.equal(canDungLaiTrang("/patients/new", null, TAT_CA), false);
+  assert.equal(canDungLaiTrang("/patients/new", "work_roster", TAT_CA), true);
+  assert.equal(canDungLaiTrang("/patients/new", "appointment", TAT_CA), true);
+});
+
 test("năm màn tự tải được nhận ra, kể cả có id/mã phòng và dấu / cuối", () => {
   for (const p of [
     "/ban-kham",
