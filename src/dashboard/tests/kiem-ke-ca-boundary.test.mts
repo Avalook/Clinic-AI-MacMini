@@ -169,6 +169,9 @@ test("Kiểm đầu/cuối ca: tìm từng thuốc, giữ số đã nhập khi l
   assert.match(kiem, /const ok = await tuLuu\.doiPhieu\(lam\);\s*if \(!ok\) setLoi\(CAU_CHUA_DOI\);/);
   assert.equal((kiem.match(/(?:void|await) doi\(/g) ?? []).length >= 6, true);
   assert.equal((kiem.match(/tuLuu\.doiPhieu\(/g) ?? []).length, 1, "chỉ helper `doi` gọi doiPhieu");
+  // Tự thử lại thành công thì gỡ câu "chưa lưu được" (staging 20/11: câu đỏ nằm lại
+  // cạnh "Đã tự lưu").
+  assert.match(kiem, /setLoi\(\(l\) => \(l === CAU_CHUA_DOI \? null : l\)\);/);
   // 409 về muộn khi đã sang phiếu khác: không nạp phiếu cũ đè lên.
   assert.match(kiem, /if \(phieuHien\.current === pid\) void docLai\(pid\);/);
   // Đang hỏi "Chốt?" thì khoá ô đếm.

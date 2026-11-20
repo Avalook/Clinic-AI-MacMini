@@ -122,7 +122,11 @@ export default function KiemKeCa({
     man,
     tat: man === null,
     url: urlDem,
-    daLuu: useCallback((pid: string, p: Phieu) => setPhieu((c) => (c?.id === pid ? p : c)), []),
+    daLuu: useCallback((pid: string, p: Phieu) => {
+      setPhieu((c) => (c?.id === pid ? p : c));
+      // Tự thử lại đã lưu được → câu "chưa lưu được nên chưa đổi phiếu" hết đúng.
+      setLoi((l) => (l === CAU_CHUA_DOI ? null : l));
+    }, []),
     // 409 về muộn (đã đổi sang phiếu khác) thì chỉ báo câu, không nạp phiếu cũ đè lên.
     tuChoi: (pid, cau) => {
       setLoi(cau);
