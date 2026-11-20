@@ -37,7 +37,7 @@ import {
   type ClinicalCompletionGate,
   type ClinicalCompletionMode,
 } from "../../../lib/clinical-completion";
-import { SU_KIEN_BANG } from "../../../lib/nhip-lam-moi";
+import { NHIP_NGHE_TIN, SU_KIEN_BANG, taoNhipLamMoi } from "../../../lib/nhip-lam-moi";
 import type { DoctorApptRow } from "./DoctorApptRow";
 import { nhipKhiHien } from "@/lib/nhip-khi-hien";
 
@@ -525,23 +525,28 @@ export default function ClinicalRecordForm({
   // Reuse the one clinic-scoped SSE connection; no EventSource per form.
   useEffect(() => {
     if (pageIdx !== 0) return;
-    let timer: ReturnType<typeof setTimeout> | undefined;
-    const reload = () => {
-      if (document.visibilityState === "hidden") return;
-      clearTimeout(timer);
-      timer = setTimeout(() => setReloadEpoch((n) => n + 1), 250);
-    };
+    // Cùng nhịp với cả app (`NHIP_NGHE_TIN`): tin dồn (script ghi hàng loạt đụng
+    // `prescription`/`visit`, prod 20/11) không biến thành một lượt tải mỗi 250ms.
+    const nhip = taoNhipLamMoi({
+      lamMoi: () => setReloadEpoch((n) => n + 1),
+      dangAn: () => document.visibilityState === "hidden",
+      hen: (fn, ms) => setTimeout(fn, ms),
+      huy: (h) => clearTimeout(h as ReturnType<typeof setTimeout>),
+      ...NHIP_NGHE_TIN,
+    });
     const changed = (ev: Event) => {
-      const table = (ev as CustomEvent<string>).detail;
-      if (["clinical_record", "patient_medical_profile", "prescription", "lab_result", "visit", "vital_measurement"].includes(table)) reload();
+      const table = (ev as CustomEvent<string | null>).detail;
+      // `null` = RealtimeRefresher vừa bắt kịp (tab hiện lại / dòng nối lại) hoặc
+      // tin méo: người vừa nhìn lại màn hình thì nạp NGAY, không chờ khoảng.
+      if (table === null) nhip.batKip();
+      else if (["clinical_record", "patient_medical_profile", "prescription", "lab_result", "visit", "vital_measurement"].includes(table)) nhip.nhan();
     };
     window.addEventListener(SU_KIEN_BANG, changed);
-    // Tab ẩn thì huỷ hẳn nhịp 60s; hiện lại thì nạp lại MỘT lần (30/09/2026).
-    // Bỏ tay nghe `focus`: bấm sang cửa sổ bên cạnh rồi bấm lại thì tab vẫn hiện
-    // suốt, dòng SSE vẫn mở — không có gì để bắt kịp.
-    const goNhip = nhipKhiHien(reload, 60_000);
+    // Tab ẩn thì huỷ hẳn nhịp 60s. Hiện lại thì `null` ở trên đã nạp một lần —
+    // nhịp không hỏi thêm (`hoiKhiHien: false`).
+    const goNhip = nhipKhiHien(() => nhip.nhan(), 60_000, { hoiKhiHien: false });
     return () => {
-      clearTimeout(timer); goNhip();
+      nhip.dung(); goNhip();
       window.removeEventListener(SU_KIEN_BANG, changed);
     };
   }, [pageIdx]);
