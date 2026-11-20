@@ -452,6 +452,29 @@ async def test_lech_khong_tru_het_thi_noi_ro_khong_bao_da_khop(co: Co) -> None:
     assert next(x for x in ds if x["id"] == p["id"])["so_chua_ap"] == 1
 
 
+async def test_dem_truoc_lan_ban_thi_cau_bao_noi_ro_thu_tu(co: Co) -> None:
+    """Staging 20/11 (Eluna): đếm 0 lúc sổ còn 1, 5 phút sau mới bán 1, rồi chốt →
+    'Chưa khớp −1'. Câu báo phải nói đếm lúc nào / bán lúc nào / sửa thế nào để
+    nhân viên tự hiểu, không phải hỏi."""
+    rx, drug = await _dong_da_xac_dinh(co.q, 1)
+    lo = await _nhap_kho(co, drug, 1)
+    await _thu(co.q)
+    p = await _mo(co)
+    await _dem(co, p["id"], **{drug: 0})  # gõ 0 lúc sổ còn 1
+    await PharmacyService(co.q.pool).cap_phat(
+        identity=co.ds, prescription_id=rx, drug_batch_id=lo, so_luong=1
+    )  # bán SAU lúc đếm
+    kq = await _chot(co, p["id"])
+    d = kq["dong"][0]
+    assert d["lech"] == D(-1) and d["chua_ap"] == D(-1)
+    assert await _ton(co, drug) == D(0)  # bán 1 lần, không trừ thêm
+    cau = d["chua_ap_ly_do"]
+    assert "Quầy không còn đủ" in cau
+    assert "đếm 0 viên lúc" in cau and "sổ còn 1" in cau, cau
+    assert "sau đó bán / giao 1 viên" in cau, cau
+    assert "Hoàn tác phiếu" in cau and "Sửa số đếm" in cau, cau
+
+
 async def test_hoan_tac_khong_duoc_khi_phan_da_cong_them_bi_xuat_het(co: Co) -> None:
     drug, lo = await _thuoc_co_ton(co, 10)
     p = await _mo(co)
