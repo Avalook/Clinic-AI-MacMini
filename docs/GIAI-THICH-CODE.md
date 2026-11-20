@@ -1652,13 +1652,15 @@ phải 500, và có log `rate_limit_internal_failure`.
 
 | Thành phần | Giải thích |
 |---|---|
-| `DEFAULT_CEILING = 400` | Trần request/phút cho mỗi nhân viên |
+| `DEFAULT_CEILING = 1000` | Trần request/phút cho mỗi nhân viên — **tạm** (16/11), hạ lại sau khi sửa gốc fan-out |
+| `DEFAULT_WARN_AT = 200` | Ngưỡng cảnh báo, **tách khỏi trần** (kẹp ≤ nửa trần) |
 | `DEFAULT_WINDOW_SECONDS = 60` | Cửa sổ đếm |
 | `_WARN_EVERY_SECONDS = 60.0` | Mỗi actor chỉ cảnh báo một lần trong một cửa sổ |
-| `RunawayRequestGuard(ceiling, window_seconds, max_buckets=4096, clock)` | Bộ đếm theo `clinic_id:staff_id` |
+| `RunawayRequestGuard(ceiling, warn_at, window_seconds, max_buckets=4096, clock)` | Bộ đếm theo `clinic_id:staff_id`, **gộp mọi route** |
 | `.bucket_count`, `.reset()` | Như ở rate_limit |
-| `.__call__(request, identity)` | Đếm; cảnh báo ở **nửa trần**; 429 khi **vượt** trần |
-| `._record(key, now)` | Trả `(count, should_warn)` |
+| `.__call__(request, identity)` | Đếm; cảnh báo ở `warn_at` kèm `top_routes`; 429 khi **vượt** trần |
+| `._record(key, now, route)` | Trả `(count, should_warn)`; mỗi lượt giữ kèm route template |
+| `._top_routes(key)` | ≤5 route lấp cửa sổ của người đó — `route` trong log chỉ là lượt tình cờ chạm ngưỡng |
 | `._evict_expired(cutoff)` | Dọn bucket cũ |
 | `_guard` | **Một** instance dùng chung toàn tiến trình |
 | `runaway_guard(request, identity)` | Dependency chuẩn — danh tính qua `get_current_identity` |
@@ -1687,9 +1689,15 @@ Sai lầm của con số cũ nằm ở tiền đề "một người làm 20 requ
 sai với **màn hình**: mỗi cú bấm ở màn CSKH ghi một dòng rồi gọi `router.refresh()`, và
 một lượt dựng lại cây server component kéo theo `/me`, `/appointments/policy`,
 `/cskh/recall-jobs`, `/appointments/week`, `/visits/progress`… Một thao tác của người hoá
-ra sáu bảy lượt gọi. Chú thích còn dặn: **nếu vẫn gặp 429 khi dùng bình thường thì ĐỪNG
-nâng tiếp** — lúc ấy đúng là có vòng lặp, và dòng cảnh báo ở nửa trần đã ghi sẵn tên đường
-dẫn gây ra nó.
+ra sáu bảy lượt gọi. Chú thích cũ còn dặn "gặp 429 thì ĐỪNG nâng tiếp, đó là vòng lặp".
+
+**Lần đo 13–16/11/2026 bác tiền đề ấy.** Log prod: 870 cảnh báo, 25 nhân viên mọi vai,
+**1.834 lượt 429** trả về người thật, đỉnh 443/phút/người — **không có vòng lặp nào**. Bộ
+đếm gộp mọi route của một người, nên `route` trong cảnh báo chỉ là lượt tình cờ chạm
+ngưỡng. Tải thật là **fan-out làm mới**: tin SSE chỉ mang tên bảng, nên một lượt ghi bất kỳ
+làm mọi tab đang mở hỏi lại (đo: +15 GET trong 1,5 giây sau mỗi lượt ghi). Tuyền chốt: nâng
+**tạm** lên 1000, cảnh báo cố định 200 kèm `top_routes`, và sửa gốc (tin SSE theo lượt,
+cache layout) rồi **hạ trần lại**.
 
 **Fail OPEN khi hết bucket** — ngược hẳn `rate_limit`:
 
@@ -1946,8 +1954,9 @@ chạm được Postgres".
    dependency ở file khác** (`runaway_guard.py:249-256`).
 4. **Trần 120 request/phút chặn người thật.** Tiền đề "20 request/phút mỗi người" đúng với
    *người*, sai với *màn hình*: một cú bấm ở CSKH kéo theo 6–7 lời gọi qua
-   `router.refresh()`. 28 lượt 429 trong 40 phút trên staging (10/08/2026). Nâng lên 400 —
-   và **đừng nâng tiếp** nếu còn gặp (`runaway_guard.py:68-82`).
+   `router.refresh()`. 28 lượt 429 trong 40 phút trên staging (10/08/2026). Nâng lên 400.
+   **Lặp lại 13–16/11/2026:** 400 trả 1.834 lượt 429 lúc đông, không vòng lặp nào — do
+   fan-out làm mới. Nâng tạm 1000; chữa thật là bớt lượt hỏi thừa ở gốc, rồi hạ trần.
 5. **Khoá idempotency không được trả khi handler từ chối.** Từ lần bấm thứ ba, người dùng
    nhận "Idempotency-Key đang được xử lý" thay cho lý do thật, kẹt 5 phút. Có khoá kẹt
    **1 ngày 5 giờ**. Phải dùng `tra_khoa_neu_bi_tu_choi`, và **chỉ trả khi 4xx** —

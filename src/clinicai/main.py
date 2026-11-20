@@ -232,9 +232,9 @@ app.add_middleware(RequestIdMiddleware)  # outermost: every response gets an id
 #
 # Applied to every AUTHENTICATED router below, and to none of the three that are
 # deliberately open (health probes, the national ward list, the waiting-room TV
-# config). It counts requests per staff member, warns at 60/minute and refuses
-# past 120 — see api/runaway_guard.py for why the ceiling is set so far above
-# human use rather than close to it.
+# config). It counts requests per staff member (all routes together), warns at
+# DEFAULT_WARN_AT and refuses past DEFAULT_CEILING per minute — see
+# api/runaway_guard.py for the numbers and why they sit so far above one click.
 #
 # One list, in one file, because the thing it measures is per PERSON: scattering
 # `Depends(runaway_guard)` across endpoints would work, but the next endpoint
