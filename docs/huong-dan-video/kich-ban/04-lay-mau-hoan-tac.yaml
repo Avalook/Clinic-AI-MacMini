@@ -1,0 +1,72 @@
+# Chương 4 — Lấy mẫu và hoàn tác bước trước. QUAY KHÔNG CÓ MÃ ỐNG (Tuyền 09/11): cần
+# PR ẩn mã ống + công tắc "Hiện mã ống" TẮT. Lời không nhắc mã ống / in tem / ghi lên ống.
+chuong: 4
+ten: "Lấy mẫu và hoàn tác"
+vai: "Nhân viên bàn xét nghiệm"
+tai_khoan: dd.sa
+mo_tu: /home
+mo_dau: "Lấy mẫu cho việc đã thu tiền, và quay lại khi bấm nhầm"
+ket_thuc: "Bước tiếp theo: gửi mẫu cho đối tác và chờ kết quả về."
+cam_tren_man: ["M\\d{6}"]
+canh:
+  - id: mo-ban
+    loi: "Vào Việc của đối tác, chọn khách cần lấy mẫu."
+    lam:
+      - re: { role: link, name: "Việc của đối tác" }
+      - bam: { role: link, name: "Việc của đối tác" }
+      - cho: { role: heading, name: "Việc của đối tác" }
+      - bam: { text: "{khach_lay_mau}" }
+      - cho: { text: "Hành trình xét nghiệm" }
+
+  - id: nut-mo
+    loi: "Thẻ ThinPrep chưa thu tiền nên nút Lấy mẫu còn mờ, kèm dòng Chưa ghi nhận thu hộ."
+    lam:
+      - nhan_manh: { role: button, name: "Lấy mẫu", exact: true, trong: "Thinprep" }
+      - nhan_manh: { text: "Chưa ghi nhận thu hộ", trong: "Thinprep" }
+
+  - id: thu-truoc
+    loi: "Thu tiền xong thì nút mới sáng. Khách trả tiền mặt đúng giá gợi ý."
+    lam:
+      - bam: { role: button, name: "Thu tiền", exact: true, trong: "Thinprep" }
+      - bam: { role: button, name: "Ghi nhận thu hộ", trong: "Thinprep" }
+      - cho: { text: "Đã ghi nhận thu hộ." }
+
+  - id: chung-ong
+    loi: "Hai xét nghiệm cùng gửi Medlatec thì lấy chung một ống. Tick cả hai."
+    lam:
+      - bam: { role: checkbox, name: "HPV" }
+      - bam: { role: checkbox, name: "Thinprep" }
+
+  - id: lay-mau
+    loi: "Bấm Lấy mẫu chung một ống."
+    lam:
+      - bam: { role: button, name: "Lấy mẫu chung một ống" }
+      - cho: { text: "Đã lấy mẫu.", exact: true }
+
+  - id: hen-tra
+    loi: "Màn báo Đã lấy mẫu, kèm ngày hẹn trả máy tự tính theo số ngày hẹn của đối tác."
+    lam:
+      - phong_to: { text: "Đã lấy mẫu · Hẹn trả", he: 1.5 }
+
+  - id: hai-the
+    loi: "Cả hai thẻ đều sang Đã lấy mẫu."
+    lam:
+      - nhan_manh: { text: "Đã lấy mẫu", exact: true, trong: "HPV" }
+
+  - id: hoan-tac
+    loi: "Bấm nhầm thì dùng Hoàn tác bước trước. Bước nào cũng quay lại được, luôn kèm lý do."
+    lam:
+      - bam: { role: button, name: "Hoàn tác bước trước", trong: "HPV" }
+      - nhan_manh: { label: "Loại huỷ", trong: "HPV" }
+
+  - id: ly-do
+    loi: "Chọn loại huỷ, gõ lý do, rồi bấm Xác nhận. Mẫu bị huỷ, khoản thu giữ nguyên."
+    lam:
+      - go: { label: "lý do", chu: "Bấm nhầm lấy mẫu", trong: "HPV" }
+      - bam: { role: button, name: "Xác nhận", trong: "HPV" }
+      - cho: { text: "Đã làm: Huỷ mẫu (khoản thu giữ nguyên)." }
+
+  - id: ve-lai
+    loi: "Việc về lại Đã thu tiền, nút Lấy mẫu sáng lại để lấy mẫu đúng."
+    lam:
+      - nhan_manh: { role: button, name: "Lấy mẫu", exact: true, trong: "HPV" }

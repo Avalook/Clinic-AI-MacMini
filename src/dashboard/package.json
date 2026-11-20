@@ -26,7 +26,9 @@
     "test:o-so": "NEXT_PUBLIC_MO_QUYEN_TAM_THOI=0 node --test lib/o-so.test.mts",
     "test:lam-them": "NEXT_PUBLIC_MO_QUYEN_TAM_THOI=0 node --test lib/lam-them.test.mts lib/tiep-don.test.mts",
     "test:so-trang": "NEXT_PUBLIC_MO_QUYEN_TAM_THOI=0 node --test lib/so-trang.test.mts",
-    "test:tu-luu": "NEXT_PUBLIC_MO_QUYEN_TAM_THOI=0 node --test lib/tu-luu.test.mts lib/phieu-ket-qua.test.mts"
+    "test:tu-luu": "NEXT_PUBLIC_MO_QUYEN_TAM_THOI=0 node --test lib/tu-luu.test.mts lib/phieu-ket-qua.test.mts",
+    "video:du-lieu": "node ../../scripts/video-huong-dan/dung-du-lieu.mjs",
+    "video:huong-dan": "node ../../scripts/video-huong-dan/chay.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.10.3",

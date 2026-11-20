@@ -1,0 +1,81 @@
+# Chương 2 — Ghi nhận thu hộ. Một cảnh = một ý = một câu ≤ 25 từ.
+# Bước `lam` chỉ tìm theo vai + tên, chữ trên màn, hoặc nhãn ô. `trong: "<chữ>"` = trong
+# thẻ việc (article) có chữ đó. Lời nói ĐÚNG chữ trên màn thật.
+chuong: 2
+ten: "Ghi nhận thu hộ"
+vai: "Nhân viên bàn xét nghiệm"
+tai_khoan: dd.sa
+mo_tu: /home
+mo_dau: "Khách trả tiền xét nghiệm cho đối tác — ghi nhận thế nào"
+ket_thuc: "Bước tiếp theo: lấy mẫu cho việc đã thu tiền."
+canh:
+  - id: mo-ban
+    loi: "Vào mục Việc của đối tác ở thanh bên trái."
+    lam:
+      - re: { role: link, name: "Việc của đối tác" }
+      - nhan_manh: { role: link, name: "Việc của đối tác" }
+      - bam: { role: link, name: "Việc của đối tác" }
+      - cho: { role: heading, name: "Việc của đối tác" }
+
+  - id: chon-khach
+    loi: "Chọn khách cần thu. Hai xét nghiệm của khách đang ở trạng thái Chưa thu tiền."
+    lam:
+      - bam: { text: "Nguyễn Thị Minh Anh" }
+      - cho: { text: "Hành trình xét nghiệm" }
+      - nhan_manh: { text: "Chưa thu tiền", trong: "HPV" }
+
+  - id: thu-tien
+    loi: "Ở thẻ HPV, bấm Thu tiền."
+    lam:
+      - bam: { role: button, name: "Thu tiền", exact: true, trong: "HPV" }
+
+  - id: goi-y
+    loi: "Ô Tiền mặt đã điền sẵn giá gợi ý 350.000đ. Khách trả khác thì sửa lại cho đúng số thật."
+    lam:
+      - phong_to: { label: "Tiền mặt", exact: true, trong: "HPV" }
+
+  - id: khach-dua
+    loi: "Khách đưa 500.000đ thì gõ vào ô Khách đưa, máy tính sẵn số trả lại khách."
+    lam:
+      - go: { label: "Khách đưa (tiền mặt)", chu: "500000", trong: "HPV" }
+      - nhan_manh: { text: "Trả lại khách", trong: "HPV" }
+
+  - id: ghi-tm
+    loi: "Bấm Ghi nhận thu hộ. Tiền này của đối tác, không vào két, không tính doanh thu."
+    lam:
+      - bam: { role: button, name: "Ghi nhận thu hộ", trong: "HPV" }
+      - cho: { text: "Đã ghi nhận thu hộ." }
+
+  - id: thu-ck
+    loi: "Xét nghiệm thứ hai khách chuyển khoản. Ở thẻ ThinPrep, bấm Thu tiền."
+    lam:
+      - bam: { role: button, name: "Thu tiền", exact: true, trong: "Thinprep" }
+
+  - id: ca-hai
+    loi: "Khách trả bằng cả hai cách thì bật cả Tiền mặt và Chuyển khoản, rồi tự chia số tiền."
+    lam:
+      - bam: { role: button, name: "Chuyển khoản", exact: true, trong: "Thinprep" }
+      - nhan_manh: { text: "khách trả bằng cả hai", trong: "Thinprep" }
+
+  - id: chi-ck
+    loi: "Khách này chuyển khoản hết, nên tắt Tiền mặt. Ô Chuyển khoản đã điền sẵn giá gợi ý."
+    lam:
+      - bam: { role: button, name: "Tiền mặt", exact: true, trong: "Thinprep" }
+      - nhan_manh: { label: "Chuyển khoản", exact: true, trong: "Thinprep" }
+
+  - id: ma-gd
+    loi: "Gõ mã giao dịch trên phiếu chuyển khoản. Dòng dưới ghi rõ tiền chuyển vào tài khoản nào."
+    lam:
+      - go: { label: "Mã giao dịch", chu: "FT26110900123", trong: "Thinprep" }
+      - nhan_manh: { text: "Chuyển khoản vào:", trong: "Thinprep" }
+
+  - id: ghi-ck
+    loi: "Bấm Ghi nhận thu hộ. Ảnh chuyển khoản không bắt buộc, thêm được ngay sau khi ghi nhận."
+    lam:
+      - bam: { role: button, name: "Ghi nhận thu hộ", trong: "Thinprep" }
+      - cho: { text: "Đã ghi nhận thu hộ." }
+
+  - id: xong
+    loi: "Cả hai xét nghiệm đã sang Đã thu tiền. Giờ nút Lấy mẫu mới bấm được."
+    lam:
+      - nhan_manh: { text: "Đã thu tiền", exact: true, trong: "HPV" }
