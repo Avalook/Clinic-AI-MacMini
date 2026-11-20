@@ -47,6 +47,16 @@ const MOCK = {
   "../../form-ui": { INPUT: "i", TBL_DIV: "d", TBL_HEAD: "h", TBL_WRAP: "w" },
   "./gui-kho": { soKho: (n: unknown) => String(n ?? 0) },
   "./dong-kiem-ca": DONG_KIEM,
+  // 20/11: kiểu + lời gọi API và tự lưu nháp tách khỏi KiemKeCa.tsx.
+  "./kiem-ca-kieu": { goi: () => new Promise(() => {}) },
+  "./tu-luu-kiem-ca": {
+    useTuLuuKiemCa: () => ({
+      trangThai: { dang_luu: false, chua_luu: false, loi: null, luu_luc: null, tu_thu_lai: false },
+      luuNgay: async () => true,
+      ghi: () => {},
+    }),
+    ChuTuLuu: () => null,
+  },
 };
 
 test("proxy kiểm kê: danh sách trắng bước ghi, id phải là uuid, không có đường lạ", () => {
@@ -146,7 +156,10 @@ test("Kiểm đầu/cuối ca: tìm từng thuốc, giữ số đã nhập khi l
   assert.match(kiem, /aria-label="Tìm thuốc cần kiểm kê"/);
   assert.match(kiem, /const hangHien = hang\.filter/);
   assert.match(kiem, /normalize\("NFD"\)/);
-  assert.match(kiem, /const gui = dong\s*\.filter/);
+  // Một hàm dựng dòng gửi cho cả "Lưu nháp" lẫn tự lưu (20/11) — vẫn gửi mọi số đã nhập.
+  assert.match(kiem, /const dongGui = \(p: Phieu, n: Record<string, string>\): DongGui\[\] =>\s*dong\s*\.filter/);
+  assert.match(kiem, /tuLuu\.ghi\(phieu\.id, dongGui\(phieu, moi\)\)/);
+  assert.match(kiem, /<ChuTuLuu tt=\{tuLuu\.trangThai\} \/>/);
   assert.match(kiem, /Đã đếm/);
   assert.match(kiem, /hangHien\.map/);
   assert.doesNotMatch(kiem, /Đếm số thuốc thực tế trên kệ quầy/);
@@ -157,9 +170,12 @@ test("Kiểm đầu/cuối ca: tìm từng thuốc, giữ số đã nhập khi l
   assert.match(kiem, /aria-label="Ca và phiếu kiểm kê"/);
   assert.match(kiem, /w-full min-w-0 max-w-full flex-none sm:w-fit sm:min-w-\[24rem\]/);
   assert.doesNotMatch(kiem, /min-w-\[24rem\] flex-1/);
-  assert.match(kiem, /loi: loiKyThuat \? null : thongDiep/);
-  assert.match(kiem, /loiKyThuat = \/mã lỗi/);
-  assert.match(kiem, /lỗi chưa lường trước\/i/);
+  // Hàm `goi` (giấu câu lỗi kỹ thuật) chuyển nguyên văn sang kiem-ca-kieu.ts (20/11).
+  const kieu = doc("app/(dashboard)/pharmacy/inventory/kiem-ca-kieu.ts");
+  assert.match(kieu, /loi: loiKyThuat \? null : thongDiep/);
+  assert.match(kieu, /loiKyThuat = \/mã lỗi/);
+  assert.match(kieu, /lỗi chưa lường trước\/i/);
+  assert.match(kiem, /import \{\s*goi,[\s\S]*?\} from "\.\/kiem-ca-kieu"/);
   assert.match(kiem, /await goi<Phieu>\("POST", URL_GOC, \{ ngay, ca, loai: loaiDangKiem \}\)/);
   assert.doesNotMatch(kiem, /Phiếu đầu ca trong ngày|Phiếu cuối ca trong ngày/);
 });
