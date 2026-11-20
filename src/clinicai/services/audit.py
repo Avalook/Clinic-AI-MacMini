@@ -96,14 +96,3 @@ async def record_event(
         correlation_id,
         origin,
     )
-
-
-def changed_fields(payload: dict[str, Any] | None) -> list[str]:
-    """The NAMES of the fields a write touched, sorted; never their values.
-
-    Enough for "the doctor changed the diagnosis at 14:02" without putting the
-    diagnosis in a table that operations roles can read.
-    """
-    if not payload:
-        return []
-    return sorted(k for k, v in payload.items() if v is not None)
