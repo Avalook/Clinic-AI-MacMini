@@ -19,7 +19,10 @@ import pytest
 from clinicai.adapters.don_thuoc_quoc_gia.gia_lap import KhongKy, ProviderGiaLap
 from clinicai.ports.don_thuoc_quoc_gia import ChuKy, GoiDon, KetQuaGui
 from clinicai.services.don_thuoc_quoc_gia import hang_cho
-from clinicai.services.don_thuoc_quoc_gia.anh_xa import dau_van_tay, doc_goi_don
+from clinicai.services.don_thuoc_quoc_gia.anh_xa import (
+    dau_van_tay_goi_don,
+    doc_goi_don,
+)
 from clinicai.services.don_thuoc_quoc_gia.gui import gui_den_han
 from tests.services.test_don_thuoc_quoc_gia_anh_xa_db import (
     _canh,
@@ -65,9 +68,9 @@ async def test_tranh_chap_vao_hang_mot_dong(pool: asyncpg.Pool) -> None:  # noqa
             " dau_van_tay) VALUES ($1::uuid, $2::uuid, 1, '79abc0000001-c', '{}', $3)",
             CLINIC,
             vid,
-            dau_van_tay(g),
+            dau_van_tay_goi_don(g),
         )
-        viec = asyncio.create_task(hang_cho.vao_hang(pool, ch))
+        viec = asyncio.create_task(hang_cho.vao_hang_don_thuoc(pool, ch))
         await tr.commit()
         assert await viec == 0
     assert len(await _dong_hang(pool, vid)) == 1
@@ -96,7 +99,7 @@ async def test_tranh_chap_gui_mot_lan(pool: asyncpg.Pool) -> None:  # noqa: F811
     c = await _canh(pool)
     vid = await _luot(pool, c)
     ch = _ch(c)
-    assert await hang_cho.vao_hang(pool, ch) == 1
+    assert await hang_cho.vao_hang_don_thuoc(pool, ch) == 1
     (r,) = await _dong_hang(pool, vid)
     gl = _ChoMo(giu_ma=r["ma_don"])
     a = asyncio.create_task(gui_den_han(pool, ch, gl, KhongKy()))

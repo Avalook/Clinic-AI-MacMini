@@ -1,8 +1,9 @@
 """Một vòng liên thông đơn thuốc quốc gia trong worker `su-kien`.
 
-Worker chỉ gọi `mot_vong` khi `cau_hinh.da_bat()` — công tắc tắt thì module này
-không chạy một câu SQL nào. Bật mà cấu hình sai → không gửi gì, mở cảnh báo
-`DTQG_CAU_HINH_SAI` để người trực thấy ở /ops thay vì im lặng.
+Worker gọi `nhip_trong_worker` mỗi vòng; nó chỉ chạy `mot_vong_dtqg` khi
+`cau_hinh.da_bat()` và tới nhịp — công tắc tắt thì không chạy một câu SQL nào.
+Bật mà cấu hình sai → không gửi gì, mở cảnh báo `DTQG_CAU_HINH_SAI` để người
+trực thấy ở /ops thay vì im lặng.
 
 Canh gác (cùng bảng `canh_bao`, cùng kênh Telegram ops — chỉ SỐ ĐẾM, không tên
 khách):
@@ -12,6 +13,7 @@ khách):
 
 from __future__ import annotations
 
+import time
 from collections.abc import Mapping
 from typing import Any
 
@@ -26,10 +28,10 @@ from clinicai.services.don_thuoc_quoc_gia.cau_hinh import (
     GIA_LAP,
     CauHinh,
     da_bat,
-    doc_cau_hinh,
+    doc_cau_hinh_dtqg,
 )
 from clinicai.services.don_thuoc_quoc_gia.gui import gui_den_han
-from clinicai.services.don_thuoc_quoc_gia.hang_cho import vao_hang
+from clinicai.services.don_thuoc_quoc_gia.hang_cho import vao_hang_don_thuoc
 
 logger = structlog.get_logger()
 
@@ -53,7 +55,7 @@ SELECT
 LOI_TRONG_NGAY = 7
 
 
-def danh_gia(so: Mapping[str, Any]) -> list[KetQuaKiem]:
+def danh_gia_canh_bao_dtqg(so: Mapping[str, Any]) -> list[KetQuaKiem]:
     """HÀM THUẦN: số đếm → cảnh báo."""
     loi_cau_hinh: list[str] = list(so.get("loi_cau_hinh") or [])
     ra = [
@@ -102,7 +104,7 @@ def dung_nha_cung_cap(
 _GIA_LAP = ProviderGiaLap()
 
 
-async def mot_vong(
+async def mot_vong_dtqg(
     pool: asyncpg.Pool,
     *,
     env: Mapping[str, str] | None = None,
@@ -114,25 +116,46 @@ async def mot_vong(
         return {"tat": True}
     ket: dict[str, Any] = {"vao_hang": 0, "da_gui": 0}
     try:
-        ch = doc_cau_hinh(env)
+        ch = doc_cau_hinh_dtqg(env)
         if isinstance(ch, list):
             ket["loi_cau_hinh"] = ch
-            await canh_gac.ap_dung(pool, danh_gia(ket))
+            await canh_gac.ap_dung(pool, danh_gia_canh_bao_dtqg(ket))
             return ket
         ncc = nha_cung_cap or dung_nha_cung_cap(ch)
         if ncc is None:
             ket["loi_cau_hinh"] = [f"chưa có adapter cho '{ch.nha_cung_cap}'"]
-            await canh_gac.ap_dung(pool, danh_gia(ket))
+            await canh_gac.ap_dung(pool, danh_gia_canh_bao_dtqg(ket))
             return ket
         provider, ky_so = ncc
-        ket["vao_hang"] = await vao_hang(pool, ch)
+        ket["vao_hang"] = await vao_hang_don_thuoc(pool, ch)
         ket["da_gui"] = await gui_den_han(pool, ch, provider, ky_so)
         r = await pool.fetchrow(_SO_SQL, ch.clinic_id, TON_DONG_PHUT, LOI_TRONG_NGAY)
         ket.update(dict(r) if r else {})
-        await canh_gac.ap_dung(pool, danh_gia(ket))
+        await canh_gac.ap_dung(pool, danh_gia_canh_bao_dtqg(ket))
     except Exception:  # noqa: BLE001 — một vòng hỏng không được làm chết su-kien
         logger.exception("dtqg_vong_hong")
     return ket
 
 
-__all__ = ["NHIP_GIAY", "danh_gia", "dung_nha_cung_cap", "mot_vong"]
+#: Lần cuối `nhip_trong_worker` chạy một vòng (giây đơn điệu, trong tiến trình).
+_lan_chay = 0.0
+
+
+async def nhip_trong_worker(pool: asyncpg.Pool, *, canh: bool) -> None:
+    """Worker `su-kien` gọi mỗi vòng. Chỉ tiến trình giao MỌI bên nhận (`canh`)
+    mới chạy; công tắc `DTQG_BAT` tắt → về ngay, không một câu SQL; chưa tới
+    `NHIP_GIAY` → về ngay. Không bao giờ ném (`mot_vong_dtqg` tự bắt lỗi)."""
+    global _lan_chay
+    if not canh or not da_bat() or time.monotonic() - _lan_chay < NHIP_GIAY:
+        return
+    _lan_chay = time.monotonic()
+    await mot_vong_dtqg(pool)
+
+
+__all__ = [
+    "NHIP_GIAY",
+    "nhip_trong_worker",
+    "danh_gia_canh_bao_dtqg",
+    "dung_nha_cung_cap",
+    "mot_vong_dtqg",
+]
