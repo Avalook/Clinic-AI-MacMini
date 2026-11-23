@@ -9,9 +9,10 @@
 # BỐN DỊCH VỤ, VÌ SUPABASE LÀ BỐN THỨ CHỨ KHÔNG PHẢI MỘT (đo ở Giai đoạn 0):
 #
 #   db         Postgres 17           tất cả
-#   auth       GoTrue                28 file frontend · 9 tài khoản
-#   rest       PostgREST             57 file frontend query thẳng
-#   realtime   Realtime              8 file (lễ tân, điều phối, siêu âm)
+#   auth       GoTrue                đăng nhập (trình duyệt + máy chủ Next)
+#   rest       PostgREST             CHỈ máy chủ Next gọi qua mạng docker — ra
+#                                    Internet đã đóng ở caddy/Caddyfile (403)
+#   realtime   Realtime              không ai dùng (sự kiện đi LISTEN/NOTIFY → SSE)
 #
 # Storage KHÔNG dựng: đo được 0 file dùng — ảnh siêu âm đã lưu thẳng trên đĩa
 # Mac từ 04/08. Dựng một dịch vụ không ai gọi là thêm một thứ phải vá lỗi bảo
@@ -149,7 +150,7 @@ services:
       timeout: 5s
       retries: 10
 
-  # ---- PostgREST (57 file frontend query thẳng) ----------------------------
+  # ---- PostgREST (chỉ máy chủ Next gọi, trong mạng docker) -----------------
   rest:
     <<: *supabase-defaults
     image: postgrest/postgrest:v12.2.3
@@ -205,8 +206,9 @@ services:
       RUN_JANITOR: "true"
 
   # ---- Gateway: gom bốn dịch vụ vào một địa chỉ ----------------------------
-  # Frontend chỉ biết MỘT URL (NEXT_PUBLIC_SUPABASE_URL) và tự ghép đường dẫn
-  # /auth/v1, /rest/v1, /realtime/v1. Khối này dựng lại đúng hình dạng ấy.
+  # supabase-js chỉ biết MỘT URL và tự ghép đường dẫn /auth/v1, /rest/v1,
+  # /realtime/v1. Khối này dựng lại đúng hình dạng ấy. Từ ngoài Internet chỉ
+  # còn /auth/v1 tới được đây (caddy/Caddyfile đóng hai đường kia).
   # Chặn dò mật khẩu ở cửa đăng nhập. Đứng TRƯỚC gateway và CHỈ nhận đúng
   # đường `/auth/v1/token` — Caddy ngoài cùng định tuyến sang đây.
   #

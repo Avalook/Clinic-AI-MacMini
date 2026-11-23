@@ -3,8 +3,10 @@
 # Thư viện `@supabase/supabase-js` chỉ nhận một URL rồi TỰ ghép đường dẫn:
 #
 #     /auth/v1/…       đăng nhập, phiên, người dùng
-#     /rest/v1/…       truy vấn bảng (57 file frontend đi đường này)
-#     /realtime/v1/…   websocket (8 file)
+#     /rest/v1/…       truy vấn bảng — chỉ máy chủ Next gọi (mạng docker)
+#     /realtime/v1/…   websocket — không còn ai dùng
+#
+# Caddy ngoài cùng (caddy/Caddyfile) chỉ cho /auth/v1 từ Internet tới đây.
 #
 # Nên muốn không sửa dòng nào ở frontend thì phải dựng lại đúng hình dạng ấy.
 # Supabase cloud dùng Kong cho việc này; ở đây Caddy đủ và ta đã biết nó.
