@@ -264,7 +264,8 @@ _MO_TA = {
 CACH_SUA = {
     "tran-kich-thuoc": (
         "Tách theo nghiệp vụ sang module mới, tệp cũ chỉ giữ một dòng gọi "
-        "(luật 5 của .claude/rules/thiet-ke-code.md). Tệp MỚI phải ≤ 400 dòng."
+        "(luật 5 của .claude/rules/thiet-ke-code.md). Tệp MỚI phải ≤ 400 dòng. Nếu chỉ "
+        "đổi tên/dời tệp cũ: đổi tên khoá trong tệp mốc, giữ nguyên số dòng."
     ),
     "moc-phuc-tap": (
         "Tách hàm thành các hàm nhỏ (mỗi nhánh `if`/`for`/`except` một hàm có tên), "
