@@ -58,7 +58,8 @@ def test_moc_hop_le(chi_so: str) -> None:
     """Mốc đọc được, giá trị dương; tệp > 400 dòng mới được vào mốc kích thước."""
     tho = json.loads(thuoc_do.TEN_MOC[chi_so].read_text(encoding="utf-8"))
     chi_tiet = {k: int(v) for k, v in tho["chi_tiet"].items()}
-    assert chi_tiet and all(v > 0 for v in chi_tiet.values()), chi_so
+    # Rỗng là HỢP LỆ: sửa hết vi phạm một chỉ số là tin tốt (chống đo rỗng: test sàn).
+    assert all(v > 0 for v in chi_tiet.values()), chi_so
     if chi_so == "tran-kich-thuoc":
         thua = [k for k, v in chi_tiet.items() if v <= thuoc_do.TRAN_FILE_MOI]
         assert not thua, f"mốc có tệp ≤ {thuoc_do.TRAN_FILE_MOI} dòng: {thua}"
@@ -69,13 +70,12 @@ def test_moc_hop_le(chi_so: str) -> None:
 
 def test_bo_do_khong_do_ra_rong_tren_cay_that() -> None:
     """Sàn: dời/đổi tên thư mục làm bộ đo đo rỗng thì test xanh GIẢ — chặn ở đây."""
-    assert len(list(thuoc_do.BACKEND.rglob("*.py"))) > 300
-    assert list((thuoc_do.DASHBOARD / "app").rglob("*.tsx"))
-    assert len(list((thuoc_do.BACKEND / "api").rglob("*.py"))) > 20
-    assert sum(thuoc_do.do_moc_cua_thieu_response_model().values()) > 100
-    assert len(thuoc_do.do_moc_ten_ham_trung()) > 50
-    assert thuoc_do.do_moc_if_theo_vai()
-    assert thuoc_do.do_tran_kich_thuoc()
+    # Sàn đếm thứ KHÔNG giảm khi sửa tốt (số tệp nguồn), không đếm số vi phạm — nếu
+    # không, sửa hết một chỉ số về 0 sẽ làm test đỏ oan.
+    assert len(thuoc_do._tep_nguon(thuoc_do.BACKEND, {".py"})) > 300
+    assert len(thuoc_do._tep_nguon(thuoc_do.BACKEND / "api", {".py"})) > 20
+    assert len(thuoc_do._tep_nguon(thuoc_do.DASHBOARD / "app", {".tsx"})) > 100
+    assert len(thuoc_do._tep_nguon(thuoc_do.SRC, thuoc_do._DUOI_CODE)) > 500
 
 
 def test_moc_khong_co_tep_ma() -> None:
