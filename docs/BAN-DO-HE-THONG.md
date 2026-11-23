@@ -13,6 +13,8 @@ Gom 23/10/2026 từ các đợt soát bằng cloud (#533–#538). Code soát: `m
 | Muốn sửa gì thì vào màn / tệp nào | [`BAN-DO-SUA.md`](BAN-DO-SUA.md), [`BAN-DO-CODE.md`](BAN-DO-CODE.md), [`SITEMAP.md`](SITEMAP.md) | Có từ trước. |
 | Luật hệ thống, thứ đã cân nhắc và loại | [`SO-LUAT.md`](SO-LUAT.md) | Phần 7: hạ tầng đã loại + ngưỡng mở lại. |
 
+Bản gộp ngoại tuyến: [**Bản đồ ClinicAI — một tệp, có minh hoạ động**](ban-do-clinicai.html) · sinh lại bằng `python3 scripts/ban-do-mot-tep.py`.
+
 ## Số đo thật mới nhất
 
 `he-thong/so-do.json`, đo chỉ đọc từ Mac. Đo lại và nhúng vào trang bằng một lệnh:
