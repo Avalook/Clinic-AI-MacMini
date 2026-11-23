@@ -183,8 +183,8 @@ khách → Caddy (TLS Let's Encrypt) → dashboard (Next.js, chỉ giao diện)
 Các quyết định còn chờ chốt: `docs/KIEM-TOAN-HE-THONG-2709.md` mục 6.
 
 Việc lớn còn lại: **đưa nốt luật nghiệp vụ ra khỏi `src/dashboard`**. Route Next
-chạm thẳng database: **1** (06/10/2026 — chỉ còn `check-phone`, đã tắt; 27/09 là 2,
-13/08 là 42/63) — con số ấy **chỉ được giảm**. Còn 64 dòng so sánh vai trong TSX/TS
+chạm thẳng database: **0** (24/11/2026 — `check-phone` đã xoá; 06/10 là 1, 27/09 là 2,
+13/08 là 42/63) — test `route-da-xoa-boundary` giữ ở 0. Còn 64 dòng so sánh vai trong TSX/TS
 (đo 24/11 bằng `scripts/thuoc-do.py`; "123" ở kiểm toán 27/09 không có nguồn đếm).
 
 **Thước đo ratchet (24/11/2026)** — `python3 scripts/thuoc-do.py` + test

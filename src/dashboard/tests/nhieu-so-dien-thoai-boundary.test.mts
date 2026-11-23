@@ -45,16 +45,6 @@ test("màn đặt lịch: ô tìm khách nhìn thấy số thêm", () => {
   );
 });
 
-test("cảnh báo trùng SĐT tra cột gộp và trả khoá hồ sơ", () => {
-  const route = doc("../app/api/patients/check-phone/route.ts");
-  assert.match(route, /ilike\("sdt_tim_kiem"/, "check-phone phải tra cột gộp");
-  assert.match(
-    route,
-    /clinic_patient_id/,
-    "thiếu khoá hồ sơ thì nút 'thêm số cho khách này' không biết gắn vào ai",
-  );
-});
-
 test("nút thêm số đứng trong CẢ HAI ô cảnh báo — trùng số lẫn trùng tên", () => {
   const form = doc("../app/(dashboard)/patients/new/NewPatientForm.tsx");
   const soNut = (form.match(/<ThemSdtChoKhach /g) ?? []).length;

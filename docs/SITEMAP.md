@@ -221,14 +221,13 @@ Thư mục `app/(dashboard)/tasks/` vẫn giữ **component dùng chung**:
 `ClinicalRecordForm`, `ServiceFormEngine`, `DoctorApptRow`… Chỉ `page.tsx` là
 chuyển hướng.
 
-**Route `/api` đã tắt (24/09/2026, trả 410 ở `proxy.ts`, danh sách ở
-`lib/route-da-tat.ts`)** — không màn nào gọi: `dispatch/alerts-call`,
-`cskh/ket-qua/[tepId]/cho-phep-gui`, `cskh/zalo`, `lab-result` (gốc; `/review`
-và `/triage` vẫn chạy), `sono`, `service-log`, `ultrasound/image`,
-`visits/[id]/charges`, `visits/[id]/service-orders` (+ `current`, `draft`,
-`draft/approve`, `draft/discard`, `duplicates`, `remove`),
-`work-items/[id]/blockers`, `patients/check-phone`. File giữ nguyên; bỏ dòng ở
-danh sách là bật lại.
+**Route `/api` đã XOÁ (tắt 410 từ 24/09/2026, xoá hẳn 24/11/2026)** — không
+màn nào gọi: `dispatch/alerts-call`, `cskh/ket-qua/[tepId]/cho-phep-gui`,
+`cskh/zalo`, `lab-result` (gốc), `sono`, `service-log`,
+`ultrasound/image`, `visits/[id]/charges`, `visits/[id]/service-orders` (+
+`current`, `draft`, `draft/approve`, `draft/discard`, `duplicates`, `remove`),
+`work-items/[id]/blockers`, `patients/check-phone`. Test
+`tests/route-da-xoa-boundary.test.mts` canh không cho mọc lại.
 
 ---
 
