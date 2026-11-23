@@ -47,6 +47,33 @@ const DUOC_DUNG_TRINH_DUYET = [
   "app/(dashboard)/DoiMatKhauModal.tsx",
 ];
 
+// Quét NGUYÊN VĂN (không bỏ chú thích): bỏ `//…` sẽ nuốt luôn phần sau
+// "https://" trên cùng dòng, đúng chỗ một URL ghép tay hay nằm.
+const NGUYEN_VAN = moiFileNguon(GOC)
+  .map((p) => ({ duong: p.slice(GOC.pathname.length), ma: readFileSync(p, "utf8") }))
+  .filter((f) => !f.duong.startsWith("tests/"));
+
+test("không code nào ghép tay đường /rest/v1 hay /realtime/v1", () => {
+  const lo = NGUYEN_VAN.filter((f) => /\/(rest|realtime)\/v1/.test(f.ma)).map(
+    (f) => f.duong,
+  );
+  assert.deepEqual(lo, [], "hai đường này đã đóng ở Caddy — đọc dữ liệu qua FastAPI");
+});
+
+test("chỉ hai chỗ máy chủ được createClient (khoá dịch vụ)", () => {
+  const dung = NGUYEN_VAN.filter((f) => /\bcreateClient\(/.test(f.ma))
+    .map((f) => f.duong)
+    .sort();
+  assert.deepEqual(dung, ["app/api/admin/users/route.ts", "lib/supabase-service.ts"]);
+});
+
+test("không gọi thẳng getSupabaseBrowser().x — phải qua biến để bài dưới soát", () => {
+  const lo = NGUYEN_VAN.filter((f) => /getSupabaseBrowser\(\)\s*\./.test(f.ma)).map(
+    (f) => f.duong,
+  );
+  assert.deepEqual(lo, []);
+});
+
 test("chỉ lib/supabase-browser.ts dựng client trình duyệt", () => {
   const dung = NGUON.filter((f) => /createBrowserClient\(/.test(f.ma)).map(
     (f) => f.duong,

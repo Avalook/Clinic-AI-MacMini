@@ -43,7 +43,8 @@ khách ─► Caddy PROD (TLS cho cả hai tên miền)
            ├─ dr4women.io.vn          ─► prod (như cũ)
            └─ staging.dr4women.io.vn  ─► [mạng cầu clinicai_staging_edge]
                                            ─► Caddy STAGING (clinicai-staging-cong)
-                                                ├─ /auth/v1 /rest/v1 ─► Supabase staging
+                                                ├─ /auth/v1 ─► Supabase staging
+                                                ├─ /rest/v1 /realtime/v1 ─► 403 (đóng 23/11)
                                                 └─ còn lại ─► dashboard ─► api ─► Postgres staging
 ```
 

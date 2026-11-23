@@ -77,6 +77,20 @@ def test_khong_cho_nao_khac_toi_gateway(tep: Path) -> None:
         if dong.startswith("\t@dong_supabase "):
             continue
         assert "/rest/v1" not in dong and "/realtime/v1" not in dong, dong
+    # Không lối tắt nào khác tới PostgREST / Realtime: `handle_path`, `route`,
+    # hay proxy thẳng tên dịch vụ trong stack Supabase.
+    assert "handle_path" not in s
+    assert not re.search(r"^\s*route\b", s, flags=re.M)
+    assert not re.search(r"reverse_proxy\s+\S*(rest|realtime)\S*:", s)
+
+
+@pytest.mark.parametrize("tep", CADDYFILES, ids=lambda p: p.name)
+def test_chi_co_cac_matcher_da_biet(tep: Path) -> None:
+    # Matcher mới kiểu `/rest/*` hay `/*` đi tới đâu cũng phải qua mắt người
+    # soát: thêm matcher là sửa danh sách này có chủ ý.
+    s = _khong_comment(tep)
+    ten = set(re.findall(r"^\s*@(\w+) ", s, flags=re.M))
+    assert ten == {"tinh", "dong_supabase", "dangnhap", "supabase", "ok"}
 
 
 @pytest.mark.parametrize("tep", CADDYFILES, ids=lambda p: p.name)
