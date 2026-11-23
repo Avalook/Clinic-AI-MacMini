@@ -123,5 +123,5 @@ test("bài kiểm này thật sự tìm thấy chuỗi select để canh", () =>
   // 24/11/2026: 3 → 2. Xoá route `patients/check-phone` (đã tắt 410 từ 24/09);
   // đo lúc đổi: còn 2.
   const n = moiChuoiSelect().length;
-  assert.ok(n >= 2,`chỉ tìm thấy ${n} chuỗi select — biểu thức dò có vẻ đã hỏng`);
+  assert.ok(n >= 2, `chỉ tìm thấy ${n} chuỗi select — biểu thức dò có vẻ đã hỏng`);
 });

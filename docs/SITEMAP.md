@@ -223,7 +223,7 @@ chuyển hướng.
 
 **Route `/api` đã XOÁ (tắt 410 từ 24/09/2026, xoá hẳn 24/11/2026)** — không
 màn nào gọi: `dispatch/alerts-call`, `cskh/ket-qua/[tepId]/cho-phep-gui`,
-`cskh/zalo`, `lab-result` (gốc; `/review` và `/triage` còn tệp), `sono`, `service-log`,
+`cskh/zalo`, `lab-result` (gốc), `sono`, `service-log`,
 `ultrasound/image`, `visits/[id]/charges`, `visits/[id]/service-orders` (+
 `current`, `draft`, `draft/approve`, `draft/discard`, `duplicates`, `remove`),
 `work-items/[id]/blockers`, `patients/check-phone`. Test

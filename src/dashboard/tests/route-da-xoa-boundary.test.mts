@@ -48,6 +48,8 @@ test("17 route đã xoá không quay lại", () => {
 // SO-LUAT luật 3.2 + 4.1: route Next chỉ chuyển tiếp sang FastAPI. Con số "route
 // chạm thẳng database" đi 42 (13/08) → 2 (27/09) → 1 (06/10, check-phone) → 0
 // (24/11). Chỉ được giảm — giờ là 0 thì không cho lên lại.
+// Giới hạn: chỉ bắt `.from("bảng")` / `.rpc("hàm")` có tên viết thẳng; truyền tên
+// bằng biến thì lọt (hiện không chỗ nào viết vậy). `Buffer.from(x)` không khớp.
 test("không route Next nào truy vấn thẳng database (.from/.rpc của Supabase)", () => {
   const cham = moiRoute(API).filter((tep) =>
     /\.(from|rpc)\(\s*["'`]/.test(readFileSync(tep, "utf8")),
