@@ -136,9 +136,10 @@ def test_khong_ban_sao_doc_ngay_iso_ngoai_clock() -> None:
 
 
 #: Số chỗ còn tự gọi ``fromisoformat(`` ngoài clock.py (hàm tên khác, chưa gộp
-#: ở PR 24/11; trước PR là 45). CHỈ ĐƯỢC GIẢM: chỗ mới đọc ngày thì gọi
-#: ``doc_ngay``; gộp thêm chỗ nào thì hạ số này xuống.
-TRAN_FROMISOFORMAT = 36
+#: ở PR 24/11; trước PR là 46 gồm ``canh_gac_may_chu._gio`` của #663 — đọc
+#: NGÀY-GIỜ có múi, chờ một ``doc_gio`` ở clock). CHỈ ĐƯỢC GIẢM: chỗ mới đọc
+#: ngày thì gọi ``doc_ngay``; gộp thêm chỗ nào thì hạ số này xuống.
+TRAN_FROMISOFORMAT = 37
 
 
 def test_fromisoformat_ngoai_clock_chi_duoc_giam() -> None:
