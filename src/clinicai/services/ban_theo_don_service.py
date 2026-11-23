@@ -22,7 +22,7 @@ from __future__ import annotations
 
 import calendar
 from collections.abc import Iterable, Mapping
-from datetime import date, datetime
+from datetime import date
 from decimal import Decimal
 from typing import Any
 
@@ -30,7 +30,7 @@ import asyncpg
 
 from clinicai.api.exceptions import ConflictError, NotFoundError, ValidationError
 from clinicai.api.identity import StaffIdentity
-from clinicai.core.clock import hom_nay_vn
+from clinicai.core.clock import doc_ngay, hom_nay_vn
 from clinicai.core.tran import canh_bao_neu_day
 from clinicai.permissions.can import doi_quyen
 from clinicai.services.audit import record_event
@@ -45,18 +45,6 @@ _0 = Decimal(0)
 
 
 # ── Hàm thuần — test không cần database ───────────────────────────────────
-def doc_ngay(v: Any) -> date | None:
-    """date / datetime / "YYYY-MM-DD…" → ngày. Rác, rỗng → None, không ném."""
-    if isinstance(v, datetime):
-        return v.date()
-    if isinstance(v, date):
-        return v
-    try:
-        return date.fromisoformat(v.strip()[:10]) if isinstance(v, str) else None
-    except ValueError:
-        return None
-
-
 def cong_thang(d: date, so_thang: int) -> date:
     """Cộng tháng LỊCH; tháng đích ngắn hơn thì lấy ngày cuối (31/12 + 2 = 28/02)."""
     t = d.month - 1 + so_thang

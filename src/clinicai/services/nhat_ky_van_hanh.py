@@ -16,13 +16,13 @@ Chỉ số tính bằng HÀM THUẦN `chi_so_luot` / `trung_vi` — test không 
 
 from __future__ import annotations
 
-from datetime import date, datetime, timedelta
+from datetime import datetime, timedelta
 from statistics import median
 from typing import Any
 
 import asyncpg
 
-from clinicai.core.clock import CLINIC_TZ, now_vn
+from clinicai.core.clock import CLINIC_TZ, doc_ngay, iso, now_vn
 
 GIOI_HAN_DONG = 2000
 
@@ -40,14 +40,6 @@ CHI_SO: tuple[tuple[str, str, str, str], ...] = (
     ),
     ("tong", "Check-in → về", "visit.checked_in", "visit.checked_out"),
 )
-
-
-def doc_ngay(chuoi: str | None) -> date | None:
-    """YYYY-MM-DD → ngày; rác / rỗng → None (không ném)."""
-    try:
-        return date.fromisoformat((chuoi or "").strip())
-    except ValueError:
-        return None
 
 
 def phut(a: datetime | None, b: datetime | None) -> float | None:
@@ -68,10 +60,6 @@ def trung_vi(luot: list[dict[str, float | None]]) -> dict[str, float | None]:
         ds = [float(v) for x in luot if (v := x.get(k)) is not None]
         ra[k] = round(float(median(ds)), 1) if ds else None
     return ra
-
-
-def _iso(v: datetime | None) -> str | None:
-    return v.isoformat() if v else None
 
 
 async def doc_nhat_ky(
@@ -148,7 +136,7 @@ async def doc_nhat_ky(
     for vid, m in moc.items():
         cs = chi_so_luot(m)
         theo_luot.append(
-            {**khach[vid], "check_in": _iso(m.get("visit.checked_in")), **cs}
+            {**khach[vid], "check_in": iso(m.get("visit.checked_in")), **cs}
         )
     theo_luot.sort(key=lambda x: x["check_in"] or "")
     return {

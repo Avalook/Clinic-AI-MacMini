@@ -31,6 +31,7 @@ import asyncpg
 
 from clinicai.api.exceptions import ConflictError, ValidationError
 from clinicai.api.identity import StaffIdentity
+from clinicai.core.clock import iso, iso_sau
 from clinicai.core.shifts import CAC_CA, NHAN_CA
 from clinicai.core.tran import canh_bao_neu_day
 from clinicai.services.audit import record_event
@@ -123,10 +124,6 @@ def doc_ly_do(raw: object, *, bat_buoc: bool, ten: str = "lý do") -> str | None
     return s
 
 
-def _iso(v: Any) -> Any:
-    return v.isoformat() if isinstance(v, (date, datetime)) else v
-
-
 def _json(v: Any) -> Any:
     if isinstance(v, (date, datetime)):
         return v.isoformat()
@@ -136,7 +133,7 @@ def _json(v: Any) -> Any:
 def _ra(r: Mapping[str, Any] | None) -> dict[str, Any] | None:
     if r is None:
         return None
-    d = {k: _iso(v) for k, v in dict(r).items()}
+    d: dict[str, Any] = iso_sau(dict(r))
     for k in ("quy_dau_dem", "dem_cuoi_dem"):
         if isinstance(d.get(k), str):
             d[k] = json.loads(d[k])
@@ -253,7 +250,7 @@ class KetTienMatService:
                         if isinstance(r["ban_chup"], str)
                         else r["ban_chup"],
                         "ly_do": r["ly_do"],
-                        "luc": _iso(r["luc"]),
+                        "luc": iso(r["luc"]),
                         "boi": r["boi_ten"],
                     }
                     for r in await conn.fetch(

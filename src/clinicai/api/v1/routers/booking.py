@@ -27,7 +27,7 @@ from clinicai.api.identity import (
     StaffIdentity,
     get_current_identity,
 )
-from clinicai.core.clock import CLINIC_TZ
+from clinicai.core.clock import CLINIC_TZ, doc_ngay
 from clinicai.core.database import get_db_pool
 from clinicai.core.shifts import ca_tu_settings, khung_theo_thu
 from clinicai.core.tran import canh_bao_neu_day
@@ -652,7 +652,7 @@ async def booking_policy(
     # "hàm nhận ngày/giờ từ người dùng trả giá trị rỗng thay vì ném"). Kiểm toán
     # 27/09/2026: `?date=abc` từng sập 500 ở `strptime`, `?doctor_id=abc` ở
     # Postgres (uuid sai dạng).
-    ngay = lich_hen_doc.doc_ngay(date)
+    ngay = doc_ngay(date)
     try:
         bac_si = str(UUID(doctor_id)) if doctor_id else None
     except ValueError:
