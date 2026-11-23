@@ -990,6 +990,13 @@ MODULE: dict[str, Module] = {
             ],
         ),
         Module(
+            # TT 26/2025: gửi đơn lên Hệ thống đơn thuốc quốc gia (24/11/2026).
+            # Chỉ ĐỌC đơn của module khám; công tắc DTQG_BAT, mặc định tắt.
+            ma="don_thuoc_quoc_gia",
+            ten="Liên thông đơn thuốc quốc gia",
+            bang=["dtqg_gui"],
+        ),
+        Module(
             ma="van_hanh",
             ten="Vận hành, báo cáo, lịch sử thao tác",
             quyen=["report.view", "ops.view", "audit.view", "giamsat.view"],
