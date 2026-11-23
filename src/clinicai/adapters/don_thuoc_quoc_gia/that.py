@@ -193,7 +193,8 @@ class ProviderThat:
         if r.status_code == 422:
             loi = _loi_422(r)
             if da_ton_tai(loi):
-                return KetQuaGui(ma_tra_ve=f"Đã có trên hệ thống: {loi}"[:200])
+                # Không chép câu 422 (có thể lặp dữ liệu khách; cột không che).
+                return KetQuaGui(ma_tra_ve="DA_CO_TREN_HE_THONG")
             raise GuiDonError(f"BI_TU_CHOI_422: {loi}", thu_lai=False)
         raise GuiDonError(f"GUI_DON_HTTP_{r.status_code}")
 
