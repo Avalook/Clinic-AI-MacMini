@@ -553,9 +553,7 @@ async def tao_phieu_nhap(
         # rác thành rỗng nên "31/12/2027" hay "2027-02-31" từng được lưu im lặng
         # là "chưa có hạn" (lô không bị cảnh báo hết hạn). Rỗng thật vẫn được.
         han_goc = d.get("expiry_date")
-        han_nhap = (
-            han_goc if isinstance(han_goc, date) else doc_ngay(han_goc, go_tay=True)
-        )
+        han_nhap = doc_ngay(han_goc, go_tay=True)
         if han_nhap is None and str(han_goc or "").strip():
             raise ValidationError(
                 f"Dòng {i}: hạn dùng “{str(han_goc).strip()[:20]}” không đúng định dạng"

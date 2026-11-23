@@ -1172,7 +1172,7 @@ class NhapLoRequest(BaseModel):
     @field_validator("expiry_date", mode="before")
     @classmethod
     def doc_han_dung(cls, value: Any) -> date | None:
-        return value if isinstance(value, date) else doc_ngay(value, go_tay=True)
+        return doc_ngay(value, go_tay=True)
 
 
 @router.post("/pharmacy/receive", status_code=201)

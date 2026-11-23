@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-from datetime import date
 from typing import Any
 
 import asyncpg
@@ -84,11 +83,7 @@ async def sua_lo(
     trong = expiry_date is None or (
         isinstance(expiry_date, str) and not expiry_date.strip()
     )
-    han = (
-        expiry_date
-        if isinstance(expiry_date, date)
-        else doc_ngay(expiry_date, go_tay=True)
-    )
+    han = doc_ngay(expiry_date, go_tay=True)
     if not trong and han is None:
         raise ValidationError("Ngày hạn không đúng định dạng — nhập dd/mm/yyyy")
     async with pool.acquire() as conn, conn.transaction():
