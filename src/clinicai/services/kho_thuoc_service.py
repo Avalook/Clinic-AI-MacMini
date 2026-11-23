@@ -33,11 +33,10 @@ import asyncpg
 
 from clinicai.api.exceptions import ConflictError, NotFoundError, ValidationError
 from clinicai.api.identity import StaffIdentity
-from clinicai.core.clock import CLINIC_TZ, doc_ngay_xem, hom_nay_vn
+from clinicai.core.clock import CLINIC_TZ, doc_ngay, doc_ngay_xem, hom_nay_vn
 from clinicai.core.tran import canh_bao_neu_day
 from clinicai.events import emit_event, nguoi
 from clinicai.events.catalogue import KiemKeLech
-from clinicai.phieu_kham.khung import doc_ngay
 from clinicai.services.kiem_ke_ca_service import (
     KIEM_SAU,
     ca_cua_gio,
@@ -554,7 +553,9 @@ async def tao_phieu_nhap(
         # rác thành rỗng nên "31/12/2027" hay "2027-02-31" từng được lưu im lặng
         # là "chưa có hạn" (lô không bị cảnh báo hết hạn). Rỗng thật vẫn được.
         han_goc = d.get("expiry_date")
-        han_nhap = han_goc if isinstance(han_goc, date) else doc_ngay(han_goc)
+        han_nhap = (
+            han_goc if isinstance(han_goc, date) else doc_ngay(han_goc, go_tay=True)
+        )
         if han_nhap is None and str(han_goc or "").strip():
             raise ValidationError(
                 f"Dòng {i}: hạn dùng “{str(han_goc).strip()[:20]}” không đúng định dạng"

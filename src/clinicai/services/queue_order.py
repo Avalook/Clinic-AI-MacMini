@@ -61,6 +61,8 @@ import re
 from dataclasses import dataclass
 from datetime import datetime
 
+from clinicai.core.clock import iso
+
 _INT_RE = re.compile(r"[+-]?\d+")
 
 # Lý do một người đứng ở vị trí đó — để màn hình NÓI ĐƯỢC, không chỉ xếp được.
@@ -88,10 +90,6 @@ VISIT_DA_RA_VE: frozenset[str] = frozenset({"INCOMPLETE", "FINALIZED", "AMENDED"
 
 def _ms(d: datetime) -> int:
     return int(d.timestamp() * 1000)
-
-
-def _iso(d: datetime | None) -> str:
-    return d.isoformat() if d else ""
 
 
 def queue_rank(queue_number: str | None, slot_iso: str) -> tuple[int, int, str]:
@@ -165,13 +163,14 @@ def _classify(e: QueueEntry) -> tuple[tuple[int, float, str], str]:
     hình dán một câu giải thích không khớp với thứ tự thật — thứ sai lầm mà
     không bài kiểm nào bắt được vì cả hai đều "chạy đúng".
     """
-    slot_iso = _iso(e.slot_start)
+    # Khoá sắp xếp cần chuỗi: không có giờ → "" (đứng trước), không phải None.
+    slot_iso = iso(e.slot_start) or ""
 
     # Quay lại đọc kết quả: khoá là MỐC ĐỦ ĐIỀU KIỆN. Khoá này chỉ dùng để xếp
     # những người quay lại VỚI NHAU; chỗ đứng trong cả hàng do `explain_queue`
     # chèn (sau mọi người đã chờ trước mốc đó).
     if e.b3_ready and e.checked_in_at is not None:
-        return (-1, float(_du_dieu_kien_ms(e)), _iso(e.checked_in_at)), (
+        return (-1, float(_du_dieu_kien_ms(e)), iso(e.checked_in_at) or ""), (
             REASON_CHO_DOC_KQ
         )
 
@@ -212,7 +211,7 @@ def _classify(e: QueueEntry) -> tuple[tuple[int, float, str], str]:
     # Lễ tân kéo tay thì mốc kéo tay thay giờ check-in (20260915000016).
     in_ms = _ms(e.checked_in_at)
     moc = moc_vao_hang_ms(e.checked_in_at, e.thu_tu_tay_ms)
-    key = (0, float(in_ms) if moc is None else moc, _iso(e.checked_in_at))
+    key = (0, float(in_ms) if moc is None else moc, iso(e.checked_in_at) or "")
     if not is_booked:
         return key, REASON_DEN_TRUC_TIEP
     if in_ms <= slot_ms + e.grace_ms:

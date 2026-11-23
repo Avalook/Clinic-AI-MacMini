@@ -22,7 +22,7 @@ from typing import Any
 
 import asyncpg
 
-from clinicai.core.clock import CLINIC_TZ
+from clinicai.core.clock import CLINIC_TZ, iso
 from clinicai.services.bang_hanh_trinh_service import dang_o
 from clinicai.services.lam_them_tai_quay_service import nhan_lam_them
 from clinicai.services.lan_bac_si import noi_lam
@@ -460,10 +460,6 @@ def dung_tung_dich_vu(chi_dinh: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return ra
 
 
-def _iso(v: Any) -> Any:
-    return v.isoformat() if isinstance(v, datetime) else v
-
-
 # Chỉ định của NHIỀU lượt một lần — phiếu khám (một lượt) và Hành trình khách
 # (cả ngày, 29/09/2026) dùng chung câu này để hai nơi không lệch nhau.
 _SQL_CHI_DINH = f"""
@@ -614,15 +610,15 @@ async def _doc_su_kien_chi_dinh(
 def _moc_iso(moc: list[dict[str, Any]]) -> list[dict[str, Any]]:
     for m in moc:
         for k in ("bat", "ket"):
-            m[k] = _iso(m[k])
+            m[k] = iso(m[k])
         if "mo_lai_luc" in m:
-            m["mo_lai_luc"] = _iso(m["mo_lai_luc"])
+            m["mo_lai_luc"] = iso(m["mo_lai_luc"])
         for x in m.get("cac_lan", []):
-            x["luc"] = _iso(x["luc"])
+            x["luc"] = iso(x["luc"])
         if "do_lai" in m:
-            m["do_lai"] = [_iso(t) for t in m["do_lai"]]
+            m["do_lai"] = [iso(t) for t in m["do_lai"]]
         for x in m.get("lan_do", []):
-            x["luc"] = _iso(x["luc"])
+            x["luc"] = iso(x["luc"])
     return moc
 
 
@@ -671,7 +667,7 @@ async def doc_hanh_trinh(
     tung = dung_tung_dich_vu(chi_dinh)
     for d in tung:
         for k in ("gui", "thu", "bat_dau", "xong"):
-            d[k] = _iso(d[k])
+            d[k] = iso(d[k])
     return {
         "dang_o": dang_o(
             {"status": luot["status"], "closed_at": luot["closed_at"]}, hang

@@ -16,13 +16,13 @@ cần tư vấn thêm thì CSKH đặt lịch khám như bình thường."
 
 from __future__ import annotations
 
-from datetime import datetime
 from typing import Any
 
 import asyncpg
 
 from clinicai.api.exceptions import NotFoundError, ValidationError
 from clinicai.api.identity import StaffIdentity
+from clinicai.core.clock import iso
 from clinicai.events.catalogue import CskhDaLienHe
 from clinicai.events.emit import emit_event, nguoi
 from clinicai.services.audit import record_event
@@ -59,18 +59,14 @@ SELECT t.id::text AS id, t.visit_id::text AS visit_id, t.noi_dung, t.kenh,
 """
 
 
-def _iso(v: datetime | None) -> str | None:
-    return v.isoformat() if v is not None else None
-
-
 def _dong(r: asyncpg.Record, staff_id: str | None) -> dict[str, Any]:
     return {
         "id": r["id"],
         "visit_id": r["visit_id"],
         "noi_dung": r["noi_dung"],
         "kenh": r["kenh"],
-        "luc": _iso(r["xay_ra_luc"]),
-        "luot_luc": _iso(r["luot_luc"]),
+        "luc": iso(r["xay_ra_luc"]),
+        "luot_luc": iso(r["luot_luc"]),
         "nguoi_ghi": r["nguoi_ghi"],
         "cua_toi": staff_id is not None and r["tao_boi"] == staff_id,
     }
@@ -136,7 +132,7 @@ class PhanHoiThuocService:
             "luot_co_don": [
                 {
                     "visit_id": r["visit_id"],
-                    "luc": _iso(r["luc"]),
+                    "luc": iso(r["luc"]),
                     "bac_si": r["bac_si"],
                     "thuoc": r["thuoc"],
                 }

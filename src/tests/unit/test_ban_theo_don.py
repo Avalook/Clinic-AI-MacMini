@@ -8,10 +8,10 @@ from decimal import Decimal
 
 import pytest
 
+from clinicai.core.clock import doc_ngay
 from clinicai.services.ban_theo_don_service import (
     chuoi_so,
     cong_thang,
-    doc_ngay,
     dong_can_them,
     gom_dong,
     loi_nhac,

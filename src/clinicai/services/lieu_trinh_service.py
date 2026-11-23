@@ -28,6 +28,7 @@ import asyncpg
 
 from clinicai.api.exceptions import NotFoundError, ValidationError
 from clinicai.api.identity import StaffIdentity
+from clinicai.core.clock import iso, iso_sau
 from clinicai.core.exceptions import SafetyGateError
 from clinicai.events.catalogue import LieuTrinhBuoiDaDoi, LieuTrinhDaSua, LieuTrinhDaTao
 from clinicai.events.emit import emit_event, nguoi
@@ -243,10 +244,6 @@ def moc_sap_het(lt: dict[str, Any]) -> str:
     )
 
 
-def _iso(v: Any) -> Any:
-    return v.isoformat() if isinstance(v, datetime) else v
-
-
 def _json(v: Any) -> Any:
     if isinstance(v, str):
         return json.loads(v)
@@ -382,7 +379,7 @@ SELECT o.id::text AS order_id, o.service_code, o.service_name,
 
 
 def _lt(r: asyncpg.Record | dict[str, Any]) -> dict[str, Any]:
-    d = {k: _iso(v) for k, v in dict(r).items()}
+    d: dict[str, Any] = iso_sau(dict(r))
     for k in (
         "so_buoi",
         "da_tra",
@@ -404,7 +401,7 @@ def _lt(r: asyncpg.Record | dict[str, Any]) -> dict[str, Any]:
 
 
 def _buoi(r: asyncpg.Record) -> dict[str, Any]:
-    d = {k: _iso(v) for k, v in dict(r).items()}
+    d: dict[str, Any] = iso_sau(dict(r))
     d["song"] = d["go_luc"] is None
     d["da_lam"] = bool(d["da_lam"])
     d["noi_lam"] = "Bàn khám" if d.pop("noi_lam", None) == NOI_BAN_KHAM else d["phong"]
@@ -864,7 +861,7 @@ class LieuTrinhService:
                 ds = [d for d in ds if moc_sap_het(d) not in da]
             if ds:
                 hen = {
-                    r["id"]: _iso(r["hen"])
+                    r["id"]: iso(r["hen"])
                     for r in await conn.fetch(
                         f"SELECT lt.id::text AS id, {lich} AS hen"
                         " FROM public.lieu_trinh lt"
@@ -916,7 +913,7 @@ class LieuTrinhService:
                 "hanh_dong": r["hanh_dong"],
                 "ban_cu": _json(r["ban_cu"]),
                 "ban_moi": _json(r["ban_moi"]),
-                "luc": _iso(r["luc"]),
+                "luc": iso(r["luc"]),
                 "boi": r["boi"],
                 "hoan_tac_duoc": int(r["revision"]) == int(hien)
                 and r["hanh_dong"] in HANH_DONG_HOAN_TAC_DUOC,
@@ -931,7 +928,7 @@ class LieuTrinhService:
                     "order_id": b["order_id"],
                     "buoi_so": int(b["buoi_so"]),
                     "cach": b["gan_cach"],
-                    "luc": _iso(b["gan_luc"]),
+                    "luc": iso(b["gan_luc"]),
                     "boi": b["gan_boi"],
                     "hoan_tac_duoc": False,
                 }
@@ -944,7 +941,7 @@ class LieuTrinhService:
                         "order_id": b["order_id"],
                         "buoi_so": int(b["buoi_so"]),
                         "cach": b["go_cach"],
-                        "luc": _iso(b["go_luc"]),
+                        "luc": iso(b["go_luc"]),
                         "boi": b["go_boi"],
                         "hoan_tac_duoc": False,
                     }

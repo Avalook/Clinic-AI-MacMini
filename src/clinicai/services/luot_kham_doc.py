@@ -16,7 +16,7 @@ from clinicai.api.exceptions import NotFoundError
 from clinicai.api.identity import (
     StaffIdentity,
 )
-from clinicai.core.clock import doc_ngay_xem, hom_nay_vn, now_vn
+from clinicai.core.clock import doc_ngay_xem, hom_nay_vn, iso, now_vn
 from clinicai.permissions.can import can, doi_quyen
 from clinicai.permissions.doc_bang import (
     QUYEN_BANG_LUOT,
@@ -43,7 +43,6 @@ from clinicai.services.lan_bac_si import (
 from clinicai.services.lenh_kham_core import ma_uuid as _uuid
 from clinicai.services.luot_kham_chung import (
     _cung_ngay_vn,
-    _iso,
     _num,
     _theo_luat_xep_hang,
 )
@@ -371,15 +370,15 @@ class BangLuotKham:
                 "ten": v["full_name"],
                 "bac_si_id": v["doctor_id"],
                 "bac_si": v["doctor_name"],
-                "check_in_luc": _iso(v["checked_in_at"]),
+                "check_in_luc": iso(v["checked_in_at"]),
                 "sinh_hieu_trang_thai": v["vitals_status"] or "pending",
                 # Mốc [Bắt đầu] đo — trạng thái "đang đo" đọc từ ĐÂY và từ
                 # `sinh_hieu_trang_thai`, không còn suy từ giờ gọi.
-                "bat_dau_do_luc": _iso(v["vitals_started_at"]),
+                "bat_dau_do_luc": iso(v["vitals_started_at"]),
                 "bat_dau_do_boi": v["vitals_started_by"],
                 # DỮ LIỆU CŨ: giữ để lượt trước 23/09 còn đọc được giờ gọi.
                 # Màn Đo sinh hiệu KHÔNG dùng nó làm trạng thái nữa.
-                "goi_do_luc": _iso(v["goi_do_luc"]),
+                "goi_do_luc": iso(v["goi_do_luc"]),
                 "goi_do_boi": v["goi_do_boi"],
                 "so_tiep_don": v["so_tiep_don"],
                 "so_booking": v.get("so_booking"),
@@ -393,7 +392,7 @@ class BangLuotKham:
                 ),
                 "cho_lau": rules.cho_do_lau(cho),
                 "dich": v["route_decision"],
-                "ket_thuc_luc": _iso(v["finished_at"]),
+                "ket_thuc_luc": iso(v["finished_at"]),
                 "sinh_hieu": None,
                 # [Không đo] + lý do (30/10/2026) — chỉ khi lượt KHÔNG có số
                 # đo nào hiện ra (lần đo thật thắng; gán ở dưới).
@@ -423,7 +422,7 @@ class BangLuotKham:
                 "spo2": m["spo2"],
                 "bmi": _num(m["bmi"]),
                 "muc_do_dau": m["pain_score"],
-                "luc": _iso(m["created_at"]),
+                "luc": iso(m["created_at"]),
                 "nguoi_do": m["nguoi_do"],
                 # "lượt trước" khi số đo của lượt khác cùng buổi; None = lượt này.
                 "nguon": rules.nhan_nguon_sinh_hieu(
@@ -440,7 +439,7 @@ class BangLuotKham:
                 {
                     "noi_dung": n["body"],
                     "nguoi_ghi": n["recorded_by_name"],
-                    "luc": _iso(n["created_at"]),
+                    "luc": iso(n["created_at"]),
                 }
             )
         for c in phien:
@@ -494,12 +493,12 @@ class BangLuotKham:
                     "ly_do_khong_lam": o["not_performed_reason"],
                     # Lần làm gần nhất ở phòng: bắt đầu/xong lúc nào, ở phòng
                     # nào (có thể khác phòng được xếp nếu lễ tân đã đổi).
-                    "lam_bat_dau_luc": _iso(o.get("lam_bat_dau_luc")),
-                    "lam_xong_luc": _iso(o.get("lam_xong_luc")),
+                    "lam_bat_dau_luc": iso(o.get("lam_bat_dau_luc")),
+                    "lam_xong_luc": iso(o.get("lam_xong_luc")),
                     "lam_trang_thai": o.get("lam_trang_thai"),
                     "lam_phong": o.get("lam_phong"),
                     "co_phieu": bool(o.get("co_phieu")),
-                    "da_xem_ket_qua_luc": _iso(o.get("da_xem_ket_qua_luc")),
+                    "da_xem_ket_qua_luc": iso(o.get("da_xem_ket_qua_luc")),
                     "routing_revision": o.get("routing_revision"),
                     "doi_phong_duoc": rules.doi_phong_duoc(
                         selection_status=o.get("selection_status"),
@@ -561,7 +560,7 @@ class BangLuotKham:
                     "ly_do": q["reason"],
                     "ref_id": q["ref_id"],
                     "trang_thai": q["status"],
-                    "du_dieu_kien_luc": _iso(q["eligible_at"]),
+                    "du_dieu_kien_luc": iso(q["eligible_at"]),
                     "phong_id": q["room_id"],
                     "bac_si_id": q["doctor_id"],
                 }
@@ -626,7 +625,7 @@ class BangLuotKham:
             "lich_cho_check_in": [
                 {
                     "id": a["id"],
-                    "gio": _iso(a["slot_start"]),
+                    "gio": iso(a["slot_start"]),
                     "ten": a["full_name"],
                     "ma_bn": a["patient_code"],
                     "sdt": a.get("phone_primary"),
@@ -1257,10 +1256,10 @@ class BangLuotKham:
                 # Lịch hẹn bác sĩ khác, bác sĩ này khám (29/10/2026).
                 "lich_bac_si": lich_khac.get(r["visit_id"]),
                 "phong": r["phong"],
-                "vao_hang_luc": _iso(r["eligible_at"] or r["created_at"]),
+                "vao_hang_luc": iso(r["eligible_at"] or r["created_at"]),
                 # Mốc check-in của CẢ lượt: khách quay lại bác sĩ chính đọc kết
                 # quả thì đồng hồ tổng vẫn chạy từ lúc vào phòng khám.
-                "checkin_luc": _iso(r["checked_in_at"]),
+                "checkin_luc": iso(r["checked_in_at"]),
                 "vong": r["phien_kind"],
                 # Khách QUAY LẠI bác sĩ chính (Tuyền 29/09): phiên khám chính đã
                 # bắt đầu (bác sĩ chỉ định rồi cho đi làm dịch vụ, chưa bấm Khám
@@ -1272,16 +1271,16 @@ class BangLuotKham:
                     and r["phien_status"] == "in_progress"
                     and r["status"] in ("waiting", "called")
                 ),
-                "goi_luc": _iso(r["called_at"]),
-                "bat_dau_luc": _iso(r["serving_at"]),
-                "xong_luc": _iso(r["done_at"]),
-                "ket_qua_luc": _iso(r["ket_qua_luc"]),
-                "duyet_luc": _iso(r["duyet_luc"]),
+                "goi_luc": iso(r["called_at"]),
+                "bat_dau_luc": iso(r["serving_at"]),
+                "xong_luc": iso(r["done_at"]),
+                "ket_qua_luc": iso(r["ket_qua_luc"]),
+                "duyet_luc": iso(r["duyet_luc"]),
                 # Bệnh án đã ký (FINALIZED/AMENDED): màn khoá phiếu theo mốc
                 # NÀY, không theo trạng thái hàng chờ — khách còn "đang khám"
                 # mà bác sĩ đã ký thì phiếu tự lưu sẽ ăn 409 (rà 18/09).
                 "da_ky": r["visit_status"] in ("FINALIZED", "AMENDED"),
-                "ky_luc": _iso(r["finalized_at"]),
+                "ky_luc": iso(r["finalized_at"]),
                 "nguoi_ky": r["nguoi_ky"],
                 "nguoi_bam_ky": r["nguoi_bam_ky"],
                 "nguoi_lam": r["nguoi_lam"],
@@ -1495,11 +1494,11 @@ class BangLuotKham:
                     "can": r["can"],
                     "vong_doc": r["vong_doc"],
                     "khong_co_phong": bool(r["khong_co_phong"]),
-                    "chi_dinh_luc": _iso(r["authorized_at"] or r["created_at"]),
-                    "xep_phong_luc": _iso(r["assigned_at"]),
-                    "bat_dau_luc": _iso(r["started_at"]),
-                    "xong_luc": _iso(r["finished_at"]),
-                    "ket_qua_luc": _iso(r["ket_qua_luc"]),
+                    "chi_dinh_luc": iso(r["authorized_at"] or r["created_at"]),
+                    "xep_phong_luc": iso(r["assigned_at"]),
+                    "bat_dau_luc": iso(r["started_at"]),
+                    "xong_luc": iso(r["finished_at"]),
+                    "ket_qua_luc": iso(r["ket_qua_luc"]),
                 }
                 for r in rows
             ],
@@ -1597,7 +1596,7 @@ class BangLuotKham:
                     "loai_tep": t["loai_tep"],
                     "mime": t["mime"],
                     "so_byte": int(t["so_byte"]),
-                    "tai_len_luc": _iso(t["tai_len_luc"]),
+                    "tai_len_luc": iso(t["tai_len_luc"]),
                     "da_cho_gui": t["da_cho_gui"],
                 }
             )
@@ -1608,7 +1607,7 @@ class BangLuotKham:
                     "dich_vu": r["service_name"],
                     "node_code": r["node_code"],
                     "noi_dung": r["result_note"],
-                    "ket_qua_luc": _iso(r["ket_qua_luc"]),
+                    "ket_qua_luc": iso(r["ket_qua_luc"]),
                     "visit_id": r["visit_id"],
                     "appointment_id": r["appointment_id"],
                     "clinic_patient_id": r["clinic_patient_id"],
@@ -1620,7 +1619,7 @@ class BangLuotKham:
                     "nguoi_lam": r["nguoi_lam"],
                     "tep": theo.get(r["id"], []),
                     # Đã duyệt một lần — thẻ này có mặt vì có tệp mới chưa duyệt.
-                    "duyet_lan_truoc": _iso(r["duyet_luc"]),
+                    "duyet_lan_truoc": iso(r["duyet_luc"]),
                 }
                 for r in rows
             ]

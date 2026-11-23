@@ -36,11 +36,11 @@ from __future__ import annotations
 import copy
 import json
 import re
-from datetime import date, datetime
 from functools import cache
 from pathlib import Path
 from typing import Any
 
+from clinicai.core.clock import doc_ngay
 from clinicai.core.exceptions import ValidationError
 from clinicai.services.form_engine_service import NGUON
 
@@ -352,23 +352,11 @@ def _doc_so(gia: str | int | float) -> tuple[str, str | None]:
     return (str(int(so)) if so.is_integer() else repr(so)), None
 
 
-def doc_ngay(gia: Any) -> date | None:
-    """`YYYY-MM-DD` (ô date của trình duyệt) hoặc `DD/MM/YYYY`. Rác → None."""
-    if not isinstance(gia, str):
-        return None
-    chu = gia.strip()
-    for mau in ("%Y-%m-%d", "%d/%m/%Y"):
-        try:
-            return datetime.strptime(chu, mau).date()
-        except ValueError:
-            continue
-    return None
-
-
 def _doc_ngay(gia: str | int | float) -> tuple[str, str | None]:
     if str(gia).strip() == "":
         return "", None
-    d = doc_ngay(str(gia))
+    # Ô người gõ tay: nhận cả `DD/MM/YYYY` lẫn `YYYY-MM-DD` của ô date trình duyệt.
+    d = doc_ngay(str(gia), go_tay=True)
     if d is None:
         return "", f"“{gia}” không phải ngày — ô được để trống."
     return d.isoformat(), None
@@ -381,7 +369,6 @@ __all__ = [
     "NHOM",
     "cac_o",
     "dinh_nghia",
-    "doc_ngay",
     "kiem_dinh_nghia",
     "kiem_du_lieu",
     "kiem_khung",
