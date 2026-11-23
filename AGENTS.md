@@ -29,11 +29,12 @@ client → Caddy (TLS) → dashboard (Next.js, UI only) → api (FastAPI, all lo
   Actions is down — billing). Green before merge, green before deploy.
 - No automatic CD. Deploy by hand on the VPS: backup → (migrations: rehearse on a
   copy, then `scripts/apply-pending-migrations.sh --apply`) →
-  `git checkout -B main <reviewed-sha>` (never `origin/main`) →
-  `DEPLOY_EXPECTED_SHA=<reviewed-sha> ./scripts/deploy-backend.sh prod` — without
-  that variable the script runs `git pull --ff-only` and deploys whatever `main`
-  is by then. Afterwards `deployment verified at <sha>` must print that SHA.
-  Details: skill `len-prod`.
+  `git checkout -B main <reviewed 40-char SHA>` (never `origin/main`) →
+  `DEPLOY_EXPECTED_SHA=<same SHA> ./scripts/deploy-backend.sh prod`. The script
+  refuses prod without the full SHA, never pulls, and refuses during clinic hours
+  (Mon–Fri 16–23h, Sat–Sun 7–23h Vietnam time) unless
+  `DEPLOY_KHAN_LY_DO="<written reason>"` is set for an emergency. Afterwards
+  `deployment verified at <sha>` must print that SHA. Details: skill `len-prod`.
 - Only `main` is long-lived; work branches live ≤ 2 days.
 
 ## Rules
