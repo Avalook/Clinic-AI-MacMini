@@ -20,7 +20,7 @@ from clinicai.api.identity import (
     get_current_identity,
 )
 from clinicai.core.database import get_db_pool
-from clinicai.permissions.y_khoa import cua_y_khoa, ghi_mo_ho_so
+from clinicai.permissions.y_khoa import cua_y_khoa
 from clinicai.services.clinical_record_service import ClinicalRecordService
 from clinicai.services.ho_so_lam_sang_doc import doc_ho_so, phieu_in_theo_lich
 
@@ -83,7 +83,6 @@ async def doc_ho_so_lam_sang(
         appointment_id=appointment_id,
         visit_id=visit_id,
     )
-    await ghi_mo_ho_so(pool, identity, noi="benh-an", khach=patient_id)
     return data
 
 
@@ -100,12 +99,6 @@ async def in_phieu_theo_lich(
     )
     if data is None:
         raise NotFoundError("Không tìm thấy lịch hẹn này.")
-    await ghi_mo_ho_so(
-        pool,
-        identity,
-        noi="in-phieu-kham",
-        khach=data["appointment"]["clinic_patient_id"],
-    )
     return data
 
 

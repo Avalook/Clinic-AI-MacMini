@@ -17,7 +17,7 @@ from clinicai.api.identity import (
     get_current_identity,
 )
 from clinicai.core.database import get_db_pool
-from clinicai.permissions.y_khoa import cua_y_khoa, ghi_mo_ho_so
+from clinicai.permissions.y_khoa import cua_y_khoa
 from clinicai.services import ho_so_khach_doc
 from clinicai.services.thu_ky_bac_si import khach_duoc_xem, kiem_khach, pham_vi
 
@@ -88,7 +88,6 @@ async def ho_so_lich_su_lam_sang(
     data = await ho_so_khach_doc.lich_su_lam_sang(
         pool, identity=identity, khach=str(clinic_patient_id)
     )
-    await ghi_mo_ho_so(pool, identity, noi="ho-so-khach", khach=str(clinic_patient_id))
     return data
 
 
