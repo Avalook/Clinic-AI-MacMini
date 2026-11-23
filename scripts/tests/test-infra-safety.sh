@@ -323,6 +323,44 @@ test_backup_creates_verified_archive() {
   fi
 }
 
+lui_tuoi_phut() {
+  python3 -c 'import os,sys,time; t=time.time()-int(sys.argv[2])*60; os.utime(sys.argv[1],(t,t))' "$1" "$2"
+}
+
+test_backup_don_theo_phut() {
+  # Bản 15 phút giữ 24 giờ trên ổ máy chủ (BACKUP_KEEP_MINUTES=1440). Ổ gốc còn
+  # 2,1 GB ngày 23/11/2026 vì `-mtime +2` giữ ~3 ngày × 61 bản.
+  make_pg_dump ok
+  local dir="$TMP_ROOT/backup-15p" ten f
+  local cu="clinicai_test_db_20000101_000000" vua="clinicai_test_db_20000101_010000"
+  local chay=(env HOME="$TEST_HOME" PATH="$FAKE_BIN:/usr/bin:/bin" PG_DUMP_BIN="$FAKE_BIN/pg_dump"
+    BACKUP_MIN_ARCHIVE_BYTES=1 BACKUP_ENV_FILE="$TEST_ENV" CLINIC_BACKUP_DIR="$dir"
+    CLINIC_BACKUP_LOCK="$TMP_ROOT/backup-15p.lock")
+  mkdir -p "$dir"
+  for ten in "$cu" "$vua"; do
+    for f in "$ten.sql.gz" "$ten.sql.gz.manifest" "${ten}_auth.sql.gz" "${ten}_tep-chua-day.tar"; do
+      printf 'x' > "$dir/$f"
+    done
+  done
+  for f in "$dir/$cu"*; do lui_tuoi_phut "$f" 1500; done
+  for f in "$dir/$vua"*; do lui_tuoi_phut "$f" 1380; done
+
+  # Giá trị rác → về luật ngày (7 ngày): không xoá gì.
+  "${chay[@]}" BACKUP_KEEP_MINUTES=abc "$ROOT/scripts/backup-db.sh" || fail "backup failed with junk KEEP_MINUTES"
+  [ -f "$dir/$cu.sql.gz" ] || fail "junk BACKUP_KEEP_MINUTES must fall back to KEEP_DAYS, not delete"
+
+  "${chay[@]}" BACKUP_KEEP_MINUTES=1440 "$ROOT/scripts/backup-db.sh" || fail "backup failed with KEEP_MINUTES"
+  for f in "$cu.sql.gz" "$cu.sql.gz.manifest" "${cu}_auth.sql.gz" "${cu}_tep-chua-day.tar"; do
+    [ ! -e "$dir/$f" ] || fail "KEEP_MINUTES=1440 left a 25-hour-old file: $f"
+  done
+  for f in "$vua.sql.gz" "$vua.sql.gz.manifest" "${vua}_auth.sql.gz" "${vua}_tep-chua-day.tar"; do
+    [ -e "$dir/$f" ] || fail "KEEP_MINUTES=1440 deleted a 23-hour-old file: $f"
+  done
+  [ "$(find "$dir" -name 'clinicai_test_*.sql.gz' ! -name '*_auth*' ! -name 'clinicai_test_db_2000*' | wc -l | tr -d ' ')" -ge 1 ] || \
+    fail "pruning must not remove the archive just published"
+  rm -rf "$dir"
+}
+
 test_backup_command_preflight_is_explicit() {
   missing_pg_dump="$TMP_ROOT/bin/pg_dump-missing"
   if HOME="$TEST_HOME" PATH="$FAKE_BIN:/usr/bin:/bin" \
@@ -930,6 +968,7 @@ test_hook_chan_du_lieu_benh_nhan_va_bi_mat() {
 test_backup_rejects_failed_dump
 test_backup_rejects_structurally_incomplete_dump
 test_backup_creates_verified_archive
+test_backup_don_theo_phut
 test_backup_command_preflight_is_explicit
 test_backup_rejects_small_archive_before_publish
 test_backup_lock_rejects_a_concurrent_publisher

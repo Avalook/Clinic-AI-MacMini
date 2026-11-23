@@ -22,6 +22,9 @@ services:
   db:
     <<: *staging-bao-ve
     mem_limit: ${STG_DB_MEMORY_LIMIT:-384m}
+    # /dev/shm là tmpfs, phần đã dùng tính vào mem_limit — 512mb của prod vượt
+    # trần, truy vấn song song lớn sẽ bị OOM-kill thay vì báo lỗi.
+    shm_size: ${STG_DB_SHM_SIZE:-128mb}
     # Bỏ wal_level=logical (chỉ Realtime cần). shared_buffers nhỏ cho vừa trần.
     command:
       - postgres
