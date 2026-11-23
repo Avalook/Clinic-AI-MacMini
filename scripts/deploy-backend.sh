@@ -112,8 +112,8 @@ if [ "$ENVN" = "prod" ]; then
   # shellcheck source=lib/gio-kham.sh
   . "$REPO/scripts/lib/gio-kham.sh"
   if dang_gio_kham; then
-    # Lý do đi vào JSON của mốc deploy: bỏ nháy kép, gạch chéo, xuống dòng.
-    LY_DO_KHAN="$(printf '%s' "${DEPLOY_KHAN_LY_DO:-}" | tr -d '"\\' | tr '\r\n\t' '   ' \
+    # Lý do đi vào JSON của mốc deploy: bỏ nháy kép, gạch chéo, mọi ký tự điều khiển.
+    LY_DO_KHAN="$(printf '%s' "${DEPLOY_KHAN_LY_DO:-}" | tr '\r\n\t' '   ' | tr -d '"\\[:cntrl:]' \
       | sed 's/^ *//; s/ *$//')"
     if [ "${#LY_DO_KHAN}" -lt 10 ]; then
       echo "!! ĐANG GIỜ KHÁM (${GIO_KHAM_MO_TA}): deploy prod dựng lại container —" >&2
@@ -463,6 +463,8 @@ if [ "${DEPLOY_OK:-0}" != "1" ]; then
   else
     echo "!! new release would not start — rolling back"
   fi
+  # Mốc deploy chỉ ghi khi thành công — lùi bản thì lý do khẩn chỉ còn ở đây.
+  [ -z "$DEPLOY_KHAN_GHI" ] || echo "!! (deploy KHẨN trong giờ khám — lý do: ${LY_DO_KHAN})"
   if [ -n "$OLD_API" ] && [ -n "$OLD_DASH" ] && [ -n "$PREVIOUS_RELEASE" ] && [ -n "$PREVIOUS_ENV_FILE" ]; then
     docker tag "$OLD_API"  "clinicai-api:${TAG}"
     docker tag "$OLD_DASH" "clinicai-dashboard:${TAG}"
@@ -532,8 +534,25 @@ echo "==> dọn bộ nhớ tạm của trình dựng (trước: ${truoc:-?}); đ
 # trạng thái lớn dần mãi trên ổ đĩa máy chủ.
 if [ -d "$OPS_DIR_DA_GIAI" ]; then
   LUC_DEPLOY="$(date -u '+%Y-%m-%dT%H:%M:%SZ')"
+  # Cắt còn tối đa $1 BYTE mà không cắt đôi một chữ có dấu. `cut -c` trên Linux
+  # không có locale UTF-8 cắt theo byte: nửa chữ "ẩ" làm tệp UTF-8 hỏng, màn Ops
+  # (read_text utf-8) mất cả mốc lẫn lịch sử. Không dựa vào locale của máy: cắt
+  # byte, rồi gọt tối đa 3 byte cuối tới khi iconv thấy hợp lệ. Trần byte ≤ trần
+  # ký tự của trường subject (200, DeploySnapshot) nên luôn lọt.
+  cat_utf8() {
+    (
+      export LC_ALL=C
+      local s i=0
+      s="$(cut -b "1-$1")"
+      while [ "$i" -lt 3 ] && ! printf '%s' "$s" | iconv -f UTF-8 -t UTF-8 >/dev/null 2>&1; do
+        s="${s%?}"
+        i=$(( i + 1 ))
+      done
+      printf '%s' "$s"
+    )
+  }
   # Lý do deploy khẩn trong giờ khám (nếu có) đứng đầu, để màn Ops thấy ngay.
-  CHU_THICH="$( { printf '%s' "$DEPLOY_KHAN_GHI"; git log -1 --format=%s; } | tr -d '"\\' | cut -c1-120)"
+  CHU_THICH="$( { printf '%s' "$DEPLOY_KHAN_GHI"; git log -1 --format=%s; } | tr -d '"\\' | cat_utf8 190)"
   printf '%s\n' \
     '{' \
     '  "format_version": 1,' \

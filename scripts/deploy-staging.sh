@@ -17,9 +17,9 @@
 #     chỉ gửi lệnh, việc dựng chạy trong dockerd/buildkitd với ưu tiên của nó —
 #     nên trần phải đặt lên chính container buildkitd. Client vẫn chạy dưới
 #     `nice -n 19 ionice -c3` cho phần nén/gửi ngữ cảnh.
-#   • GIỜ KHÁM (7h–21h giờ VN): dựng ảnh làm prod chậm → dừng, in cách đi tiếp;
-#     cố ý dựng thì `CHO_PHEP_GIO_KHAM=1 ./scripts/deploy-staging.sh …`. Ngoài
-#     giờ khám không đổi gì (kiem_gio_kham, scripts/lib/staging-chung.sh).
+#   • GIỜ KHÁM (thứ 2–6 16h–23h, thứ 7–CN 7h–23h giờ VN): dựng ảnh làm prod chậm
+#     → dừng, in cách đi tiếp; cố ý dựng thì `CHO_PHEP_GIO_KHAM=1 ./scripts/deploy-staging.sh …`.
+#     Ngoài giờ khám không đổi gì (kiem_gio_kham, khung ở scripts/lib/gio-kham.sh).
 #   • Sau deploy: dọn ảnh staging cũ (chỉ ảnh mang nhãn project staging) và bộ
 #     nhớ tạm của builder staging.
 #

@@ -7,8 +7,10 @@
 #   thứ 2–6:      16h → 23h
 #   thứ 7, CN:     7h → 23h
 # Đổi khung = sửa hằng số ở đây bằng một PR. CỐ Ý không có biến môi trường đổi
-# khung hay giả giờ: trên VPS, một biến như thế là cửa sau bỏ qua khoá mà không
-# để lại lý do. Test giả giờ bằng một `date` giả đứng đầu PATH.
+# khung hay giả giờ: một biến như thế là lối tắt "tiện tay" bỏ qua khoá mà không
+# để lại lý do. Khoá này chống NHẦM (gõ deploy giữa ca), không chống người cố ý
+# sửa máy chủ — lối đi đúng khi khẩn là DEPLOY_KHAN_LY_DO, có ghi lại.
+# Test giả giờ bằng một `date` giả đứng đầu PATH.
 #
 # Giờ VN = Asia/Ho_Chi_Minh = UTC+7 cố định (không có giờ mùa hè) → tính từ
 # `date -u`, khỏi phụ thuộc tzdata trên VPS (thiếu tzdata thì

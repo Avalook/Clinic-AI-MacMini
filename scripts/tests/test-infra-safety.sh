@@ -818,12 +818,13 @@ DOCKER
   # vì tưởng script chặn). FAKE_DATE_UTC là giờ UTC: VN = UTC + 7.
   # Mã 3 + câu "GIỜ KHÁM", và chưa tới bước build.
   local gio_utc
-  for gio_utc in "5 09" "1 09" "3 15" "6 00" "7 15" "5 16"; do
+  for gio_utc in "5 09" "1 09" "3 15" "6 00" "7 15" "5 16" "5 08" "5 23"; do
     pin_rc=0
     deploy_prod FAKE_DATE_UTC="$gio_utc" DEPLOY_EXPECTED_SHA="$sha" >"$pin_out" 2>&1 || pin_rc=$?
     case "$gio_utc" in
-      "5 16")  # 23h thứ 6 VN — đã hết giờ khám, deploy được
-        [ "$pin_rc" = "0" ] || fail "prod refused a deploy at 23h VN (outside clinic hours): $(cat "$pin_out")" ;;
+      # 23h thứ 6 VN (hết giờ), 15h thứ 6 VN (chưa mở), 6h thứ 7 VN (chưa mở) — deploy được
+      "5 16"|"5 08"|"5 23")
+        [ "$pin_rc" = "0" ] || fail "prod refused a deploy at UTC '$gio_utc' (outside clinic hours): $(cat "$pin_out")" ;;
       *)
         [ "$pin_rc" = "3" ] || fail "prod deploy at UTC '$gio_utc' (clinic hours) exited $pin_rc, expected 3: $(cat "$pin_out")"
         grep -q 'GIỜ KHÁM' "$pin_out" || fail "clinic-hours refusal did not say why: $(cat "$pin_out")"
@@ -852,6 +853,27 @@ DOCKER
     fail "deploy-status.json is not valid JSON after an emergency reason"
   tail -n 1 "$deploy_repo/.ops-status/production/deploy-history.jsonl" | grep -q 'KHẨN giờ khám' || \
     fail "emergency reason was not recorded in deploy-history.jsonl"
+  # Lý do tiếng Việt DÀI: mốc bị cắt cho vừa trường subject (≤ 200 ký tự), và
+  # phải cắt ở ranh giới chữ. LC_ALL=C giả máy Linux không có locale UTF-8, nơi
+  # `cut -c` cắt theo BYTE — cắt đôi "ẩ" là tệp UTF-8 hỏng, màn Ops (đọc
+  # read_text utf-8) mất cả mốc lẫn 20 dòng lịch sử. Ba độ lệch 0/1/2 byte để
+  # chắc chắn có một lần mốc cắt rơi giữa một chữ 3 byte.
+  local lech
+  for lech in "" "a" "aa"; do
+    deploy_prod LC_ALL=C FAKE_DATE_UTC="5 09" \
+      DEPLOY_KHAN_LY_DO="${lech}$(printf 'ẩ%.0s' $(seq 1 100))" \
+      DEPLOY_EXPECTED_SHA="$sha" >"$pin_out" 2>&1 || \
+      fail "prod refused an emergency deploy with a long reason: $(cat "$pin_out")"
+    python3 - "$trang_thai" "$deploy_repo/.ops-status/production/deploy-history.jsonl" <<'PY' || \
+      fail "long emergency reason broke the deploy marks (lệch '${lech}')"
+import json, sys
+for p in sys.argv[1:]:
+    raw = open(p, "rb").read().decode("utf-8")  # ném nếu byte hỏng
+    rows = [json.loads(l) for l in raw.splitlines() if l.strip()] if p.endswith(".jsonl") else [json.loads(raw)]
+    assert all(len(r["subject"]) <= 200 for r in rows), rows
+assert json.loads(open(sys.argv[1], encoding="utf-8").read())["subject"].startswith("KHẨN giờ khám: ")
+PY
+  done
 
   # Trunk-based moved this check from an equality test on a branch name to a
   # pattern test on a ref, and a pattern is much easier to get subtly wrong.
