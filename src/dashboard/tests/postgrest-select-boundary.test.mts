@@ -120,6 +120,8 @@ test("bài kiểm này thật sự tìm thấy chuỗi select để canh", () =>
   // dò còn sống, không canh số trang đọc Supabase (con số đó chỉ được giảm).
   // 06/10/2026: 8 → 3. `api/admin/users` thôi đọc bảng (5 chuỗi select chuyển
   // sang FastAPI `TaiKhoanService`); đo lúc đổi: còn 3.
+  // 24/11/2026: 3 → 2. Xoá route `patients/check-phone` (đã tắt 410 từ 24/09);
+  // đo lúc đổi: còn 2.
   const n = moiChuoiSelect().length;
-  assert.ok(n >= 3, `chỉ tìm thấy ${n} chuỗi select — biểu thức dò có vẻ đã hỏng`);
+  assert.ok(n >= 2, `chỉ tìm thấy ${n} chuỗi select — biểu thức dò có vẻ đã hỏng`);
 });

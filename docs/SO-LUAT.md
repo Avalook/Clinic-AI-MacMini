@@ -103,8 +103,8 @@ thì người thứ hai chen vào được. Chốt chặn thật phải ở data
 **Luật 3.2 — Một file route ở frontend hoặc chỉ chuyển tiếp, hoặc biến mất.**
 Không được vừa chuyển tiếp vừa tự truy vấn: lúc đó đường đi thành **hai lượt
 HTTP** thay vì một, cộng ~4 ms mà không gộp được gì.
-*Hiện trạng (06/10/2026):* route chạm thẳng database còn **1** — `check-phone`
-(đã tắt). `admin/users` chỉ còn gọi GoTrue bằng khoá quản trị; phần dữ liệu ở
+*Hiện trạng (24/11/2026):* route chạm thẳng database còn **0** — `check-phone`
+(tắt từ 24/09) đã xoá. `admin/users` chỉ còn gọi GoTrue bằng khoá quản trị; phần dữ liệu ở
 FastAPI (`TaiKhoanService`). Mốc 27/09 là 2; 13/08 là 63 route · 42 chạm thẳng ·
 33 cái làm cả hai.
 
@@ -113,15 +113,15 @@ FastAPI (`TaiKhoanService`). Mốc 27/09 là 2; 13/08 là 63 route · 42 chạm 
 # Phần 4 — Bốn luật giữ ranh giới
 
 **Luật 4.1 — Đường ray một chiều.** Con số "route còn chạm thẳng database" hôm
-nay (06/10/2026) là **1** (27/09 là 2; 13/08 là 42). Chỉ được giảm: thêm một cái → đỏ,
+nay (24/11/2026) là **0** (06/10 là 1; 27/09 là 2; 13/08 là 42). Chỉ được giảm: thêm một cái → đỏ,
 không gộp được; gỡ được một cái → hạ mốc, **và không bao giờ cho lên lại**.
 *Vì sao thế này mà không dọn một lượt:* hồi 13/08 dọn 42 chỗ mất hàng tuần, còn hệ thống
 thì vẫn phải chạy. Đây là cái chèn bánh xe khi đỗ dốc — không bắt lên đỉnh
 ngay, nhưng cấm tụt.
 *Ai canh:* CI (`./scripts/ci-may.sh`), một phần — `service-role-boundary.test.mts`
 giữ trần 2 file cầm khoá service-role, chỉ được hạ, và cấm `admin/users` gọi
-`.from(`/`.rpc(` (06/10/2026). Chưa có bài đếm đúng con số
-"route chạm thẳng database" (ghi nhận 27/09/2026).
+`.from(`/`.rpc(` (06/10/2026); `route-da-xoa-boundary.test.mts` đếm đúng con số
+"route chạm thẳng database" và giữ nó ở 0 (24/11/2026).
 
 **Luật 4.2 — Nhánh sống tối đa 2 ngày.** Đây là luật về **kích thước một lần
 làm**, không phải về thời gian. *Hiện trạng:* 5 PR mở, cũ nhất 11 ngày, ba cái
