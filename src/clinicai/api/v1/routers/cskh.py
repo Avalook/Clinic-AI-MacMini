@@ -23,6 +23,7 @@ from clinicai.api.identity import (
 )
 from clinicai.core.database import get_db_pool
 from clinicai.permissions.cua_quyen import cua_quyen
+from clinicai.permissions.y_khoa import GhiXemHoSo, ghi_xem_ho_so
 from clinicai.services.cskh_service import (
     CskhService,
     clinic_today,
@@ -785,6 +786,7 @@ async def ho_so_kham(
     appointment_id: UUID,
     identity: StaffIdentity = Depends(_KET_QUA_DOC_GUARD),
     pool: asyncpg.Pool = Depends(get_db_pool),
+    xem: GhiXemHoSo = Depends(ghi_xem_ho_so),
 ) -> dict[str, Any]:
     """Hồ sơ một lần khám, bản đọc gộp — để CSKH xem trước và tải PDF.
 
@@ -793,9 +795,11 @@ async def ho_so_kham(
     """
     from clinicai.services.ho_so_kham_service import HoSoKhamService
 
-    return await HoSoKhamService(pool).doc(
+    data = await HoSoKhamService(pool).doc(
         identity=identity, appointment_id=str(appointment_id)
     )
+    await xem("phieu_kham", appointment_id=str(appointment_id))
+    return data
 
 
 @router.get("/cskh/ket-qua/cho-phep-gui")
@@ -952,13 +956,14 @@ async def danh_sach_ket_qua(
     # HOẶC đọc được kết quả theo lego — cùng luật với nội dung tệp.
     identity: StaffIdentity = Depends(get_current_identity),
     pool: asyncpg.Pool = Depends(get_db_pool),
+    xem: GhiXemHoSo = Depends(ghi_xem_ho_so),
 ) -> dict[str, Any]:
     """Tệp kết quả CÒN HIỆU LỰC của một khách, kèm đã gửi hay chưa; `da_xoa` =
     tệp đã xoá mềm trong 30 ngày (dòng "Đã xoá · Hoàn tác", V9)."""
     from clinicai.services.tep_ket_qua_service import TepKetQuaService
 
     dv = TepKetQuaService(pool)
-    return {
+    kq = {
         "items": await dv.danh_sach(
             identity=identity, clinic_patient_id=str(clinic_patient_id)
         ),
@@ -966,6 +971,8 @@ async def danh_sach_ket_qua(
             identity=identity, clinic_patient_id=str(clinic_patient_id)
         ),
     }
+    await xem("ket_qua", khach=str(clinic_patient_id))
+    return kq
 
 
 @router.get("/cskh/ket-qua/tep/{tep_id}/noi-dung")
@@ -975,6 +982,7 @@ async def doc_tep_ket_qua(
     tai: bool = False,
     identity: StaffIdentity = Depends(get_current_identity),
     pool: asyncpg.Pool = Depends(get_db_pool),
+    xem: GhiXemHoSo = Depends(ghi_xem_ho_so),
 ) -> Response:
     """Nội dung một tệp — theo LUỒNG, và hiểu HTTP Range.
 
@@ -989,6 +997,8 @@ async def doc_tep_ket_qua(
     # Mở sẵn tệp: ổ VPS trước, CFS sau (01/10/2026). CFS chậm / đang ngắt mạch
     # → báo "kho chậm" ngay ở đây, trước khi gửi byte nào.
     tep = await TepKetQuaService(pool).mo_de_doc(identity=identity, tep_id=str(tep_id))
+    # Video tua = nhiều lượt Range cùng tệp; gộp khung 5 phút giữ một dòng.
+    await xem("tep_ket_qua", tep_id=str(tep_id))
     so_byte = tep.so_byte
     # Dữ liệu bệnh nhân không được lưu trong cache trình duyệt hay proxy.
     # `nosniff` ngăn trình duyệt tự đoán kiểu và chạy nội dung như HTML.

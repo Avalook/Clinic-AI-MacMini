@@ -32,6 +32,7 @@ from clinicai.services.pharmacy_service import PharmacyService
 from clinicai.services.quay_thuoc_service import QuayThuocService
 from tests.services.test_luot_kham_service_db import CLINIC
 from tests.services.test_tien_thuoc_cp1_db import Quay, _don, _thuoc, q  # noqa: F401
+from tests.xem_thu import xem_that
 
 pytest_plugins = ["tests.services.test_luot_kham_service_db"]
 pytestmark = [pytest.mark.db, pytest.mark.asyncio]
@@ -366,6 +367,7 @@ async def test_chi_lego_nha_thuoc_doc_duoc_lich_su_kham_khong_mo_quyen(q: Quay) 
         dich_vu_id=None,
         identity=q.duoc_si,
         pool=q.pool,
+        xem=xem_that(q.pool, q.duoc_si),
     )
     assert q.visit_id in [d["visit_id"] for d in ls["luot"]]
     svc = BanLeService(q.pool)

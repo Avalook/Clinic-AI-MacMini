@@ -17,8 +17,10 @@ from __future__ import annotations
 
 import asyncpg
 import structlog
+from fastapi import Depends, Request
 
-from clinicai.api.identity import CLINICAL_WRITE_ROLES, StaffIdentity
+from clinicai.api.identity import StaffIdentity, get_current_identity
+from clinicai.core.database import get_db_pool
 from clinicai.permissions.can import can
 from clinicai.permissions.cua_quyen import cua_quyen
 
@@ -77,61 +79,78 @@ async def doc_duoc_in_phieu(conn: asyncpg.Connection, identity: StaffIdentity) -
     return False
 
 
-async def ghi_mo_ho_so(
-    pool: asyncpg.Pool,
-    identity: StaffIdentity,
-    *,
-    noi: str,
-    khach: str | None = None,
-    visit_id: str | None = None,
-) -> None:
-    """NHẬT KÝ MỞ HỒ SƠ Y KHOA — ai mở hồ sơ của khách nào, lúc nào, ở màn nào.
+class GhiXemHoSo:
+    """NHẬT KÝ XEM HỒ SƠ cho MỘT lượt gọi API — ai mở hồ sơ khách nào, qua cửa nào.
 
-    Tuyền duyệt 24/09/2026 cùng lúc mở quyền đọc y khoa cho quản lý: mở rộng
-    quyền nhưng phải truy được dấu vết. CHỈ ghi cho người KHÔNG thuộc vai lâm
-    sàng (bác sĩ, bác sĩ siêu âm, thư ký y khoa, điều dưỡng siêu âm) — đây là
-    câu hỏi "ai ngoài đội chuyên môn đã xem", không phải hàng rào quyền; ghi cả
-    bác sĩ thì mỗi ca vài trăm dòng, nhật ký thành nhiễu và không ai đọc.
+    Lấy bằng `Depends(ghi_xem_ho_so)`, gọi một dòng sau khi đã đọc xong:
+    `await xem("phieu_kham", visit_id=...)`. Ghi MỌI vai (kể cả bác sĩ — NĐ
+    356/2025 hỏi "ai đã truy cập", không hỏi "ai ngoài đội chuyên môn"; từ
+    24/11/2026 thay cho luật 24/09 chỉ ghi người ngoài vai lâm sàng); chống nhiễu
+    bằng gộp khung 5 phút ở `services/nhat_ky_xem_ho_so.py`.
 
-    Chỉ ghi MÃ khách + tên màn (`services/audit.py`: không bao giờ ghi nội dung).
-    Không làm hỏng lượt đọc: ghi lỗi thì chỉ log cảnh báo.
+    Không bao giờ ném: lỗi ghi → kho lỗi (/ops "Lỗi & cảnh báo"), lượt đọc vẫn trả.
     """
-    # Theo VAI TÀI KHOẢN, không theo vai lego (26/09/2026): quản lý bật lego Bàn
-    # khám thì qua cửa bác sĩ, nhưng vẫn là người ngoài đội chuyên môn khi hỏi
-    # "ai đã xem hồ sơ" — điều kiện Tuyền đặt khi mở quyền đọc cho quản lý.
-    if identity.vai_goc in CLINICAL_WRITE_ROLES:
-        return
-    from clinicai.services.audit import record_event
 
-    try:
-        async with pool.acquire() as conn:
-            if khach is None and visit_id:
-                khach = await conn.fetchval(
-                    "SELECT clinic_patient_id::text FROM visit"
-                    " WHERE clinic_id = $1::uuid AND visit_id = $2::uuid",
-                    identity.clinic_id,
-                    visit_id,
-                )
-            if not khach:
-                return
-            await record_event(
-                conn,
-                event_type="clinical_record.opened",
-                aggregate_type="patient",
-                aggregate_id=khach,
-                identity=identity,
-                origin=f"api:{noi}",
-                payload={"man": noi, "visit_id": visit_id},
+    def __init__(self, pool: asyncpg.Pool, identity: StaffIdentity, cua: str) -> None:
+        self._pool = pool
+        self._identity = identity
+        self.cua = cua
+
+    async def __call__(
+        self,
+        loai: str,
+        *,
+        khach: str | None = None,
+        visit_id: str | None = None,
+        appointment_id: str | None = None,
+        service_order_id: str | None = None,
+        tep_id: str | None = None,
+        xn_cu_id: str | None = None,
+        doi_tuong_id: str | None = None,
+    ) -> None:
+        from clinicai.services import kho_loi, nhat_ky_xem_ho_so
+
+        try:
+            await nhat_ky_xem_ho_so.ghi(
+                self._pool,
+                clinic_id=self._identity.clinic_id,
+                staff_id=self._identity.staff_id,
+                vai=self._identity.vai_goc.value,
+                loai=loai,
+                cua=self.cua,
+                khach=khach,
+                visit_id=visit_id,
+                appointment_id=appointment_id,
+                service_order_id=service_order_id,
+                tep_id=tep_id,
+                xn_cu_id=xn_cu_id,
+                doi_tuong_id=doi_tuong_id,
             )
-    except Exception:  # noqa: BLE001 — nhật ký hỏng không được chặn người đọc
-        logger.warning("ghi_mo_ho_so_loi", noi=noi, exc_info=True)
+        except Exception as exc:  # noqa: BLE001 — nhật ký hỏng không chặn người đọc
+            logger.error("nhat_ky_xem_ho_so_loi", cua=self.cua, loai=loai)
+            await kho_loi.ghi_loi(
+                self._pool, nguon="api", vi_tri=f"nhat-ky-xem {self.cua}", exc=exc
+            )
+
+
+async def ghi_xem_ho_so(
+    request: Request,
+    identity: StaffIdentity = Depends(get_current_identity),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> GhiXemHoSo:
+    """Dependency FastAPI. Cửa = MẪU đường dẫn ("GET /api/v1/patients/{id}"),
+    không đường thật — đường thật có thể mang tham số tìm kiếm."""
+    route = request.scope.get("route")
+    cua = f"{request.method} {getattr(route, 'path', None) or request.url.path}"
+    return GhiXemHoSo(pool, identity, cua)
 
 
 __all__ = [
     "QUYEN_GHI_Y_KHOA",
     "QUYEN_Y_KHOA",
+    "GhiXemHoSo",
     "cua_ghi_y_khoa",
     "cua_y_khoa",
     "doc_duoc_y_khoa",
-    "ghi_mo_ho_so",
+    "ghi_xem_ho_so",
 ]

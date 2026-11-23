@@ -34,6 +34,7 @@ from tests.services.test_check_in_lai_sau_hoan_tac_db import (  # noqa: F401
     pool,
 )
 from tests.services.test_doi_dich_vu_kham_db import _dung
+from tests.xem_thu import xem_that
 
 # ── Hàm thuần ───────────────────────────────────────────────────────────────
 
@@ -299,6 +300,7 @@ async def _doc(
         bo=k.get("bo"),
         identity=ca["bs"],
         pool=pool,
+        xem=xem_that(pool, ca["bs"]),
     )
 
 

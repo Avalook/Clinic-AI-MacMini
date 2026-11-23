@@ -15,6 +15,7 @@ from pydantic import BaseModel, Field
 
 from clinicai.api.identity import StaffIdentity, get_current_identity
 from clinicai.core.database import get_db_pool
+from clinicai.permissions.y_khoa import GhiXemHoSo, ghi_xem_ho_so
 from clinicai.services.payment_access_service import (
     authorize_drug_line,
     authorize_payment,
@@ -29,12 +30,15 @@ async def doc_don_ban(
     visit_id: UUID,
     identity: StaffIdentity = Depends(get_current_identity),
     pool: asyncpg.Pool = Depends(get_db_pool),
+    xem: GhiXemHoSo = Depends(ghi_xem_ho_so),
 ) -> dict[str, Any]:
     """Đơn bán của lượt: dòng bác sĩ kê + dòng quầy thêm, kèm tích / số mua."""
     identity = await authorize_payment(
         pool, identity, visit_id=str(visit_id), kind="thuoc"
     )
-    return await QuayThuocService(pool).doc(visit_id=str(visit_id), identity=identity)
+    data = await QuayThuocService(pool).doc(visit_id=str(visit_id), identity=identity)
+    await xem("don_thuoc", visit_id=str(visit_id))
+    return data
 
 
 class ChonBody(BaseModel):

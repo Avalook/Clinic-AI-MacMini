@@ -10,6 +10,7 @@ from fastapi import APIRouter, Depends, Query
 
 from clinicai.api.identity import StaffIdentity, cua_noi_bo
 from clinicai.core.database import get_db_pool
+from clinicai.permissions.y_khoa import GhiXemHoSo, ghi_xem_ho_so
 from clinicai.services.bang_hanh_trinh_service import BangHanhTrinhService
 from clinicai.services.hanh_trinh_khach_service import HanhTrinhKhachService
 from clinicai.services.xem_luot_service import XemLuotService
@@ -25,8 +26,11 @@ async def xem_luot(
     visit_id: UUID,
     identity: StaffIdentity = Depends(_GUARD),
     pool: asyncpg.Pool = Depends(get_db_pool),
+    xem: GhiXemHoSo = Depends(ghi_xem_ho_so),
 ) -> dict[str, Any]:
-    return await XemLuotService(pool).doc(visit_id=str(visit_id), identity=identity)
+    data = await XemLuotService(pool).doc(visit_id=str(visit_id), identity=identity)
+    await xem("lich_su_kham", visit_id=str(visit_id))
+    return data
 
 
 @router.get("/hanh-trinh/hom-nay")

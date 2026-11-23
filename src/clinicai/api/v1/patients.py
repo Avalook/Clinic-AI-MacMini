@@ -16,6 +16,7 @@ from clinicai.api.identity import (
 from clinicai.core.database import get_db_pool
 from clinicai.core.exceptions import ResourceNotFoundError, ValidationError
 from clinicai.permissions.cua_quyen import cua_quyen
+from clinicai.permissions.y_khoa import GhiXemHoSo, ghi_xem_ho_so
 from clinicai.schemas.patient import (
     PatientCreateDTO,
     PatientDTO,
@@ -257,12 +258,14 @@ async def get_patient_by_id(
     id: UUID,
     identity: StaffIdentity = Depends(get_current_identity),
     pool: asyncpg.Pool = Depends(get_db_pool),
+    xem: GhiXemHoSo = Depends(ghi_xem_ho_so),
 ) -> PatientDTO:
     """Retrieve a single patient by ID. Raises ResourceNotFoundError if not found."""
     service = PatientService(pool)
     patient = await service.get_by_id(id, identity.clinic_id)
     if patient is None:
         raise ResourceNotFoundError(f"Patient {id} not found")
+    await xem("ho_so_khach", khach=str(id))
     return patient
 
 
@@ -391,6 +394,7 @@ async def lich_su_notion_cua_khach(
     id: UUID,
     identity: StaffIdentity = Depends(_DANH_SACH_GUARD),
     pool: asyncpg.Pool = Depends(get_db_pool),
+    xem: GhiXemHoSo = Depends(ghi_xem_ho_so),
 ) -> dict[str, Any]:
     """Các lượt khám + lịch hẹn cũ trên Notion của một khách (chỉ đọc)."""
     from clinicai.services.lich_su_notion_service import lich_su
@@ -398,6 +402,7 @@ async def lich_su_notion_cua_khach(
     kq: dict[str, Any] = jsonable_encoder(
         await lich_su(pool, identity=identity, clinic_patient_id=str(id))
     )
+    await xem("lich_su_kham", khach=str(id))
     return kq
 
 
@@ -406,6 +411,7 @@ async def lich_su_notion_mot_luot(
     luot_id: UUID,
     identity: StaffIdentity = Depends(_DANH_SACH_GUARD),
     pool: asyncpg.Pool = Depends(get_db_pool),
+    xem: GhiXemHoSo = Depends(ghi_xem_ho_so),
 ) -> dict[str, Any]:
     """Toàn bộ một lượt khám cũ — khám/tư vấn, dịch vụ + kết quả, XN, thuốc."""
     from clinicai.services.lich_su_notion_service import chi_tiet_luot
@@ -413,6 +419,10 @@ async def lich_su_notion_mot_luot(
     kq: dict[str, Any] = jsonable_encoder(
         await chi_tiet_luot(pool, identity=identity, luot_id=str(luot_id))
     )
+    if kq.get("clinic_patient_id"):
+        await xem(
+            "phieu_kham", khach=str(kq["clinic_patient_id"]), doi_tuong_id=str(luot_id)
+        )
     return kq
 
 
@@ -423,6 +433,7 @@ async def lich_su_notion_tep_xet_nghiem(
     tai: bool = False,
     identity: StaffIdentity = Depends(_DANH_SACH_GUARD),
     pool: asyncpg.Pool = Depends(get_db_pool),
+    xem: GhiXemHoSo = Depends(ghi_xem_ho_so),
 ) -> Response:
     """Tệp kết quả (PDF) của một xét nghiệm cũ — theo luồng, cùng đường đọc kho
     với tệp kết quả hiện hành (ổ VPS trước, CFS sau, ngắt mạch khi CFS treo)."""
@@ -436,6 +447,7 @@ async def lich_su_notion_tep_xet_nghiem(
     khoa, ten = await khoa_tep_xet_nghiem(
         pool, identity=identity, xn_id=str(xn_id), i=i
     )
+    await xem("tep_ket_qua", xn_cu_id=str(xn_id))
     duong, kho, f = await _tim_ban(khoa, "cfs", mo=True)
     assert f is not None
     try:

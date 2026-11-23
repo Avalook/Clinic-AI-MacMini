@@ -252,6 +252,14 @@ KHOI: dict[str, KhoiCongViec] = {
             "catalogue",
             "Đổi giá bán thuốc và giá theo từng đơn vị bán — mặc định Quản lý",
         ),
+        # 24/11/2026 — ai đã mở hồ sơ khách nào (NĐ 356/2025). KHÔNG nằm trong "mở
+        # full": `ops.view` thì gần như ai cũng có, nhật ký này thì không.
+        KhoiCongViec(
+            "nhat_ky_xem_ho_so",
+            "Ai xem hồ sơ",
+            "ops",
+            "Xem nhật ký ai đã mở hồ sơ khách nào, lúc nào — mặc định Quản lý",
+        ),
         # 14/10/2026 — Kho vật tư là màn RIÊNG, không suy từ Kho thuốc: sổ, tồn,
         # mức tối thiểu, báo cáo tiêu hao nằm ở bảng vat_tu_* (migration
         # 20261014181100).
@@ -660,6 +668,13 @@ QUYEN: dict[str, Quyen] = {
             MucRuiRo.TIEN,
         ),
         Quyen(
+            "ho_so.access_log.view",
+            "Xem ai đã mở hồ sơ khách",
+            "nhat_ky_xem_ho_so",
+            "ops",
+            MucRuiRo.QUAN_TRI,
+        ),
+        Quyen(
             "xet_nghiem.kho_email",
             "Xem Kho email kết quả xét nghiệm đối tác",
             "kho_email",
@@ -950,6 +965,7 @@ KHOI_CHI_QUAN_LY: frozenset[str] = frozenset(
         "duyet_vat_tu",
         "gia_thuoc",
         "xem_bang_gia",
+        "nhat_ky_xem_ho_so",
     }
 )
 
@@ -1173,6 +1189,14 @@ MAN: dict[str, Man] = {
             "Sửa giá thuốc",
             ["/pharmacy/inventory"],
             ["gia_thuoc"],
+            "Quản lý",
+        ),
+        # Tab "Ai xem hồ sơ" trong /ops — quyền con, không phải màn riêng.
+        _lego(
+            "nhat_ky_xem_ho_so",
+            "Ai xem hồ sơ",
+            ["/ops"],
+            ["nhat_ky_xem_ho_so"],
             "Quản lý",
         ),
         _lego(
