@@ -26,9 +26,14 @@ Các điều khoản dưới đây đã đối chiếu với văn bản gốc:
 2. **Cách gửi.** Mỗi phút, worker `su-kien` dò các lượt vừa đóng, ghi đơn vào hàng
    chờ (bảng `dtqg_gui`) rồi gửi đi. Quầy và bàn khám **không bao giờ phải chờ**
    hệ thống quốc gia.
-3. **Mã đơn.** Mỗi đơn có mã 14 ký tự theo TT 26 Phụ lục I: 5 ký tự mã cơ sở, 7 ký tự
+3. **Bác sĩ đứng tên đơn** (và là người đăng nhập để gửi) lấy theo luật chung
+   `bac_si_ky.py` (chốt 19/11): người bấm Hoàn tất nếu là bác sĩ → bác sĩ chính
+   của lượt → bác sĩ của lịch hẹn. Người **nhập** dòng thuốc (TKYK, điều dưỡng
+   nhập hộ) không bao giờ đứng tên. Vì vậy `DTQG_BAC_SI` phải có đủ các bác sĩ
+   khám chính.
+4. **Mã đơn.** Mỗi đơn có mã 14 ký tự theo TT 26 Phụ lục I: 5 ký tự mã cơ sở, 7 ký tự
    ngẫu nhiên, dấu gạch, rồi loại đơn. Ví dụ: `79abc` + `k3m9x2a` + `-c`.
-4. **Khi đơn bị sửa sau lúc đã gửi** (sửa số, gỡ dòng, thêm số chứng chỉ hành nghề
+5. **Khi đơn bị sửa sau lúc đã gửi** (sửa số, gỡ dòng, thêm số chứng chỉ hành nghề
    của bác sĩ…): đơn đã lên hệ thống quốc gia thì **không sửa hay huỷ được**. QĐ 808
    không có API sửa/huỷ, và QĐ 425 Điều 9 cấm. Phần mềm vì vậy gửi một **đơn thay
    thế với mã mới**. Đơn cũ vẫn nằm trên hệ thống.
@@ -38,9 +43,9 @@ Các điều khoản dưới đây đã đối chiếu với văn bản gốc:
    - Đơn **chưa** gửi được thì khác: mọi thay đổi đều được tính, kể cả SĐT hay địa
      chỉ. Nhờ vậy một đơn đang dừng vì thiếu địa chỉ sẽ tự đi ngay khi lễ tân điền
      địa chỉ.
-5. **Khi đơn đã gửi rồi bị gỡ hết thuốc:** phần mềm **không gửi được gì** và mở cảnh
+6. **Khi đơn đã gửi rồi bị gỡ hết thuốc:** phần mềm **không gửi được gì** và mở cảnh
    báo để người xử lý (báo người bệnh, xem trên web).
-6. **Khi gửi lỗi:**
+7. **Khi gửi lỗi:**
    - Lỗi mạng hoặc máy chủ: tự thử lại sau 1 phút, rồi 5 phút, 25 phút… tối đa
      `DTQG_SO_LAN_THU` lần (mặc định 6).
    - Hệ thống từ chối nội dung hoặc đơn thiếu dữ liệu: dừng ngay.
@@ -52,15 +57,15 @@ Các điều khoản dưới đây đã đối chiếu với văn bản gốc:
      không có tên khách.
    - `DTQG_LOI` chỉ đếm đơn trong **7 ngày** gần nhất. Không có màn "đã xử lý" nào,
      nên nếu không giới hạn thì cảnh báo sẽ mở mãi.
-7. **Đơn đã ở `LOI` thì không tự gửi lại khi nội dung đơn không đổi.** Ví dụ: hệ
+8. **Đơn đã ở `LOI` thì không tự gửi lại khi nội dung đơn không đổi.** Ví dụ: hệ
    thống quốc gia sập lâu làm cạn hết lượt thử, hoặc mật khẩu bác sĩ bị sai rồi được
    sửa trong `.env`. Muốn đơn đi lại thì đơn phải đổi; điền dữ liệu còn thiếu là
    đủ. Lệnh "gửi lại một đơn" (ghi bù một phiên bản mới, có lý do) là **việc mang
    sang**, chưa làm.
-8. **Tắt công tắc khi đang có cảnh báo `DTQG_*` mở:** cảnh báo cũ không tự đóng, vì
+9. **Tắt công tắc khi đang có cảnh báo `DTQG_*` mở:** cảnh báo cũ không tự đóng, vì
    lúc tắt module không chạy một câu SQL nào. Đóng tay ở `/ops`, hoặc bật lại để
    vòng canh gác tự đóng.
-9. **Staging không bao giờ gửi lên hệ thống thật.** Cấu hình
+10. **Staging không bao giờ gửi lên hệ thống thật.** Cấu hình
    `DTQG_NHA_CUNG_CAP=that` bị từ chối khi `APP_ENV` khác `production`, và vòng canh
    gác mở cảnh báo `DTQG_CAU_HINH_SAI`. Lý do: staging nạp lại bản sao prod mỗi đêm.
    Gói đơn trong `dtqg_gui` được che theo `scripts/staging-che-du-lieu.sql`.
