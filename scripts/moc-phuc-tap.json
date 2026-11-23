@@ -28,7 +28,6 @@
     "src/clinicai/services/tep_ket_qua_service.py::tai_len": 26,
     "src/clinicai/services/tom_tat_kham.py::noi_dung_phieu": 19,
     "src/clinicai/services/tuong_tac_cskh_service.py::ghi": 16,
-    "src/clinicai/tools/lab/classify.py::_evaluate_match": 21,
     "src/clinicai/worker.py::_run_su_kien": 16
   }
 }
