@@ -1977,6 +1977,7 @@ Bảng còn sống (tạo bằng `CREATE TABLE`, chưa `DROP`). Đổi lược �
 | `drug_catalog` | `20260714000001_baseline_schema.sql` | 5 |
 | `drug_ma_vach` | `20261014135000_ma_vach.sql` | 0 |
 | `drug_return` | `20260919000004_tien_thuoc_cp5_hoan_tra.sql` | 3 |
+| `dtqg_gui` | `20261124020000_don_thuoc_quoc_gia.sql` | 0 |
 | `du_lieu_da_xoa` | `20261001240000_don_du_lieu_thu.sql` | 0 |
 | `encounter_flow` | `20260911000001_luot_kham_lat_1.sql` | 4 |
 | `event_delivery` | `20260923000001_domain_event.sql` | 1 |
