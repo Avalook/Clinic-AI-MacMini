@@ -151,16 +151,36 @@ http://localhost, http://127.0.0.1 {
 		respond "ok" 200
 	}
 
-	# --- Supabase tự dựng: ba đường mà TRÌNH DUYỆT gọi thẳng ---------------
+	# --- Supabase tự dựng: CHỈ `/auth/v1` ra Internet --------------------------
 	#
-	# Khi database chạy ngay trên máy này (không dùng Supabase cloud), trình
-	# duyệt vẫn cần tới `/auth/v1` để đăng nhập, `/rest/v1` để đọc bảng và
-	# `/realtime/v1` cho websocket. Ba đường ấy KHÔNG đi qua Next.js — thư viện
-	# supabase-js gọi thẳng từ trình duyệt.
+	# `/rest/v1` (đọc bảng qua PostgREST) và `/realtime/v1` (websocket) ĐÓNG.
 	#
-	# Nên Caddy phải chuyển tiếp chúng sang bộ gateway của stack `clinicai_db`.
-	# Giữ nguyên tiền tố (`handle` chứ không `handle_path`) vì gateway bên kia
-	# mới là chỗ cắt.
+	# VÌ SAO (23/11/2026). Khoá anon nằm sẵn trong JS gửi xuống trình duyệt, nên
+	# AI ĐĂNG NHẬP ĐƯỢC — kể cả tài khoản Đối tác xét nghiệm và TV phòng chờ — gõ
+	# thẳng `/rest/v1/<bảng>` là đọc được ~110 bảng của phòng khám (bệnh nhân,
+	# lịch hẹn, kết quả xét nghiệm…): RLS chỉ lọc theo phòng khám, không theo vai.
+	# Thử thật trên stack local: token lễ tân đọc 63 hồ sơ `patient` qua Caddy.
+	#
+	# Đóng được vì KHÔNG màn nào cần hai đường này từ trình duyệt:
+	#   • trình duyệt chỉ gọi `supabase.auth.*` (quên/đặt lại/đổi mật khẩu) —
+	#     test `supabase-trinh-duyet-chi-auth-boundary` canh;
+	#   • chỗ đọc bảng bằng phiên người dùng (proxy.ts, đăng nhập) chạy ở MÁY CHỦ
+	#     Next, gọi `SUPABASE_URL` = gateway trong mạng docker, không qua đây;
+	#   • thời gian thực đã sang LISTEN/NOTIFY → SSE `/api/events/stream`.
+	# Log Caddy prod 22–23/11 (111.875 request): 0 lượt `/rest/v1` từ trình duyệt.
+	#
+	# 403 chứ không chuyển cho Next: một lượt gõ vào đây là có người dò — log ghi
+	# rõ, không lẫn vào 404 của trang. Mở lại đường nào thì phải mở cả lớp chặn
+	# theo vai ở database trước (PR #532 / #656), và sửa src/tests/test_caddy_dong_rest_v1.py.
+	@dong_supabase path /rest/v1 /rest/v1/* /realtime/v1 /realtime/v1/*
+	handle @dong_supabase {
+		respond 403
+	}
+
+	# `/auth/v1` thì trình duyệt vẫn cần (đổi mật khẩu, đặt lại mật khẩu, đăng
+	# xuất các máy khác), và nó KHÔNG đi qua Next.js — supabase-js gọi thẳng. Nên
+	# Caddy chuyển tiếp sang bộ gateway của stack `clinicai_db`. Giữ nguyên tiền
+	# tố (`handle` chứ không `handle_path`) vì gateway bên kia mới là chỗ cắt.
 	#
 	# TÊN GATEWAY THEO BIẾN, KHÔNG GHI CỨNG.
 	#
@@ -190,7 +210,7 @@ http://localhost, http://127.0.0.1 {
 		reverse_proxy {$AUTH_GUARD_HOST:clinicai_auth_guard}:80
 	}
 
-	@supabase path /auth/v1/* /rest/v1/* /realtime/v1/*
+	@supabase path /auth/v1/*
 	handle @supabase {
 		reverse_proxy {$SUPABASE_GATEWAY_HOST:clinicai_supabase_gateway}:8000
 	}

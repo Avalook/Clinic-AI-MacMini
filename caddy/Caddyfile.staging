@@ -93,7 +93,15 @@ Disallow: /
 		reverse_proxy {$AUTH_GUARD_HOST:clinicai_stg_auth_guard}:80
 	}
 
-	@supabase path /auth/v1/* /rest/v1/* /realtime/v1/*
+	# `/rest/v1` và `/realtime/v1` ĐÓNG, chỉ `/auth/v1` ra ngoài — y như prod
+	# (lý do + số đo ở caddy/Caddyfile). Staging dùng tài khoản prod: để mở ở đây
+	# là ai có tài khoản cũng đọc thẳng được bảng của bản sao.
+	@dong_supabase path /rest/v1 /rest/v1/* /realtime/v1 /realtime/v1/*
+	handle @dong_supabase {
+		respond 403
+	}
+
+	@supabase path /auth/v1/*
 	handle @supabase {
 		reverse_proxy {$SUPABASE_GATEWAY_HOST:clinicai_stg_supabase_gateway}:8000
 	}

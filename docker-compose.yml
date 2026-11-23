@@ -553,8 +553,8 @@ networks:
   monitoring:
     driver: bridge
   # Mạng của stack `clinicai_db` (bộ Supabase tự dựng). Khai `external` vì nó do
-  # một compose file KHÁC tạo ra — Caddy chỉ nối vào để chuyển tiếp ba đường
-  # /auth/v1 · /rest/v1 · /realtime/v1 mà TRÌNH DUYỆT gọi thẳng, không qua Next.
+  # một compose file KHÁC tạo ra — Caddy chỉ nối vào để chuyển tiếp `/auth/v1`
+  # mà TRÌNH DUYỆT gọi thẳng, không qua Next (/rest/v1, /realtime/v1 đóng ở Caddy).
   #
   # Không dùng bộ tự dựng (vẫn ở Supabase cloud, hoặc chuyển sang Viettel IDC)
   # thì mạng này không tồn tại và caddy sẽ không khởi động — lúc ấy bỏ

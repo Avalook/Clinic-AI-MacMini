@@ -3,7 +3,7 @@
 #
 # Caddy prod chỉ giữ TLS (Let's Encrypt cho tên miền staging) và chuyển MỌI
 # request sang Caddy của staging qua mạng cầu `clinicai_staging_edge`. Định tuyến
-# /auth/v1 · /rest/v1 · /realtime/v1 nằm ở caddy/Caddyfile.staging — Caddy prod
+# /auth/v1 (và chặn /rest/v1 · /realtime/v1) nằm ở caddy/Caddyfile.staging — Caddy prod
 # không biết tên container nào của staging ngoài `clinicai-staging-cong`.
 #
 # Staging tắt thì site này trả 502 — prod không ảnh hưởng.

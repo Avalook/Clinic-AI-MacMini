@@ -90,7 +90,7 @@ khách → Caddy (TLS Let's Encrypt) → dashboard (Next.js, chỉ giao diện)
              │                      api (FastAPI, mọi luật nghiệp vụ) → Postgres
              │                          ↑                                  ↑
              │                      su-kien (worker sự kiện)               │
-             └─ /auth/v1 /rest/v1 /realtime/v1 → Supabase tự dựng ─────────┘
+             └─ /auth/v1 (chỉ đường này) → Supabase tự dựng ───────────────┘
                                     (GoTrue · PostgREST · Realtime, docker-compose.supabase.yml)
 
       Uptime Kuma + Dozzle = theo dõi & log (chỉ nghe 127.0.0.1, vào bằng ssh -L)
