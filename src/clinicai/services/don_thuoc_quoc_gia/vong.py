@@ -21,11 +21,13 @@ import asyncpg
 import structlog
 
 from clinicai.adapters.don_thuoc_quoc_gia.gia_lap import KhongKy, ProviderGiaLap
+from clinicai.adapters.don_thuoc_quoc_gia.that import ProviderThat
 from clinicai.ports.don_thuoc_quoc_gia import DonThuocQuocGiaProvider, KySoDonThuoc
 from clinicai.services import canh_gac
 from clinicai.services.canh_gac import KetQuaKiem
 from clinicai.services.don_thuoc_quoc_gia.cau_hinh import (
     GIA_LAP,
+    THAT,
     CauHinh,
     da_bat,
     doc_cau_hinh_dtqg,
@@ -94,14 +96,26 @@ def dung_nha_cung_cap(
 ) -> tuple[DonThuocQuocGiaProvider, KySoDonThuoc] | None:
     """Nhà cung cấp + bộ ký số theo cấu hình (đã kiểm ở `doc_cau_hinh`); None =
     bản này chưa có adapter cho lựa chọn ấy. Bộ ký số thật chưa chọn (docs)."""
+    global _THAT
     if ch.nha_cung_cap == GIA_LAP:
         return _GIA_LAP, KhongKy()
-    # Adapter hệ thống thật (QĐ 808) đến ở PR kế tiếp.
-    return None
+    if ch.nha_cung_cap != THAT:
+        return None
+    mk = {t.ma_lien_thong: t.mat_khau for t in ch.bac_si.values() if t.mat_khau}
+    # Giữ một bản (nhớ token bác sĩ 7 ngày) — dựng lại khi cấu hình đổi.
+    p = _THAT
+    if p is None or (p.url, p.mat_khau_bac_si) != (ch.url, mk):
+        p = _THAT = ProviderThat(
+            url=ch.url,
+            ma_lien_thong_co_so=ch.ma_lien_thong_co_so or "",
+            mat_khau_bac_si=mk,
+        )
+    return p, KhongKy()
 
 
-# Dùng chung một bản trong tiến trình (giả lập nhớ đơn đã nhận).
+# Dùng chung một bản trong tiến trình (giả lập nhớ đơn đã nhận; thật nhớ token).
 _GIA_LAP = ProviderGiaLap()
+_THAT: ProviderThat | None = None
 
 
 async def mot_vong_dtqg(
