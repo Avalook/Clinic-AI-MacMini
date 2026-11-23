@@ -19,6 +19,7 @@ hotrokythuat@donthuocquocgia.vn.
 
 from __future__ import annotations
 
+import re
 import time
 from dataclasses import dataclass, field
 from datetime import date, datetime
@@ -36,7 +37,17 @@ GUI_DON = "/api/v1/gui-don-thuoc"
 TOKEN_SONG_GIAY = 6 * 24 * 3600
 #: 1 chưa có thông tin, 2 nam, 3 nữ [808 VII.3 mục 8].
 _GIOI_TINH = {"NAM": 2, "NU": 3}
-_DA_TON_TAI = ("đã tồn tại", "da ton tai", "already exist", "trùng mã")
+#: 422 chỉ được coi là "đơn này đã lên rồi" khi câu lỗi nói về MÃ ĐƠN và sự trùng
+#: — "bác sĩ đã tồn tại", "trùng mã thuốc" thì KHÔNG (ghi DA_GUI nhầm = mất đơn
+#: mà không ai biết). Mẫu câu thật chưa có (câu hỏi 5 trong docs) [ĐOÁN].
+_MA_DON = re.compile(r"m[ãa] đ[ơo]n|ma_don_thuoc")
+_TRUNG = re.compile(r"(đ[ãa] t[ồo]n t[ạa]i|tr[ùu]ng|already exist)")
+
+
+def da_ton_tai(loi: str) -> bool:
+    """HÀM THUẦN: câu 422 có phải "mã đơn này đã có trên hệ thống" không."""
+    s = loi.lower()
+    return bool(_MA_DON.search(s) and _TRUNG.search(s))
 
 
 def _ngay(iso: str | None) -> str:
@@ -109,10 +120,11 @@ class ProviderThat:
     url: str
     ma_lien_thong_co_so: str
     #: mã liên thông bác sĩ → mật khẩu.
-    mat_khau_bac_si: dict[str, str]
+    #: repr=False: một dòng log `%r` không được in mật khẩu / token.
+    mat_khau_bac_si: dict[str, str] = field(repr=False)
     ten: str = "THAT"
     client: httpx.AsyncClient | None = None
-    _token: dict[str, tuple[str, float]] = field(default_factory=dict)
+    _token: dict[str, tuple[str, float]] = field(default_factory=dict, repr=False)
 
     def thieu(self, goi: GoiDon) -> list[str]:
         """Trường QĐ 808 bắt buộc ngoài mức tối thiểu TT 26."""
@@ -180,7 +192,7 @@ class ProviderThat:
             return KetQuaGui(ma_tra_ve=str(r.json().get("success", "OK"))[:200])
         if r.status_code == 422:
             loi = _loi_422(r)
-            if any(x in loi.lower() for x in _DA_TON_TAI):
+            if da_ton_tai(loi):
                 return KetQuaGui(ma_tra_ve=f"Đã có trên hệ thống: {loi}"[:200])
             raise GuiDonError(f"BI_TU_CHOI_422: {loi}", thu_lai=False)
         raise GuiDonError(f"GUI_DON_HTTP_{r.status_code}")
@@ -208,4 +220,4 @@ class ProviderThat:
         return str(r.json().get("success", "OK"))
 
 
-__all__ = ["ProviderThat", "goi_api"]
+__all__ = ["ProviderThat", "da_ton_tai", "goi_api"]

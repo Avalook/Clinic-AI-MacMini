@@ -12,7 +12,7 @@ from typing import Any
 import httpx
 import pytest
 
-from clinicai.adapters.don_thuoc_quoc_gia.that import ProviderThat, goi_api
+from clinicai.adapters.don_thuoc_quoc_gia.that import ProviderThat, da_ton_tai, goi_api
 from clinicai.ports.don_thuoc_quoc_gia import BacSiKe, DongThuoc, GuiDonError
 from clinicai.services.don_thuoc_quoc_gia.cau_hinh import CauHinh, doc_cau_hinh
 from clinicai.services.don_thuoc_quoc_gia.them_bac_si import chuan_bi
@@ -127,6 +127,28 @@ async def test_that_tra_loi_loi(
     with pytest.raises(GuiDonError) as e:
         await p.gui(_goi(), None)
     assert e.value.thu_lai is thu_lai
+
+
+@pytest.mark.parametrize(
+    ("cau", "la_trung_don"),
+    [
+        ("['Mã đơn thuốc đã tồn tại']", True),
+        ("ma_don_thuoc: trùng", True),
+        ("['Bác sĩ đã tồn tại trong cơ sở']", False),
+        ("['Trùng mã thuốc dòng 2']", False),
+        ("['Thiếu ngày sinh']", False),
+    ],
+)
+def test_da_ton_tai_chi_khi_noi_ve_ma_don(cau: str, la_trung_don: bool) -> None:
+    assert da_ton_tai(cau) is la_trung_don
+
+
+def test_repr_khong_lo_mat_khau() -> None:
+    p, _ = _that(lambda r, n: httpx.Response(200))
+    p._token["01000123HCM"] = ("tok-bi-mat", 0.0)
+    assert MAT_KHAU not in repr(p) and "tok-bi-mat" not in repr(p)
+    ch = doc_cau_hinh(ENV_THAT)
+    assert isinstance(ch, CauHinh) and MAT_KHAU not in repr(ch)
 
 
 @pytest.mark.asyncio
