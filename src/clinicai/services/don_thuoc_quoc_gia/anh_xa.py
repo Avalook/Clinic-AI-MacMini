@@ -109,7 +109,9 @@ def _nguoi_benh(r: asyncpg.Record) -> NguoiBenh:
     )
 
 
-def _bac_si(r: asyncpg.Record, ma_lien_thong: Mapping[str, str]) -> BacSiKe | None:
+def _bac_si_dung_ten_don(
+    r: asyncpg.Record, ma_lien_thong: Mapping[str, str]
+) -> BacSiKe | None:
     if not r["bs_id"]:
         return None
     return BacSiKe(
@@ -145,7 +147,7 @@ async def doc_goi_don(
             ngay_ke=dong_luc.astimezone(CLINIC_TZ).isoformat(timespec="seconds")
             if dong_luc
             else "",
-            bac_si=_bac_si(lv, ma_lien_thong),
+            bac_si=_bac_si_dung_ten_don(lv, ma_lien_thong),
             nguoi_benh=_nguoi_benh(lv),
             chan_doan=chan_doan.get(vid),
             thuoc=[_dong_thuoc(d) for d in dong.get(vid, [])],
@@ -197,21 +199,21 @@ def goi_tu_json(d: dict[str, Any]) -> GoiDon:
     )
 
 
-def dau_van_tay(goi: GoiDon) -> str:
+def dau_van_tay_goi_don(goi: GoiDon) -> str:
     """sha256 của NỘI DUNG đơn đã chuẩn hoá — đổi một chữ là đổi dấu. Không tính
     mã đơn (mỗi phiên bản một mã mới, dấu phải chỉ đổi khi nội dung đổi)."""
-    return _bam(goi_sang_json(replace(goi, ma_don="")))
+    return _sha256_json(goi_sang_json(replace(goi, ma_don="")))
 
 
 def dau_don(goi: GoiDon) -> str:
     """sha256 chỉ phần ĐƠN (thuốc, chẩn đoán, bác sĩ kê, họ tên + ngày sinh + giới
     tính người bệnh, ngày kê). Đơn ĐÃ GỬI mà chỉ đổi SĐT / địa chỉ / CCCD / người
     giám hộ / mã liên thông → KHÔNG sinh đơn thay thế (người bệnh không cầm hai mã
-    cho cùng một đơn thuốc). Đơn chưa gửi thì mọi thay đổi đều vào (`dau_van_tay`)
-    — để đơn dừng vì thiếu địa chỉ tự đi khi lễ tân điền."""
+    cho cùng một đơn thuốc). Đơn chưa gửi thì mọi thay đổi đều vào
+    (`dau_van_tay_goi_don`) — để đơn dừng vì thiếu địa chỉ tự đi khi lễ tân điền."""
     nb = goi.nguoi_benh
     bs = goi.bac_si
-    return _bam(
+    return _sha256_json(
         {
             "ngay_ke": goi.ngay_ke,
             "bac_si": [bs.staff_id, bs.ho_ten, bs.so_chung_chi] if bs else None,
@@ -224,14 +226,14 @@ def dau_don(goi: GoiDon) -> str:
     )
 
 
-def _bam(d: Any) -> str:
+def _sha256_json(d: Any) -> str:
     tho = json.dumps(d, ensure_ascii=False, sort_keys=True)
     return hashlib.sha256(tho.encode("utf-8")).hexdigest()
 
 
 __all__ = [
     "dau_don",
-    "dau_van_tay",
+    "dau_van_tay_goi_don",
     "doc_goi_don",
     "goi_sang_json",
     "goi_tu_json",

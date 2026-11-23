@@ -80,7 +80,9 @@ def da_bat(env: Mapping[str, str] | None = None) -> bool:
     return e.get("DTQG_BAT", "").strip().lower() in _BAT
 
 
-def _so(e: Mapping[str, str], ten: str, mac_dinh: int, tu: int, den: int) -> int | str:
+def _so_nguyen_env(
+    e: Mapping[str, str], ten: str, mac_dinh: int, tu: int, den: int
+) -> int | str:
     tho = e.get(ten, "").strip()
     if not tho:
         return mac_dinh
@@ -114,7 +116,7 @@ def doc_bac_si(tho: str, *, can_mat_khau: bool) -> dict[str, TaiKhoanBacSi] | st
     return ra
 
 
-def doc_cau_hinh(env: Mapping[str, str] | None = None) -> CauHinh | list[str]:
+def doc_cau_hinh_dtqg(env: Mapping[str, str] | None = None) -> CauHinh | list[str]:
     """HÀM THUẦN theo `env`: cấu hình hợp lệ, hoặc danh sách lỗi (câu tiếng Việt,
     không chứa giá trị bí mật). Không bao giờ ném."""
     e = os.environ if env is None else env
@@ -146,8 +148,8 @@ def doc_cau_hinh(env: Mapping[str, str] | None = None) -> CauHinh | list[str]:
     if (g["DTQG_KY_SO"] or "khong").lower() not in KY_SO_DA_CAI:
         loi.append("DTQG_KY_SO: bộ ký số này chưa được cài — để trống (= khong)")
     bac_si = doc_bac_si(g["DTQG_BAC_SI"], can_mat_khau=ncc == THAT)
-    so_lan = _so(e, "DTQG_SO_LAN_THU", 6, 1, 20)
-    soat = _so(e, "DTQG_SOAT_NGAY", 3, 1, 30)
+    so_lan = _so_nguyen_env(e, "DTQG_SO_LAN_THU", 6, 1, 20)
+    soat = _so_nguyen_env(e, "DTQG_SOAT_NGAY", 3, 1, 30)
     loi += [x for x in (bac_si, so_lan, soat) if isinstance(x, str)]
     if (
         loi
@@ -180,5 +182,5 @@ __all__ = [
     "TaiKhoanBacSi",
     "da_bat",
     "doc_bac_si",
-    "doc_cau_hinh",
+    "doc_cau_hinh_dtqg",
 ]

@@ -13,12 +13,16 @@ import pytest
 from clinicai.ports.don_thuoc_quoc_gia import BacSiKe, DongThuoc, GoiDon, NguoiBenh
 from clinicai.services.don_thuoc_quoc_gia.anh_xa import (
     dau_don,
-    dau_van_tay,
+    dau_van_tay_goi_don,
     goi_sang_json,
     goi_tu_json,
     thieu_truong,
 )
-from clinicai.services.don_thuoc_quoc_gia.cau_hinh import CauHinh, da_bat, doc_cau_hinh
+from clinicai.services.don_thuoc_quoc_gia.cau_hinh import (
+    CauHinh,
+    da_bat,
+    doc_cau_hinh_dtqg,
+)
 from clinicai.services.don_thuoc_quoc_gia.ma_don import MA_DON, sinh_ma_don
 
 BS = "11111111-1111-4111-8111-111111111111"
@@ -66,7 +70,7 @@ def test_cong_tac_mac_dinh_tat(gt: str) -> None:
 
 
 def test_cau_hinh_gia_lap_du() -> None:
-    ch = doc_cau_hinh(ENV)
+    ch = doc_cau_hinh_dtqg(ENV)
     assert isinstance(ch, CauHinh)
     assert (ch.nha_cung_cap, ch.ma_co_so, ch.url) == (
         "gia_lap",
@@ -89,12 +93,12 @@ def test_cau_hinh_gia_lap_du() -> None:
     ],
 )
 def test_cau_hinh_sai_tra_loi_khong_nem(doi: dict[str, str], chu: str) -> None:
-    loi = doc_cau_hinh({**ENV, **doi})
+    loi = doc_cau_hinh_dtqg({**ENV, **doi})
     assert isinstance(loi, list) and any(chu in x for x in loi)
 
 
 def test_cau_hinh_that_doi_tai_khoan_va_khong_lo_mat_khau() -> None:
-    ch = doc_cau_hinh(ENV_THAT)
+    ch = doc_cau_hinh_dtqg(ENV_THAT)
     assert isinstance(ch, CauHinh) and ch.bac_si[BS].mat_khau == MAT_KHAU
     thieu_mk = json.dumps({BS: {"ma_lien_thong": "01000123HCM", "mat_khau": ""}})
     for doi in (
@@ -105,7 +109,7 @@ def test_cau_hinh_that_doi_tai_khoan_va_khong_lo_mat_khau() -> None:
         {"DTQG_BAC_SI": thieu_mk},
         {"DTQG_URL": "http://api.donthuocquocgia.vn"},
     ):
-        loi = doc_cau_hinh({**ENV_THAT, **doi})
+        loi = doc_cau_hinh_dtqg({**ENV_THAT, **doi})
         assert isinstance(loi, list) and loi
         assert not any(MAT_KHAU in x for x in loi)
 
@@ -123,8 +127,10 @@ def test_ma_don_14_ky_tu_dung_dang() -> None:
 # ── ánh xạ ───────────────────────────────────────────────────────────────────
 def test_dau_van_tay_bo_qua_ma_don_bat_noi_dung() -> None:
     g = _goi()
-    assert dau_van_tay(g) == dau_van_tay(replace(g, ma_don="79abczzzzzzz-c"))
-    assert dau_van_tay(g) != dau_van_tay(replace(g, chan_doan="Khác"))
+    assert dau_van_tay_goi_don(g) == dau_van_tay_goi_don(
+        replace(g, ma_don="79abczzzzzzz-c")
+    )
+    assert dau_van_tay_goi_don(g) != dau_van_tay_goi_don(replace(g, chan_doan="Khác"))
     assert goi_tu_json(goi_sang_json(g)) == g
 
 
