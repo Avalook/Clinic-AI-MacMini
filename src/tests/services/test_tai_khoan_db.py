@@ -7,8 +7,11 @@ database), chỉ thay bước JWT.
 Kẽ hở được vá: "Gỡ tài khoản" gỡ nối + xoá GoTrue nhưng để nguyên app_credential,
 nên nối lại (bằng bất kỳ đường nào) là chuỗi băm cũ mở lại /api/v1/auth/login.
 Giờ thu hồi khoá app_credential trong CÙNG giao dịch với gỡ nối; "Tạo tài khoản"
-(nối) là đường mở lại. Đăng nhập đọc dấu khoá — bài kiểm ở test_auth_service.py
-(database thử không có schema `extensions` để chạy crypt() như prod).
+(nối) là đường mở lại.
+
+24/11/2026: cửa `/api/v1/auth/login` đã gỡ (đăng nhập chỉ qua GoTrue), nên dấu
+khoá app_credential không còn ai đọc. Bảng + hai lệnh UPDATE trong
+TaiKhoanService giữ lại chờ Tuyền quyết xoá bảng (xoá dữ liệu = cổng của Tuyền).
 """
 
 from __future__ import annotations

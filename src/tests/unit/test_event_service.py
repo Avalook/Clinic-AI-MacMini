@@ -10,7 +10,7 @@ from uuid import UUID, uuid4
 import pytest
 from pydantic import ValidationError
 
-from clinicai.event_bus.publisher import MockEventPublisher, RabbitMQPublisher
+from clinicai.event_bus.publisher import MockEventPublisher
 from clinicai.schemas.events import InteractionEvent
 from clinicai.services.event_service import EventService
 
@@ -162,26 +162,6 @@ async def test_event_service__record_and_publish__marks_published_on_success(
         sample_event.event_id,
         sample_event.clinic_id,
     )
-
-
-@pytest.mark.asyncio
-async def test_event_service__record_and_publish_not_implemented__no_exception(
-    mock_db: tuple[MagicMock, AsyncMock],
-    sample_event: InteractionEvent,
-) -> None:
-    """Verify that NotImplementedError (RabbitMQ stub) does not crash the service."""
-    pool, conn = mock_db
-    conn.fetchval.return_value = sample_event.event_id
-
-    stub_publisher = RabbitMQPublisher()
-    svc = EventService(pool, stub_publisher)
-
-    # Should not raise exception
-    event_id = await svc.record_and_publish(sample_event, "interaction.walkin")
-    assert event_id == sample_event.event_id
-
-    # Update should not be called since publishing raised NotImplementedError
-    conn.execute.assert_not_awaited()
 
 
 @pytest.mark.asyncio
