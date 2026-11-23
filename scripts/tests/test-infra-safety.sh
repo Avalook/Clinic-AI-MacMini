@@ -787,30 +787,25 @@ DOCKER
 
   rm -f "$deploy_secrets/.env.staging"
 
-  printf '%s\n' \
-    'COMPOSE_PROFILES=workers' \
-    'RABBITMQ_URL=' \
-    'RABBITMQ_PASSWORD=' >> "$deploy_secrets/.env.prod"
+  # Profile `workers` (RabbitMQ) đã gỡ 24/11/2026: còn ai đặt nó thì deploy dừng.
+  printf '%s\n' 'COMPOSE_PROFILES=workers' >> "$deploy_secrets/.env.prod"
   if HOME="$TEST_HOME" TMPDIR="$deploy_tmp" PATH="$FAKE_BIN:/usr/bin:/bin" \
     CLINIC_PATH_PREFIX="$FAKE_BIN" CLINIC_ENV_DIR="$deploy_secrets" \
     CLINIC_DEPLOY_LOCK="$deploy_tmp/deploy.lock" DEPLOY_EXPECTED_SHA="$sha" \
     DEPLOY_SOURCE_REF=main "$deploy_repo/scripts/deploy-backend.sh" prod >/dev/null 2>&1; then
-    fail "workers profile accepted an empty RabbitMQ password/URL"
+    fail "deploy accepted the removed 'workers' profile"
   fi
 }
 
 
 test_compose_has_bounded_runtime_defaults() {
-  grep -Fq 'RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-}' "$ROOT/docker-compose.yml" || \
-    fail "RabbitMQ still has a default password"
-  if grep -Fq 'clinicai_dev_pass' \
-      "$ROOT/docker-compose.yml" "$ROOT/.env.example" \
-      "$ROOT/.env.prod.example" "$ROOT/.env.staging.example"; then
-    fail "RabbitMQ config contains a shared fallback password"
+  # RabbitMQ gỡ 24/11/2026 — không được quay lại (outbox Postgres là đường duy nhất).
+  # Đo khai báo service / biến, không đo chú thích (chú thích được kể lịch sử).
+  if grep -Eq '^  rabbitmq:|^  worker:|RABBITMQ_' \
+      "$ROOT/docker-compose.yml" "$ROOT/docker-compose.journald.yml" \
+      "$ROOT/.env.example" "$ROOT/.env.prod.example" "$ROOT/.env.staging.example"; then
+    fail "RabbitMQ config came back in compose or env templates"
   fi
-  grep -Fq 'RabbitMQ password is required when the workers profile is enabled' \
-    "$ROOT/docker-compose.yml" || \
-    fail "RabbitMQ container does not fail closed when workers are enabled"
 
   grep -Fq 'x-clinic-service-defaults:' "$ROOT/docker-compose.yml" || \
     fail "compose does not define shared security/logging defaults"
@@ -829,7 +824,7 @@ test_compose_renders_every_profile_safely() {
     return
   fi
 
-  RABBITMQ_URL= RABBITMQ_PASSWORD="" CLINIC_ENV_FILE=.env.prod.example \
+  CLINIC_ENV_FILE=.env.prod.example \
     docker compose --env-file "$ROOT/.env.prod.example" \
       -f "$ROOT/docker-compose.yml" -p clinicai_infra_test config --quiet
 
@@ -844,8 +839,8 @@ import sys
 services = json.load(sys.stdin)["services"]
 expected = {
     "api", "caddy", "cloudflared", "dashboard", "day-tep", "dozzle", "drive-xn",
-    "media-quyen", "notification-relay", "pos-relay", "rabbitmq", "su-kien",
-    "uptime-kuma", "worker",
+    "media-quyen", "notification-relay", "pos-relay", "su-kien",
+    "uptime-kuma",
 }
 assert set(services) == expected, set(services)
 for name, service in services.items():

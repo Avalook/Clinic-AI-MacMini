@@ -15,24 +15,15 @@ dependencies = [
     "supabase (==2.15.2)",
     "asyncpg (==0.30.0)",
     "sqlalchemy (==2.0.41)",
-    "langgraph (>=0.6.0,<0.7.0)",
-    "langchain-anthropic (==0.3.14)",
+    # 24/11/2026 gỡ: langgraph + langchain-* + langgraph-checkpoint-postgres +
+    # psycopg (orchestrator/graphs AI cũ, không màn nào gọi), aio-pika (RabbitMQ
+    # chưa từng bật ở prod), sentry-sdk (Sentry đã chết — lỗi đi kho `loi_nhom`).
     "anthropic (==0.52.0)",
-    "aio-pika (==9.5.5)",
     "structlog (==25.3.0)",
     "python-dotenv (==1.1.0)",
-    "langchain-core (>=0.3.0,<0.4.0)",
-    "langgraph-checkpoint-postgres (>=2.0.0,<3.0.0)",
-    "psycopg[binary,pool] (>=3.1.0,<4.0.0)",
     "tenacity (>=8.2.0,<10.0.0)",
     "pyjwt[crypto] (>=2.10.1,<3.0.0)",
     "python-multipart (>=0.0.32,<0.0.33)",
-    # Báo lỗi. `core/sentry.py` đã gọi ở main.py:72 từ lâu nhưng thư viện chưa
-    # bao giờ được cài — nên nhánh `except ImportError` là nhánh DUY NHẤT từng
-    # chạy, và nó chỉ ghi một dòng log cảnh báo rồi đi tiếp. Tính năng nhìn như
-    # có mà chưa từng có. Cài vào thì chỉ cần đặt SENTRY_DSN là bật, không phải
-    # dựng lại image nữa.
-    "sentry-sdk[fastapi] (>=2.20.0,<3.0.0)",
     # Xuất Excel thật (.xlsx) ở báo cáo / lịch sử thu / danh sách hoá đơn
     # (13/10/2026). Từng nằm ở nhóm dev → ảnh prod (`--only main`) không có →
     # API chết ngay lúc khởi động (deploy staging 13/10 bắt được).

@@ -165,14 +165,11 @@ ENABLED_PROFILES="$(env_value COMPOSE_PROFILES)"
 if [ -n "$(env_value TUNNEL_TOKEN)" ]; then
   ENABLED_PROFILES="${ENABLED_PROFILES:+${ENABLED_PROFILES},}cloudflare"
 fi
+# Profile `workers` (RabbitMQ + worker) đã gỡ 24/11/2026 — còn ai đặt nó thì dừng,
+# đừng để compose im lặng bỏ qua một profile không còn service nào.
 if profile_enabled "$ENABLED_PROFILES" workers; then
-  for required in RABBITMQ_PASSWORD RABBITMQ_URL; do
-    value="$(env_value "$required")"
-    if [ -z "$value" ] || [[ "$value" == *"<"* ]]; then
-      echo "!! workers profile requires a non-placeholder $required in $ENV_FILE" >&2
-      exit 1
-    fi
-  done
+  echo "!! COMPOSE_PROFILES có 'workers' — profile này đã gỡ (RabbitMQ). Bỏ nó khỏi $ENV_FILE; relay thông báo dùng 'notifications'." >&2
+  exit 1
 fi
 if [ -n "$ENABLED_PROFILES" ]; then
   export COMPOSE_PROFILES="$ENABLED_PROFILES"
@@ -295,10 +292,7 @@ echo "==> [3/6] build"
 # disabled. Remove only those known optional services, while holding the host
 # deploy lock, before reconciling the new release.
 remove_disabled_services() {
-  if ! profile_enabled "$ENABLED_PROFILES" workers; then
-    "${COMPOSE[@]}" rm -sf worker rabbitmq
-  fi
-  if ! profile_enabled "$ENABLED_PROFILES" workers && ! profile_enabled "$ENABLED_PROFILES" notifications; then
+  if ! profile_enabled "$ENABLED_PROFILES" notifications; then
     "${COMPOSE[@]}" rm -sf notification-relay
   fi
   if ! profile_enabled "$ENABLED_PROFILES" cloudflare; then
@@ -378,14 +372,7 @@ health_ok() {
     [ "$st" = "healthy" ] || [ "$st" = "running" ] || { echo "   $svc: $st"; return 1; }
     [ "$st" = "healthy" ] || return 1
   done
-  if profile_enabled "$ENABLED_PROFILES" workers; then
-    for svc in rabbitmq worker notification-relay; do
-      cid="$("${COMPOSE[@]}" ps -q "$svc" 2>/dev/null || true)"
-      [ -n "$cid" ] || { echo "   $svc: no container"; return 1; }
-      st="$(docker inspect -f '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' "$cid" 2>/dev/null || echo unknown)"
-      [ "$st" = "healthy" ] || [ "$st" = "running" ] || return 1
-    done
-  elif profile_enabled "$ENABLED_PROFILES" notifications; then
+  if profile_enabled "$ENABLED_PROFILES" notifications; then
     cid="$("${COMPOSE[@]}" ps -q notification-relay 2>/dev/null || true)"
     [ -n "$cid" ] || return 1
     st="$(docker inspect -f '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' "$cid" 2>/dev/null || echo unknown)"
