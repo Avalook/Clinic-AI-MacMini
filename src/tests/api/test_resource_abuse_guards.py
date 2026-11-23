@@ -1,22 +1,14 @@
-"""Route-level regression tests for expensive endpoint guards."""
+"""Route-level regression tests for expensive endpoint guards.
+
+Hai cửa AI đắt `/lab/triage/{id}` và `/orchestrator/chat` (cùng bộ giới hạn
+của chúng) đã gỡ 24/11/2026 — không màn nào gọi. Cửa đắt còn lại: giọng nói.
+"""
 
 from __future__ import annotations
 
 from fastapi.routing import APIRoute
 
 from clinicai.api.identity import RoleGuard
-from clinicai.api.v1.routers.lab import (
-    LAB_TRIAGE_RATE_LIMIT,
-)
-from clinicai.api.v1.routers.lab import (
-    router as lab_router,
-)
-from clinicai.api.v1.routers.orchestrator import (
-    ORCHESTRATOR_RATE_LIMIT,
-)
-from clinicai.api.v1.routers.orchestrator import (
-    router as orchestrator_router,
-)
 from clinicai.api.v1.routers.voice import VOICE_RATE_LIMIT
 from clinicai.api.v1.routers.voice import router as voice_router
 from clinicai.permissions.y_khoa import cua_ghi_y_khoa
@@ -47,24 +39,5 @@ def test_voice_requires_clinical_role_and_rate_limit() -> None:
     assert VOICE_RATE_LIMIT in calls
 
 
-def test_all_expensive_ai_routes_attach_their_rate_limiter() -> None:
-    cases = [
-        (lab_router, "/lab/triage/{lab_result_id}", LAB_TRIAGE_RATE_LIMIT),
-        (orchestrator_router, "/orchestrator/chat", ORCHESTRATOR_RATE_LIMIT),
-    ]
-
-    for router, path, limiter in cases:
-        route = _route(router, path, "POST")
-        assert limiter in _dependency_calls(route)
-
-
 def test_production_limits_are_bounded_and_nonzero() -> None:
     assert (VOICE_RATE_LIMIT.limit, VOICE_RATE_LIMIT.window_seconds) == (10, 60)
-    assert (LAB_TRIAGE_RATE_LIMIT.limit, LAB_TRIAGE_RATE_LIMIT.window_seconds) == (
-        30,
-        60,
-    )
-    assert (
-        ORCHESTRATOR_RATE_LIMIT.limit,
-        ORCHESTRATOR_RATE_LIMIT.window_seconds,
-    ) == (20, 60)

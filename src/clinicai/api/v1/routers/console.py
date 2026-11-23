@@ -28,8 +28,8 @@ _CONSOLE_GUARD = cua_quyen("ops.view")
 
 
 def _refuse_in_production() -> None:
-    # Đọc thẳng APP_ENV như phần còn lại của codebase (core/logging.py,
-    # core/sentry.py). Mặc định coi là production khi không đặt: quên cấu hình
+    # Đọc thẳng APP_ENV như phần còn lại của codebase (core/logging.py).
+    # Mặc định coi là production khi không đặt: quên cấu hình
     # phải dẫn tới KHOÁ, không phải mở.
     if os.environ.get("APP_ENV", "production").lower() == "production":
         raise HTTPException(
