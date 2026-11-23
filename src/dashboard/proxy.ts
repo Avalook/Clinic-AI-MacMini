@@ -12,7 +12,6 @@ import {
   DUONG_DANG_NHAP_HET_PHIEN,
   phanLoaiKhongCoNguoiDung,
 } from "./lib/het-phien";
-import { laRouteDaTat } from "./lib/route-da-tat";
 import { SUPABASE_COOKIE_NAME } from "./lib/supabase-cookie";
 
 const PUBLIC_PATHS = ["/login", "/auth", "/forgot-password", "/reset-password"];
@@ -23,14 +22,6 @@ const PUBLIC_PATHS = ["/login", "/auth", "/forgot-password", "/reset-password"];
 if (process.env.NODE_ENV === "development") PUBLIC_PATHS.push("/design-system");
 
 export async function proxy(request: NextRequest) {
-  // Route cũ đã tắt (lib/route-da-tat.ts) — trả 410, không đụng tới phiên.
-  if (laRouteDaTat(request.nextUrl.pathname)) {
-    return NextResponse.json(
-      { error: "ENDPOINT_RETIRED", message: "Đường cũ đã tắt — màn hiện tại không dùng nữa." },
-      { status: 410 },
-    );
-  }
-
   // CỔNG TÊN MIỀN GIÁM SÁT (09/10/2026) — trước mọi kiểm phiên: tên miền giám
   // sát chỉ mở trang giám sát + đăng nhập; tên miền chính không thấy lối vào
   // giám sát. Xem lib/cong-giam-sat.ts. Quyền `giamsat.view` vẫn gác ở trang/API.

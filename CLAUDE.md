@@ -183,8 +183,8 @@ khách → Caddy (TLS Let's Encrypt) → dashboard (Next.js, chỉ giao diện)
 Các quyết định còn chờ chốt: `docs/KIEM-TOAN-HE-THONG-2709.md` mục 6.
 
 Việc lớn còn lại: **đưa nốt luật nghiệp vụ ra khỏi `src/dashboard`**. Route Next
-chạm thẳng database: **1** (06/10/2026 — chỉ còn `check-phone`, đã tắt; 27/09 là 2,
-13/08 là 42/63) — con số ấy **chỉ được giảm**. Còn khoảng 123 chỗ `if` theo vai trong TSX.
+chạm thẳng database: **0** (24/11/2026 — `check-phone` đã xoá; 06/10 là 1, 27/09 là 2,
+13/08 là 42/63) — test `route-da-xoa-boundary` giữ ở 0. Còn khoảng 123 chỗ `if` theo vai trong TSX.
 
 Việc lớn đang mở (05/11/2026): **bàn xét nghiệm đối tác** — kế hoạch Mức 3 đã duyệt
 `docs/KE-HOACH-XET-NGHIEM-DOI-TAC.md`, ADR-0015. `doi_tac_service.py` và router

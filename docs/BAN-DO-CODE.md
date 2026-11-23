@@ -1,6 +1,6 @@
 # BẢN ĐỒ CODE — màn → API → router → service → test
 
-> Sinh bởi `scripts/ban-do-code.py` lúc 2026-11-23 17:11. **Đừng sửa tay** —
+> Sinh bởi `scripts/ban-do-code.py` lúc 2026-11-24 00:41. **Đừng sửa tay** —
 > chạy `python3 scripts/ban-do-code.py` để sinh lại; CI (`--kiem`, job backend
 > của `scripts/ci-may.sh`) đỏ khi tệp này lệch code.
 
@@ -624,7 +624,7 @@ Mục lục: 1. Màn · 2. API Next → backend · 3. Service → màn · 4. S�
 - service: XuatHoaDonService.xem · HoaDonMisaService.gan_trang_thai · xuat_hoa_don_service
 - test: test_thue_gtgt_db.py, test_xuat_hoa_don_db.py, test_hoa_don_misa_db.py
 
-## 2. API Next → backend (149)
+## 2. API Next → backend (132)
 
 Mỗi `app/api/**/route.ts`: đường `/api/v1` nó proxy → hàm router FastAPI → service.
 
@@ -848,11 +848,6 @@ Mỗi `app/api/**/route.ts`: đường `/api/v1` nó proxy → hàm router FastA
 - test: src/tests/unit/test_tep_ket_qua.py, src/tests/unit/test_kho_tep_ghi.py, src/tests/services/test_xac_nhan_tep_ket_qua_db.py (+3)
 - màn dùng: /ban-kham, /ban-kham/[phong], /customers, /do-sinh-hieu, /doi-tac, /duyet-ket-qua (+4)
 
-#### `/api/cskh/ket-qua/[tepId]/cho-phep-gui` · `src/dashboard/app/api/cskh/ket-qua/[tepId]/cho-phep-gui/route.ts`
-- POST `/api/v1/cskh/ket-qua/tep/{tep_id}/cho-phep-gui` → `src/clinicai/api/v1/routers/cskh.py:cho_phep_gui_tep` → TepKetQuaService.cho_phep_gui
-- test: src/tests/services/test_smoke_main_174_175_db.py, src/tests/services/test_xac_nhan_tep_ket_qua_db.py
-- màn dùng: (không màn nào gọi thấy được ?)
-
 #### `/api/cskh/ket-qua/[tepId]/khoi-phuc` · `src/dashboard/app/api/cskh/ket-qua/[tepId]/khoi-phuc/route.ts`
 - POST `/api/v1/cskh/ket-qua/tep/{tep_id}/khoi-phuc` → `src/clinicai/api/v1/routers/cskh.py:khoi_phuc_tep_ket_qua` → TepKetQuaService.khoi_phuc_tep
 - test: src/tests/services/test_day_tep_db.py, src/tests/services/test_xoa_mem_tep_db.py
@@ -933,12 +928,6 @@ Mỗi `app/api/**/route.ts`: đường `/api/v1` nó proxy → hàm router FastA
 - test: src/tests/services/test_man_khach_hang_callback_db.py, src/tests/unit/test_so_tuong_tac_cskh.py
 - màn dùng: /customers, /nhac-tai-kham
 
-#### `/api/cskh/zalo` · `src/dashboard/app/api/cskh/zalo/route.ts`
-- GET `/api/v1/cskh/zalo/trang-thai` → `src/clinicai/api/v1/routers/cskh.py:zalo_trang_thai` → zalo.dang_bat, zalo.template_cho
-- POST `/api/v1/cskh/zalo/gui` → `src/clinicai/api/v1/routers/cskh.py:gui_zalo` → GuiZaloService.gui
-- test: src/tests/services/test_zalo_provider.py, src/tests/unit/test_so_tuong_tac_cskh.py, src/tests/unit/test_recall_callback_consistency.py
-- màn dùng: (không màn nào gọi thấy được ?)
-
 #### `/api/day-noi` · `src/dashboard/app/api/day-noi/route.ts`
 - GET `/api/v1/day-noi` → `src/clinicai/api/v1/routers/day_noi.py:doc_day_noi` → DayNoiService.doc
 - [day] PATCH `/api/v1/day-noi/day` → `src/clinicai/api/v1/routers/day_noi.py:dat_day` → DayNoiService.dat_day
@@ -967,11 +956,6 @@ Mỗi `app/api/**/route.ts`: đường `/api/v1` nó proxy → hàm router FastA
 - POST `/api/v1/dispatch/doi-bac-si` → `src/clinicai/api/v1/routers/dispatch.py:doi_bac_si` → DoiBacSiService.doi
 - test: src/tests/api/test_dieu_phoi_api_1509.py, src/tests/services/test_bac_si_khac_nhan_khach_db.py, src/tests/services/test_dieu_phoi_chi_chi_dinh_da_duyet.py (+1)
 - màn dùng: /truong-ca
-
-#### `/api/dispatch/alerts-call` · `src/dashboard/app/api/dispatch/alerts-call/route.ts`
-- POST `/api/v1/dispatch/alerts/call` → `src/clinicai/api/v1/routers/dispatch.py:call_department` → ThongBaoService.goi
-- test: src/tests/services/test_so_sua_chi_dinh_db.py, src/tests/unit/test_cua_ngo_ghi_moi.py
-- màn dùng: (không màn nào gọi thấy được ?)
 
 #### `/api/doi-tac` · `src/dashboard/app/api/doi-tac/route.ts`
 - GET `/api/v1/doi-tac/viec` → `src/clinicai/api/v1/routers/doi_tac.py:viec_cua_doi_tac` → DoiTacService.viec_doi_tac
@@ -1090,11 +1074,6 @@ Mỗi `app/api/**/route.ts`: đường `/api/v1` nó proxy → hàm router FastA
 - PUT `/api/v1/ke-toan/thue-suat/nhom/{nhom}` → `src/clinicai/api/v1/routers/ke_toan.py:dat_thue_nhom` → ThueSuatService.dat_nhom
 - test: src/tests/services/test_thue_gtgt_db.py
 - màn dùng: /ke-toan
-
-#### `/api/lab-result` · `src/dashboard/app/api/lab-result/route.ts`
-- POST `/api/v1/lab/orders` → `src/clinicai/api/v1/routers/lab.py:order_lab_test` → ĐÃ NGHỈ — trả 410 (`clinicai/api/nghi_huu.py`), đừng sửa ở đây
-- PATCH `/api/v1/lab/results/{lab_result_id}` → `src/clinicai/api/v1/routers/lab.py:enter_lab_result` → ĐÃ NGHỈ — trả 410 (`clinicai/api/nghi_huu.py`), đừng sửa ở đây
-- màn dùng: (không màn nào gọi thấy được ?)
 
 #### `/api/lab-result/[id]/review` · `src/dashboard/app/api/lab-result/[id]/review/route.ts`
 - POST `/api/v1/lab/results/{lab_result_id}/review` → `src/clinicai/api/v1/routers/lab.py:review_and_finalize_lab_result` → LabSafetyService.finalize_review
@@ -1290,11 +1269,6 @@ Mỗi `app/api/**/route.ts`: đường `/api/v1` nó proxy → hàm router FastA
 - GET `/api/v1/patients/check-duplicate` → `src/clinicai/api/v1/patients.py:check_duplicate` → MPIService.find_candidates + SQL ngay trong router
 - test: src/tests/unit/test_mpi_service.py, src/tests/unit/test_trung_ten_don_thuan.py
 - màn dùng: /appointments, /patients/new
-
-#### `/api/patients/check-phone` · `src/dashboard/app/api/patients/check-phone/route.ts`
-- backend: (không proxy /api/v1 — xử lý tại chỗ hoặc lối khác ?)
-- ⚠ đọc DB thẳng: patient
-- màn dùng: (không màn nào gọi thấy được ?)
 
 #### `/api/patients/dia-chi-xlsx` · `src/dashboard/app/api/patients/dia-chi-xlsx/route.ts`
 - GET `/api/v1/patients/danh-sach-xlsx` → `src/clinicai/api/v1/patients.py:xuat_dia_chi_khach_excel` → xuat_dia_chi_khach
@@ -1563,11 +1537,6 @@ Mỗi `app/api/**/route.ts`: đường `/api/v1` nó proxy → hàm router FastA
 - test: src/tests/services/test_ca_truc_lam_sang_db.py, src/tests/services/test_doi_nguoi_trong_ca_db.py
 - màn dùng: /schedule
 
-#### `/api/service-log` · `src/dashboard/app/api/service-log/route.ts`
-- POST `/api/v1/service-log` → `src/clinicai/api/v1/routers/service_log.py:create_service_item` → ĐÃ NGHỈ — trả 410 (`clinicai/api/nghi_huu.py`), đừng sửa ở đây
-- PATCH `/api/v1/service-log/{row_id}` → `src/clinicai/api/v1/routers/service_log.py:progress_service_item` → ĐÃ NGHỈ — trả 410 (`clinicai/api/nghi_huu.py`), đừng sửa ở đây
-- màn dùng: (không màn nào gọi thấy được ?)
-
 #### `/api/service-price` · `src/dashboard/app/api/service-price/route.ts`
 - GET `/api/v1/service-prices/danh-muc` → `src/clinicai/api/v1/routers/config.py:danh_muc_dich_vu` → DanhMucDichVuService.doc
 - GET `/api/v1/service-prices/phong-lam` → `src/clinicai/api/v1/routers/config.py:list_phong_lam` → PriceListService.phong_lam
@@ -1581,12 +1550,6 @@ Mỗi `app/api/**/route.ts`: đường `/api/v1` nó proxy → hàm router FastA
 - POST `/api/v1/service-prices/vat-tu/hang-loat` → `src/clinicai/api/v1/routers/config.py:dat_co_vat_tu_hang_loat` → dat_co_hang_loat
 - test: src/tests/services/test_vat_tu_hang_loat_db.py
 - màn dùng: /kho-vat-tu
-
-#### `/api/sono` · `src/dashboard/app/api/sono/route.ts`
-- POST `/api/v1/sono/queue` → `src/clinicai/api/v1/routers/service_log.py:create_sono_row` → ĐÃ NGHỈ — trả 410 (`clinicai/api/nghi_huu.py`), đừng sửa ở đây
-- PATCH `/api/v1/sono/queue/{row_id}` → `src/clinicai/api/v1/routers/service_log.py:progress_sono_row` → ĐÃ NGHỈ — trả 410 (`clinicai/api/nghi_huu.py`), đừng sửa ở đây
-- DELETE `/api/v1/sono/queue/{row_id}` → `src/clinicai/api/v1/routers/service_log.py:remove_sono_row` → ĐÃ NGHỈ — trả 410 (`clinicai/api/nghi_huu.py`), đừng sửa ở đây
-- màn dùng: (không màn nào gọi thấy được ?)
 
 #### `/api/staff` · `src/dashboard/app/api/staff/route.ts`
 - GET `/api/v1/staff` → `src/clinicai/api/v1/routers/staff.py:list_staff` → StaffService.list_assignable, StaffService.list_active
@@ -1636,12 +1599,6 @@ Mỗi `app/api/**/route.ts`: đường `/api/v1` nó proxy → hàm router FastA
 - test: src/tests/services/test_luat_1509_sieu_am_va_hang_cho.py, src/tests/services/test_loc_co_so_nhom_c_db.py, src/tests/services/test_luat_1509_thu_ky_va_dieu_phoi.py (+1)
 - màn dùng: /ban-kham, /ban-kham/[phong], /patient-list, /tu-van
 
-#### `/api/ultrasound/image` · `src/dashboard/app/api/ultrasound/image/route.ts`
-- POST `/api/v1/ultrasound/{ultrasound_id}/image` → `src/clinicai/api/v1/routers/ultrasound.py:upload_image` → MediaService.attach_ultrasound_image
-- GET `/api/v1/ultrasound/image` → `src/clinicai/api/v1/routers/ultrasound.py:get_image` → MediaService.read_ultrasound_image
-- test: src/tests/services/test_media.py, src/tests/unit/test_kho_tep_ghi.py
-- màn dùng: (không màn nào gọi thấy được ?)
-
 #### `/api/vat-tu-kho/[action]` · `src/dashboard/app/api/vat-tu-kho/[action]/route.ts`
 - [ton] GET `/api/v1/vat-tu-kho/ton` → `src/clinicai/api/v1/routers/vat_tu_kho.py:ton` → vat_tu_kho_service.doc_ton, vat_tu_kho_man_service.doc_noi_chua, vat_tu_kho_man_service.doc_vat_tu_chon
 - [canh-bao] GET `/api/v1/vat-tu-kho/canh-bao` → `src/clinicai/api/v1/routers/vat_tu_kho.py:canh_bao` → vat_tu_kho_man_service.doc_canh_bao
@@ -1665,44 +1622,6 @@ Mỗi `app/api/**/route.ts`: đường `/api/v1` nó proxy → hàm router FastA
 - test: src/tests/services/test_vat_tu_ban_kho_db.py, src/tests/services/test_vat_tu_kho_man_db.py, src/tests/services/test_mo_phong_vat_tu_day_du_db.py (+7)
 - màn dùng: /kho-vat-tu
 
-#### `/api/visits/[id]/charges` · `src/dashboard/app/api/visits/[id]/charges/route.ts`
-- GET `/api/v1/visits/{visit_id}/charges` → `src/clinicai/api/v1/routers/work_items.py:visit_charges` → CashierScopeService.active_visit, ServiceOrderService.charges
-- test: src/tests/services/test_cashier_scope_db.py, src/tests/services/test_luat_1509_nhap_chi_dinh_va_ky.py, src/tests/unit/test_payment_access.py
-- màn dùng: (không màn nào gọi thấy được ?)
-
-#### `/api/visits/[id]/service-orders` · `src/dashboard/app/api/visits/[id]/service-orders/route.ts`
-- POST `/api/v1/visits/{visit_id}/service-orders` → `src/clinicai/api/v1/routers/work_items.py:order_services` → ĐÃ NGHỈ — trả 410 (`clinicai/api/nghi_huu.py`), đừng sửa ở đây
-- màn dùng: (không màn nào gọi thấy được ?)
-
-#### `/api/visits/[id]/service-orders/current` · `src/dashboard/app/api/visits/[id]/service-orders/current/route.ts`
-- GET `/api/v1/visits/{visit_id}/service-orders/current` → `src/clinicai/api/v1/routers/work_items.py:current_service_orders` → ServiceOrderService.dang_chi_dinh
-- test: src/tests/services/test_luat_1509_thu_ky_va_dieu_phoi.py
-- màn dùng: (không màn nào gọi thấy được ?)
-
-#### `/api/visits/[id]/service-orders/draft` · `src/dashboard/app/api/visits/[id]/service-orders/draft/route.ts`
-- GET `/api/v1/visits/{visit_id}/service-orders/draft` → `src/clinicai/api/v1/routers/work_items.py:get_service_order_draft` → ServiceOrderService.get_draft
-- POST `/api/v1/visits/{visit_id}/service-orders/draft` → `src/clinicai/api/v1/routers/work_items.py:add_to_service_order_draft` → ĐÃ NGHỈ — trả 410 (`clinicai/api/nghi_huu.py`), đừng sửa ở đây
-- PUT `/api/v1/visits/{visit_id}/service-orders/draft` → `src/clinicai/api/v1/routers/work_items.py:replace_service_order_draft` → ĐÃ NGHỈ — trả 410 (`clinicai/api/nghi_huu.py`), đừng sửa ở đây
-- test: src/tests/services/test_luat_1509_nhap_chi_dinh_va_ky.py, src/tests/services/test_service_order_draft.py
-- màn dùng: (không màn nào gọi thấy được ?)
-
-#### `/api/visits/[id]/service-orders/draft/approve` · `src/dashboard/app/api/visits/[id]/service-orders/draft/approve/route.ts`
-- POST `/api/v1/visits/{visit_id}/service-orders/draft/approve` → `src/clinicai/api/v1/routers/work_items.py:approve_service_order_draft` → ĐÃ NGHỈ — trả 410 (`clinicai/api/nghi_huu.py`), đừng sửa ở đây
-- màn dùng: (không màn nào gọi thấy được ?)
-
-#### `/api/visits/[id]/service-orders/draft/discard` · `src/dashboard/app/api/visits/[id]/service-orders/draft/discard/route.ts`
-- POST `/api/v1/visits/{visit_id}/service-orders/draft/discard` → `src/clinicai/api/v1/routers/work_items.py:discard_service_order_draft` → ĐÃ NGHỈ — trả 410 (`clinicai/api/nghi_huu.py`), đừng sửa ở đây
-- màn dùng: (không màn nào gọi thấy được ?)
-
-#### `/api/visits/[id]/service-orders/duplicates` · `src/dashboard/app/api/visits/[id]/service-orders/duplicates/route.ts`
-- POST `/api/v1/visits/{visit_id}/service-orders/duplicates` → `src/clinicai/api/v1/routers/work_items.py:check_duplicates` → ServiceOrderService.duplicates
-- test: src/tests/services/test_luat_1509_nhap_chi_dinh_va_ky.py, src/tests/services/test_service_order_draft.py
-- màn dùng: (không màn nào gọi thấy được ?)
-
-#### `/api/visits/[id]/service-orders/remove` · `src/dashboard/app/api/visits/[id]/service-orders/remove/route.ts`
-- POST `/api/v1/visits/{visit_id}/service-orders/remove` → `src/clinicai/api/v1/routers/work_items.py:remove_service_order` → ĐÃ NGHỈ — trả 410 (`clinicai/api/nghi_huu.py`), đừng sửa ở đây
-- màn dùng: (không màn nào gọi thấy được ?)
-
 #### `/api/visits/[id]/theo-doi-thu-thuat` · `src/dashboard/app/api/visits/[id]/theo-doi-thu-thuat/route.ts`
 - GET `/api/v1/visits/{visit_id}/theo-doi-thu-thuat` → `src/clinicai/api/v1/routers/theo_doi_thu_thuat.py:doc_theo_doi` → TheoDoiThuThuatService.doc
 - PUT `/api/v1/visits/{visit_id}/theo-doi-thu-thuat` → `src/clinicai/api/v1/routers/theo_doi_thu_thuat.py:dat_theo_doi` → TheoDoiThuThuatService.dat
@@ -1716,11 +1635,6 @@ Mỗi `app/api/**/route.ts`: đường `/api/v1` nó proxy → hàm router FastA
 #### `/api/work-items` · `src/dashboard/app/api/work-items/route.ts`
 - GET `/api/v1/work-items` → `src/clinicai/api/v1/routers/work_items.py:worklist` → QUYEN_THEO_KHU.get, doi_quyen, WorkItemService.list_worklist
 - test: src/tests/api/test_worklist.py, src/tests/services/test_doi_nguoi_trong_ca_db.py, src/tests/services/test_permission_db.py (+2)
-- màn dùng: (không màn nào gọi thấy được ?)
-
-#### `/api/work-items/[id]/blockers` · `src/dashboard/app/api/work-items/[id]/blockers/route.ts`
-- GET `/api/v1/work-items/{work_item_id}/blockers` → `src/clinicai/api/v1/routers/work_items.py:work_item_blockers` → WorkItemService.blockers
-- test: src/tests/test_work_item_service.py
 - màn dùng: (không màn nào gọi thấy được ?)
 
 #### `/api/work-items/[id]/commands/[command]` · `src/dashboard/app/api/work-items/[id]/commands/[command]/route.ts`
