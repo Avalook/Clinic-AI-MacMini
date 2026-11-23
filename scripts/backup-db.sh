@@ -33,8 +33,16 @@ REPO="$(cd "$(dirname "$0")/.." && pwd)"
 # phép đặt bằng biến — systemd trên VPS trỏ vào ~/.local/state.
 LOG="${CLINIC_BACKUP_LOG:-$HOME/Library/Logs/clinicai-backup.log}"
 BACKUP_DIR="${CLINIC_BACKUP_DIR:-$HOME/backups/clinicai}"
-# Số ngày giữ bản dump — đêm: 7; bản 15 phút (clinicai-backup-15p): 2.
+# Số ngày giữ bản dump — đêm: 7.
 KEEP_DAYS="${BACKUP_KEEP_DAYS:-7}"
+# Giữ theo PHÚT, đè KEEP_DAYS và MEDIA_KEEP_DAYS khi đặt — bản 15 phút dùng 1440.
+# Vì sao không dùng ngày: `find -mtime +2` chỉ xoá tệp đủ 3 ngày, và 61 bản/ngày ×
+# 95 MB đã lấp 17 GB ổ gốc 48 GB (23/11/2026, còn 2,1 GB). Bản CFS giữ 2 ngày,
+# bản đêm giữ 7 ngày — ổ máy chủ chỉ cần ngày gần nhất.
+KEEP_MINUTES="${BACKUP_KEEP_MINUTES:-}"
+case "$KEEP_MINUTES" in
+    ''|*[!0-9]*|0) KEEP_MINUTES="" ;;
+esac
 MIN_ARCHIVE_BYTES="${BACKUP_MIN_ARCHIVE_BYTES:-1024}"
 
 mkdir -p "$(dirname "$LOG")" "$BACKUP_DIR"
@@ -559,16 +567,24 @@ if [ "${BACKUP_LICH_SU_NOTION:-0}" = "1" ]; then
     fi
 fi
 
-# Prune old backups (keep last KEEP_DAYS days).
-DELETED=$(find "$BACKUP_DIR" -name "clinicai_*.sql.gz" -mtime +${KEEP_DAYS} -print -delete 2>> "$LOG" | wc -l | tr -d ' ')
-find "$BACKUP_DIR" -name "clinicai_*.sql.gz.manifest" -mtime +${KEEP_DAYS} -delete 2>> "$LOG"
-find "$BACKUP_DIR" -name "clinicai_*_auth.sql.gz" -mtime +${KEEP_DAYS} -delete 2>> "$LOG"
-[ "$DELETED" -gt 0 ] && log "Pruned $DELETED backup(s) older than ${KEEP_DAYS} days"
+# Prune old backups. Chỉ tới đây khi bản mới đã dump + kiểm xong (set -e), nên
+# không bao giờ xoá bản cũ lúc chưa có bản mới thay.
+if [ -n "$KEEP_MINUTES" ]; then
+    TUOI=(-mmin "+${KEEP_MINUTES}"); TUOI_MEDIA=("${TUOI[@]}")
+    GIU="${KEEP_MINUTES} phút"; GIU_MEDIA="$GIU"
+else
+    TUOI=(-mtime "+${KEEP_DAYS}"); TUOI_MEDIA=(-mtime "+${MEDIA_KEEP_DAYS}")
+    GIU="${KEEP_DAYS} days"; GIU_MEDIA="${MEDIA_KEEP_DAYS} days"
+fi
+DELETED=$(find "$BACKUP_DIR" -name "clinicai_*.sql.gz" "${TUOI[@]}" -print -delete 2>> "$LOG" | wc -l | tr -d ' ')
+find "$BACKUP_DIR" -name "clinicai_*.sql.gz.manifest" "${TUOI[@]}" -delete 2>> "$LOG"
+find "$BACKUP_DIR" -name "clinicai_*_auth.sql.gz" "${TUOI[@]}" -delete 2>> "$LOG"
+[ "$DELETED" -gt 0 ] && log "Pruned $DELETED backup(s) older than ${GIU}"
 # Media giữ ÍT hơn — xem lý do ở phần tạo tệp. Đây là ổ 48G, và bảy bản của
 # cùng một tập ảnh bất biến sẽ lấp nó trước khi ai kịp nhận ra.
-MEDIA_DELETED=$(find "$BACKUP_DIR" -name "clinicai_*_media.tar.gz" -mtime +${MEDIA_KEEP_DAYS} -print -delete 2>> "$LOG" | wc -l | tr -d ' ')
-find "$BACKUP_DIR" -name "clinicai_*_tep-chua-day.tar" -mtime +${MEDIA_KEEP_DAYS} -delete 2>> "$LOG" || true
-[ "${MEDIA_DELETED:-0}" -gt 0 ] && log "Pruned $MEDIA_DELETED media archive(s) older than ${MEDIA_KEEP_DAYS} days"
+MEDIA_DELETED=$(find "$BACKUP_DIR" -name "clinicai_*_media.tar.gz" "${TUOI_MEDIA[@]}" -print -delete 2>> "$LOG" | wc -l | tr -d ' ')
+find "$BACKUP_DIR" -name "clinicai_*_tep-chua-day.tar" "${TUOI_MEDIA[@]}" -delete 2>> "$LOG" || true
+[ "${MEDIA_DELETED:-0}" -gt 0 ] && log "Pruned $MEDIA_DELETED media archive(s) older than ${GIU_MEDIA}"
 
 # Optional: push to Cloudflare R2 via rclone.
 # Configure rclone first: rclone config (provider: Cloudflare R2)

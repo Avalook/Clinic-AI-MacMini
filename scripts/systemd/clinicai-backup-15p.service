@@ -17,9 +17,12 @@ Environment=PG_DUMP_BIN=/home/clinicai/clinicai/scripts/pg-dump-qua-container.sh
 Environment=CLINIC_DB_CONTAINER=clinicai_db
 Environment=BACKUP_ENV_FILE=/home/clinicai/clinicai/.env.prod
 Environment=CLINIC_BACKUP_LOG=/home/clinicai/.local/state/clinicai-backup-15p.log
-# Thư mục RIÊNG + giữ 2 ngày: bản đêm (7 ngày) không bị lẫn/dọn nhầm.
+# Thư mục RIÊNG: bản đêm (7 ngày) không bị lẫn/dọn nhầm. Trên ổ máy chủ chỉ giữ
+# 24 giờ — bản sao trên CFS giữ 2 ngày, bản đêm 7 ngày. Giữ "2 ngày" bằng
+# `-mtime +2` thực ra là ~3 ngày × 61 bản × 95 MB = 17 GB, ổ gốc còn 2,1 GB
+# (23/11/2026) — sát ngưỡng từ chối tải tệp lên.
 Environment=CLINIC_BACKUP_DIR=/home/clinicai/backups/clinicai-15p
-Environment=BACKUP_KEEP_DAYS=2
+Environment=BACKUP_KEEP_MINUTES=1440
 
 ExecStart=/home/clinicai/clinicai/scripts/backup-db.sh
 

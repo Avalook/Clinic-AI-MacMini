@@ -52,6 +52,11 @@ services:
     <<: *supabase-defaults
     image: postgres:17
     container_name: ${SUPABASE_PREFIX:-clinicai}_db
+    # Docker cho mỗi container /dev/shm 64 MB. Postgres chạy truy vấn song song
+    # (parallel query) xin bộ nhớ chung ở đó; đầy thì truy vấn ném "could not
+    # resize shared memory segment … No space left on device" — chuông thông
+    # báo prod hỏng 161 lần 17–22/11/2026. Chỉ tốn RAM khi thật sự dùng.
+    shm_size: ${SUPABASE_DB_SHM_SIZE:-512mb}
     environment:
       POSTGRES_PASSWORD: ${SUPABASE_DB_PASSWORD:?can mat khau}
       POSTGRES_DB: postgres
