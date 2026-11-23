@@ -16,7 +16,11 @@ import sys
 
 from clinicai.adapters.don_thuoc_quoc_gia.that import ProviderThat
 from clinicai.ports.don_thuoc_quoc_gia import GuiDonError
-from clinicai.services.don_thuoc_quoc_gia.cau_hinh import THAT, CauHinh, doc_cau_hinh
+from clinicai.services.don_thuoc_quoc_gia.cau_hinh import (
+    THAT,
+    CauHinh,
+    doc_cau_hinh_dtqg,
+)
 
 _MODULE = "clinicai.services.don_thuoc_quoc_gia.them_bac_si"
 
@@ -26,7 +30,7 @@ def chuan_bi(argv: list[str], env: dict[str, str]) -> tuple[CauHinh, str, str] |
     if len(argv) != 1:
         # Viết cứng: chạy bằng `python -m` thì __name__ là "__main__".
         return "Cách dùng: python -m " + _MODULE + " <staff_id>"
-    ch = doc_cau_hinh(env)
+    ch = doc_cau_hinh_dtqg(env)
     if isinstance(ch, list):
         return "Cấu hình sai: " + "; ".join(ch)
     if ch.nha_cung_cap != THAT:
@@ -40,20 +44,20 @@ def chuan_bi(argv: list[str], env: dict[str, str]) -> tuple[CauHinh, str, str] |
     return ch, tk.ma_lien_thong, mk
 
 
-async def _chay(ch: CauHinh, ma_bs: str, mk: str) -> str:
+async def _goi_them_bac_si(ch: CauHinh, ma_bs: str, mk: str) -> str:
     p = ProviderThat(
         url=ch.url, ma_lien_thong_co_so=ch.ma_lien_thong_co_so or "", mat_khau_bac_si={}
     )
     return await p.them_bac_si(ma_bs, mk)
 
 
-def main() -> int:
+def chay_lenh_them_bac_si() -> int:
     kq = chuan_bi(sys.argv[1:], dict(os.environ))
     if isinstance(kq, str):
         print(kq, file=sys.stderr)
         return 2
     try:
-        print(asyncio.run(_chay(*kq)))
+        print(asyncio.run(_goi_them_bac_si(*kq)))
     except GuiDonError as e:
         print(f"Không thêm được: {e}", file=sys.stderr)
         return 1
@@ -61,4 +65,4 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    raise SystemExit(chay_lenh_them_bac_si())

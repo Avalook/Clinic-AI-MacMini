@@ -50,7 +50,7 @@ def da_ton_tai(loi: str) -> bool:
     return bool(_MA_DON.search(s) and _TRUNG.search(s))
 
 
-def _ngay(iso: str | None) -> str:
+def _ngay_dmy(iso: str | None) -> str:
     """yyyy-mm-dd → d/m/Y (dd/mm/yyyy) như [808]."""
     return date.fromisoformat(iso).strftime("%d/%m/%Y") if iso else ""
 
@@ -66,7 +66,7 @@ def goi_api(goi: GoiDon, chu_ky: ChuKy | None) -> dict[str, Any]:
         "ho_ten_benh_nhan": nb.ho_ten,
         "ma_dinh_danh_y_te": "",
         "ma_dinh_danh_cong_dan": nb.so_dinh_danh or "",
-        "ngay_sinh_benh_nhan": _ngay(nb.ngay_sinh),
+        "ngay_sinh_benh_nhan": _ngay_dmy(nb.ngay_sinh),
         # Không bắt buộc (chỉ bắt buộc với trẻ < 72 tháng) — ClinicAI không lưu
         # cân nặng theo lượt; gửi null thay vì bịa số 0 [ĐOÁN].
         "can_nang": None,

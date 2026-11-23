@@ -14,7 +14,7 @@ import pytest
 
 from clinicai.adapters.don_thuoc_quoc_gia.that import ProviderThat, da_ton_tai, goi_api
 from clinicai.ports.don_thuoc_quoc_gia import BacSiKe, DongThuoc, GuiDonError
-from clinicai.services.don_thuoc_quoc_gia.cau_hinh import CauHinh, doc_cau_hinh
+from clinicai.services.don_thuoc_quoc_gia.cau_hinh import CauHinh, doc_cau_hinh_dtqg
 from clinicai.services.don_thuoc_quoc_gia.them_bac_si import chuan_bi
 from clinicai.services.don_thuoc_quoc_gia.vong import dung_nha_cung_cap
 from tests.unit.test_don_thuoc_quoc_gia import BS, ENV, ENV_THAT, MAT_KHAU, _goi
@@ -147,7 +147,7 @@ def test_repr_khong_lo_mat_khau() -> None:
     p, _ = _that(lambda r, n: httpx.Response(200))
     p._token["01000123HCM"] = ("tok-bi-mat", 0.0)
     assert MAT_KHAU not in repr(p) and "tok-bi-mat" not in repr(p)
-    ch = doc_cau_hinh(ENV_THAT)
+    ch = doc_cau_hinh_dtqg(ENV_THAT)
     assert isinstance(ch, CauHinh) and MAT_KHAU not in repr(ch)
 
 
@@ -183,7 +183,7 @@ def test_that_doi_them_truong_qd_808() -> None:
 
 
 def test_dung_nha_cung_cap_that_giu_mot_ban_nho_token() -> None:
-    ch = doc_cau_hinh(ENV_THAT)
+    ch = doc_cau_hinh_dtqg(ENV_THAT)
     assert isinstance(ch, CauHinh)
     a, b = dung_nha_cung_cap(ch), dung_nha_cung_cap(ch)
     assert a is not None and b is not None
