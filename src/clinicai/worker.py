@@ -5,7 +5,7 @@ Không cờ nào = lỗi (thoát mã 2). Chế độ mặc định cũ "RabbitMQ
 profile `workers`; đường bất đồng bộ thật là outbox Postgres — Mode 4).
 
 Mode 2 (relay): Notification outbox relay — polls ``event_log`` and delivers
-  notifications via Telegram/Zalo. Does NOT need RabbitMQ.
+  notifications via Telegram/Zalo.
   Run:  python -m clinicai.worker --relay
   Env:  DATABASE_URL, TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID,
         TELEGRAM_CLINIC_ID
