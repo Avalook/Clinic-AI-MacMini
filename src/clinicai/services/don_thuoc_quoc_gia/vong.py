@@ -1,0 +1,138 @@
+"""Một vòng liên thông đơn thuốc quốc gia trong worker `su-kien`.
+
+Worker chỉ gọi `mot_vong` khi `cau_hinh.da_bat()` — công tắc tắt thì module này
+không chạy một câu SQL nào. Bật mà cấu hình sai → không gửi gì, mở cảnh báo
+`DTQG_CAU_HINH_SAI` để người trực thấy ở /ops thay vì im lặng.
+
+Canh gác (cùng bảng `canh_bao`, cùng kênh Telegram ops — chỉ SỐ ĐẾM, không tên
+khách):
+  · DTQG_TON_DONG  đơn chờ gửi quá `TON_DONG_PHUT` phút (mạng / hệ thống quốc gia hỏng)
+  · DTQG_LOI       đơn dừng hẳn (thiếu dữ liệu, bị từ chối, hết lượt thử)
+"""
+
+from __future__ import annotations
+
+from collections.abc import Mapping
+from typing import Any
+
+import asyncpg
+import structlog
+
+from clinicai.adapters.don_thuoc_quoc_gia.gia_lap import KhongKy, ProviderGiaLap
+from clinicai.ports.don_thuoc_quoc_gia import DonThuocQuocGiaProvider, KySoDonThuoc
+from clinicai.services import canh_gac
+from clinicai.services.canh_gac import KetQuaKiem
+from clinicai.services.don_thuoc_quoc_gia.cau_hinh import (
+    GIA_LAP,
+    CauHinh,
+    da_bat,
+    doc_cau_hinh,
+)
+from clinicai.services.don_thuoc_quoc_gia.gui import gui_den_han
+from clinicai.services.don_thuoc_quoc_gia.hang_cho import vao_hang
+
+logger = structlog.get_logger()
+
+#: Nhịp trong vòng su-kien (giây).
+NHIP_GIAY = 60
+TON_DONG_PHUT = 30
+
+_SO_SQL = """
+SELECT
+  count(*) FILTER (WHERE public.dtqg_trang_thai(g) = 'CHO_GUI'
+                     AND g.tao_luc < now() - make_interval(mins => $2::int))
+    AS ton_dong,
+  count(*) FILTER (WHERE public.dtqg_trang_thai(g) = 'LOI') AS loi
+  FROM public.dtqg_gui g
+ WHERE g.clinic_id = $1::uuid
+   AND g.da_gui_luc IS NULL
+   AND g.tao_luc > now() - make_interval(days => $3::int)
+"""
+#: Đơn LOI chỉ giữ cảnh báo mở chừng này ngày — không có màn "đã xử lý", nên
+#: không giới hạn thì một đơn gỡ hết sau khi gửi giữ cảnh báo mở mãi mãi.
+LOI_TRONG_NGAY = 7
+
+
+def danh_gia(so: Mapping[str, Any]) -> list[KetQuaKiem]:
+    """HÀM THUẦN: số đếm → cảnh báo."""
+    loi_cau_hinh: list[str] = list(so.get("loi_cau_hinh") or [])
+    ra = [
+        KetQuaKiem(
+            "DTQG_CAU_HINH_SAI",
+            "critical",
+            bool(loi_cau_hinh),
+            "Liên thông đơn thuốc quốc gia BẬT nhưng cấu hình sai — chưa gửi đơn"
+            " nào: " + "; ".join(loi_cau_hinh),
+        )
+    ]
+    if loi_cau_hinh:
+        return ra
+    ton, loi = int(so.get("ton_dong", 0)), int(so.get("loi", 0))
+    ra += [
+        KetQuaKiem(
+            "DTQG_TON_DONG",
+            "warning",
+            ton > 0,
+            f"{ton} đơn thuốc chờ gửi Hệ thống đơn thuốc quốc gia quá"
+            f" {TON_DONG_PHUT} phút.",
+        ),
+        KetQuaKiem(
+            "DTQG_LOI",
+            "warning",
+            loi > 0,
+            f"{loi} đơn thuốc KHÔNG gửi được lên Hệ thống đơn thuốc quốc gia"
+            " (thiếu dữ liệu / bị từ chối) — xem docs/LIEN-THONG-DON-THUOC.md.",
+        ),
+    ]
+    return ra
+
+
+def dung_nha_cung_cap(
+    ch: CauHinh,
+) -> tuple[DonThuocQuocGiaProvider, KySoDonThuoc] | None:
+    """Nhà cung cấp + bộ ký số theo cấu hình (đã kiểm ở `doc_cau_hinh`); None =
+    bản này chưa có adapter cho lựa chọn ấy. Bộ ký số thật chưa chọn (docs)."""
+    if ch.nha_cung_cap == GIA_LAP:
+        return _GIA_LAP, KhongKy()
+    # Adapter hệ thống thật (QĐ 808) đến ở PR kế tiếp.
+    return None
+
+
+# Dùng chung một bản trong tiến trình (giả lập nhớ đơn đã nhận).
+_GIA_LAP = ProviderGiaLap()
+
+
+async def mot_vong(
+    pool: asyncpg.Pool,
+    *,
+    env: Mapping[str, str] | None = None,
+    nha_cung_cap: tuple[DonThuocQuocGiaProvider, KySoDonThuoc] | None = None,
+) -> dict[str, Any]:
+    """Soát → vào hàng → gửi → canh gác. Không bao giờ ném. Công tắc tắt → về
+    ngay, không một câu SQL (worker cũng kiểm trước khi gọi — hai lớp)."""
+    if not da_bat(env):
+        return {"tat": True}
+    ket: dict[str, Any] = {"vao_hang": 0, "da_gui": 0}
+    try:
+        ch = doc_cau_hinh(env)
+        if isinstance(ch, list):
+            ket["loi_cau_hinh"] = ch
+            await canh_gac.ap_dung(pool, danh_gia(ket))
+            return ket
+        ncc = nha_cung_cap or dung_nha_cung_cap(ch)
+        if ncc is None:
+            ket["loi_cau_hinh"] = [f"chưa có adapter cho '{ch.nha_cung_cap}'"]
+            await canh_gac.ap_dung(pool, danh_gia(ket))
+            return ket
+        provider, ky_so = ncc
+        ket["vao_hang"] = await vao_hang(pool, ch)
+        ket["da_gui"] = await gui_den_han(pool, ch, provider, ky_so)
+        r = await pool.fetchrow(_SO_SQL, ch.clinic_id, TON_DONG_PHUT, LOI_TRONG_NGAY)
+        ket.update(dict(r) if r else {})
+        await canh_gac.ap_dung(pool, danh_gia(ket))
+    except Exception:  # noqa: BLE001 — một vòng hỏng không được làm chết su-kien
+        logger.exception("dtqg_vong_hong")
+    return ket
+
+
+__all__ = ["NHIP_GIAY", "danh_gia", "dung_nha_cung_cap", "mot_vong"]

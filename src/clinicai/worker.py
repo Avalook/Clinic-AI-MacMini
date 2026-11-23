@@ -283,6 +283,10 @@ async def _run_su_kien() -> None:
     lan_agent = 0.0
     # SỔ CHẠY BÓNG quyền (04/11/2026): dọn dòng > 45 ngày, mỗi giờ một lượt.
     lan_don_bong = 0.0
+    from clinicai.services.don_thuoc_quoc_gia import cau_hinh as dtqg_cau_hinh
+    from clinicai.services.don_thuoc_quoc_gia import vong as dtqg_vong
+
+    lan_dtqg = 0.0
     # Job dọn ổ tệp kết quả (V9) đã chuyển sang container `day-tep` (01/10/2026)
     # — service này không gắn ổ nào.
 
@@ -325,6 +329,15 @@ async def _run_su_kien() -> None:
                 if canh and time.monotonic() - lan_don_bong >= 3600:
                     lan_don_bong = time.monotonic()
                     await chay_bong.don_cu(pool)
+                # ĐƠN THUỐC QUỐC GIA (24/11/2026): công tắc DTQG_BAT, mặc định
+                # tắt — tắt thì không chạy một câu SQL nào của module.
+                if (
+                    canh
+                    and dtqg_cau_hinh.da_bat()
+                    and time.monotonic() - lan_dtqg >= dtqg_vong.NHIP_GIAY
+                ):
+                    lan_dtqg = time.monotonic()
+                    await dtqg_vong.mot_vong(pool)
                 _beat()
             except Exception:
                 # Một bên nhận hỏng không được làm chết vòng giao tin.
