@@ -32,6 +32,12 @@ Các điều khoản dưới đây đã đối chiếu với văn bản gốc:
    của bác sĩ…): đơn đã lên hệ thống quốc gia thì **không sửa hay huỷ được**. QĐ 808
    không có API sửa/huỷ, và QĐ 425 Điều 9 cấm. Phần mềm vì vậy gửi một **đơn thay
    thế với mã mới**. Đơn cũ vẫn nằm trên hệ thống.
+   - Đơn thay thế chỉ sinh ra khi **phần đơn** đổi: thuốc, chẩn đoán, bác sĩ, họ tên,
+     ngày sinh người bệnh. Lễ tân sửa SĐT, địa chỉ hay CCCD **sau khi đã gửi** thì
+     không sinh đơn thay thế, để người bệnh không phải cầm hai mã cho cùng một đơn.
+   - Đơn **chưa** gửi được thì khác: mọi thay đổi đều được tính, kể cả SĐT hay địa
+     chỉ. Nhờ vậy một đơn đang dừng vì thiếu địa chỉ sẽ tự đi ngay khi lễ tân điền
+     địa chỉ.
 5. **Khi đơn đã gửi rồi bị gỡ hết thuốc:** phần mềm **không gửi được gì** và mở cảnh
    báo để người xử lý (báo người bệnh, xem trên web).
 6. **Khi gửi lỗi:**
@@ -44,6 +50,20 @@ Các điều khoản dưới đây đã đối chiếu với văn bản gốc:
      - `DTQG_CAU_HINH_SAI`: đã bật nhưng điền sai cấu hình.
    - Nếu đã cấu hình kênh Telegram ops thì cảnh báo cũng gửi về đó. Tin chỉ có số đếm,
      không có tên khách.
+   - `DTQG_LOI` chỉ đếm đơn trong **7 ngày** gần nhất. Không có màn "đã xử lý" nào,
+     nên nếu không giới hạn thì cảnh báo sẽ mở mãi.
+7. **Đơn đã ở `LOI` thì không tự gửi lại khi nội dung đơn không đổi.** Ví dụ: hệ
+   thống quốc gia sập lâu làm cạn hết lượt thử, hoặc mật khẩu bác sĩ bị sai rồi được
+   sửa trong `.env`. Muốn đơn đi lại thì đơn phải đổi; điền dữ liệu còn thiếu là
+   đủ. Lệnh "gửi lại một đơn" (ghi bù một phiên bản mới, có lý do) là **việc mang
+   sang**, chưa làm.
+8. **Tắt công tắc khi đang có cảnh báo `DTQG_*` mở:** cảnh báo cũ không tự đóng, vì
+   lúc tắt module không chạy một câu SQL nào. Đóng tay ở `/ops`, hoặc bật lại để
+   vòng canh gác tự đóng.
+9. **Staging không bao giờ gửi lên hệ thống thật.** Cấu hình
+   `DTQG_NHA_CUNG_CAP=that` bị từ chối khi `APP_ENV` khác `production`, và vòng canh
+   gác mở cảnh báo `DTQG_CAU_HINH_SAI`. Lý do: staging nạp lại bản sao prod mỗi đêm.
+   Gói đơn trong `dtqg_gui` được che theo `scripts/staging-che-du-lieu.sql`.
 
 ## Phòng khám cần chuẩn bị (theo sách hướng dẫn trên donthuocquocgia.vn)
 
@@ -62,7 +82,7 @@ Hỏi kỹ thuật: hotrokythuat@donthuocquocgia.vn, tổng đài 1900 8960 nhá
 | Biến | Bắt buộc | Nghĩa |
 |---|---|---|
 | `DTQG_BAT` | — | `1` để bật. Để trống hoặc `0` là **tắt**: không chạy câu SQL nào, không đổi gì |
-| `DTQG_NHA_CUNG_CAP` | — | `gia_lap` (mặc định: không gọi mạng, dùng cho staging) hoặc `that` |
+| `DTQG_NHA_CUNG_CAP` | — | `gia_lap` (mặc định: không gọi mạng, dùng cho staging) hoặc `that` (chỉ nhận khi `APP_ENV=production`) |
 | `DTQG_CLINIC_ID` | ✓ | uuid phòng khám |
 | `DTQG_LOCATION_ID` | ✓ | uuid **cơ sở** (`clinic_location`) đã có mã. Lượt ở cơ sở khác không gửi |
 | `DTQG_MA_CO_SO` | ✓ | Mã cơ sở KCB **đúng 5 ký tự**, dùng làm đầu mã đơn |
