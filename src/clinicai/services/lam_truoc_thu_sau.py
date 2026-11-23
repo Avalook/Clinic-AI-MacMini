@@ -36,13 +36,13 @@ luôn nối tiếp nhau.
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
-from datetime import datetime
 from typing import Any
 
 import asyncpg
 
 from clinicai.api.exceptions import NotFoundError
 from clinicai.api.identity import StaffIdentity
+from clinicai.core.clock import iso
 from clinicai.core.exceptions import SafetyGateError
 from clinicai.events.catalogue import (
     KhachDaChonDichVu,
@@ -180,10 +180,6 @@ def da_lam_xong_het(trang_thai: Sequence[str]) -> bool:
     return bool(con) and all(t == "DA_XONG" for t in con)
 
 
-def _iso(v: datetime | None) -> str | None:
-    return v.isoformat() if v is not None else None
-
-
 # ---------------------------------------------------------------------------
 # Đọc
 # ---------------------------------------------------------------------------
@@ -219,7 +215,7 @@ async def trang_thai_lam_truoc(
                 and r["closed_at"] is None,
             ),
             "bat_boi": r["boi"] if r["luc"] is not None else None,
-            "bat_luc": _iso(r["luc"]),
+            "bat_luc": iso(r["luc"]),
         }
     return out
 

@@ -25,7 +25,6 @@ from __future__ import annotations
 import re
 import uuid
 from collections.abc import Iterable, Mapping
-from datetime import datetime
 from typing import Any
 
 import asyncpg
@@ -33,6 +32,7 @@ import structlog
 
 from clinicai.api.exceptions import ConflictError, NotFoundError, ValidationError
 from clinicai.api.identity import StaffIdentity
+from clinicai.core.clock import iso
 from clinicai.core.exceptions import SafetyGateError
 from clinicai.permissions.can import can
 from clinicai.services.audit import record_event
@@ -127,10 +127,6 @@ def nhan_tai_khoan(tk: Mapping[str, Any] | None) -> str:
     return f"{tk.get('ten_goi')} · {tk.get('so_tai_khoan')}"
 
 
-def _iso(v: Any) -> str | None:
-    return v.isoformat() if isinstance(v, datetime) else None
-
-
 def _ra(r: Mapping[str, Any]) -> dict[str, Any]:
     return {
         "id": str(r["id"]),
@@ -143,7 +139,7 @@ def _ra(r: Mapping[str, Any]) -> dict[str, Any]:
         "mac_dinh": bool(r["mac_dinh"]),
         "dang_dung": bool(r["dang_dung"]),
         "so_lan_thu": int(r.get("so_lan_thu") or 0),
-        "sua_luc": _iso(r.get("sua_luc")),
+        "sua_luc": iso(r.get("sua_luc")),
         "sua_boi": r.get("sua_boi_ten"),
     }
 

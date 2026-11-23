@@ -27,7 +27,7 @@ from uuid import UUID
 import asyncpg
 
 from clinicai.api.identity import StaffIdentity
-from clinicai.core.clock import CLINIC_TZ
+from clinicai.core.clock import CLINIC_TZ, doc_ngay
 
 KHACH_MOT_TRANG = 50
 _LICH_CHET = ["CANCELLED", "NO_SHOW", "DOCTOR_DECLINED"]
@@ -145,15 +145,6 @@ def cua_so(ky: str | None, bay_gio: datetime) -> tuple[datetime, datetime] | Non
 KHOANG_TOI_DA_NGAY = 366
 
 
-def _ngay(v: Any) -> date | None:
-    if not isinstance(v, str) or not v.strip():
-        return None
-    try:
-        return date.fromisoformat(v.strip()[:10])
-    except ValueError:
-        return None
-
-
 def cua_so_khoang(tu: Any, den: Any) -> tuple[datetime, datetime] | None:
     """[đầu ngày ``tu``, đầu ngày sau ``den``) theo giờ VN — khoảng tuỳ chọn của
     thanh ngày ngang (Tuyền 27/09: "xem khách hôm qua, hôm kia, tuần trước…").
@@ -164,7 +155,7 @@ def cua_so_khoang(tu: Any, den: Any) -> tuple[datetime, datetime] | None:
       * ``den`` trước ``tu`` → đổi chỗ;
       * dài quá ``KHOANG_TOI_DA_NGAY`` → cắt, giữ ``den``.
     """
-    a, b = _ngay(tu), _ngay(den)
+    a, b = doc_ngay(tu), doc_ngay(den)
     if a is None and b is None:
         return None
     a = a or b

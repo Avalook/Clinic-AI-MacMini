@@ -32,9 +32,9 @@ from typing import Any
 import asyncpg
 
 from clinicai.api.identity import StaffIdentity
-from clinicai.core.clock import CLINIC_TZ
+from clinicai.core.clock import CLINIC_TZ, doc_ngay
 from clinicai.events.hen_gio import hen, huy_hen
-from clinicai.phieu_kham.khung import cac_o, dinh_nghia, doc_ngay
+from clinicai.phieu_kham.khung import cac_o, dinh_nghia
 from clinicai.phieu_kham.mang_sang import doc_chan_doan
 from clinicai.services.audit import record_event
 
@@ -79,7 +79,7 @@ def la_o_ngay_hen(ma: str) -> bool:
 def doc_ngay_hen(o: Any) -> date | None:
     """Giá trị ô ngày hẹn (`{gia_tri}` hoặc chuỗi) → ngày. Rác → None, không ném."""
     gia = o.get("gia_tri") if isinstance(o, Mapping) else o
-    return doc_ngay(gia) if isinstance(gia, str) else None
+    return doc_ngay(gia, go_tay=True) if isinstance(gia, str) else None
 
 
 def han_goi(ngay_hen: date, hom_nay: date) -> date:

@@ -142,9 +142,6 @@ from clinicai.services.luot_kham_chung import (
     _cung_ngay_vn as _cung_ngay_vn,
 )
 from clinicai.services.luot_kham_chung import (
-    _iso as _iso,
-)
-from clinicai.services.luot_kham_chung import (
     _num as _num,
 )
 from clinicai.services.luot_kham_chung import (

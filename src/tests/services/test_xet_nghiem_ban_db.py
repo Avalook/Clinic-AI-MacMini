@@ -13,7 +13,7 @@ import asyncpg
 import pytest
 
 from clinicai.api.exceptions import ConflictError, ValidationError
-from clinicai.core.clock import hom_nay_vn
+from clinicai.core.clock import doc_ngay, hom_nay_vn
 from clinicai.services.xet_nghiem import ket_qua, mau, qua_trinh, thu_ho
 from clinicai.services.xet_nghiem.ma_mau import tao_ma
 from tests.services.test_check_in_lai_sau_hoan_tac_db import (  # noqa: F401
@@ -359,7 +359,7 @@ async def test_o_loc_doi_tac_co_ca_doi_tac_chua_co_viec(
 
 @pytest.mark.parametrize("rac", [None, "", "abc", "2026-13-40", 12])
 def test_ngay_rac_tra_rong(rac: object) -> None:
-    assert mau.doc_ngay(rac) is None
+    assert doc_ngay(rac) is None
 
 
 async def test_ngay_xem_cu_hon_cua_so_van_du_viec(

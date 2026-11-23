@@ -29,6 +29,7 @@ from typing import Any
 
 import asyncpg
 
+from clinicai.core.clock import iso
 from clinicai.core.tran import canh_bao_neu_day
 
 _TRAN_KHACH = 1000
@@ -52,10 +53,6 @@ def _ra(d: Decimal | None) -> float | None:
 
 def _tien(d: Decimal | None) -> int:
     return int(d or 0)
-
-
-def _iso(v: Any) -> str | None:
-    return v.isoformat() if isinstance(v, datetime) else None
 
 
 def _chuan(s: Any) -> str:
@@ -162,7 +159,7 @@ def gom_thuoc_theo_khach(
             for b in bls:
                 if b.get("nguoi_thu") and b["nguoi_thu"] not in nguoi_thu:
                     nguoi_thu.append(str(b["nguoi_thu"]))
-                luc = _iso(b.get("paid_at"))
+                luc = iso(b.get("paid_at"))
                 if luc and (luc_thu is None or luc > luc_thu):
                     luc_thu = luc
             dong_ra.append(
@@ -213,7 +210,7 @@ def gom_thuoc_theo_khach(
                 "ma_bn": k.get("ma_bn"),
                 "ban_le": bool(k.get("ban_le")),
                 "bac_si": k.get("bac_si"),
-                "luc": luc_thu or _iso(k.get("luc")),
+                "luc": luc_thu or iso(k.get("luc")),
                 "nguoi_thu": nguoi_thu,
                 "so_dong": len(dong_ra),
                 "so_lech": so_lech,
