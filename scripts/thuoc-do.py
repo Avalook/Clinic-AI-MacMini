@@ -8,21 +8,27 @@ hạ mốc (lệnh bên dưới) — mốc KHÔNG BAO GIỜ được nâng; mu�
     python3 scripts/thuoc-do.py                 # in số đo hiện tại so với mốc
     python3 scripts/thuoc-do.py --kiem          # như test, thoát 1 nếu vượt mốc
     python3 scripts/thuoc-do.py --ha-moc        # hạ mốc xuống số đo hiện tại (chỉ hạ)
-    python3 scripts/thuoc-do.py --lap-moc       # CHỈ lần đầu: tạo mốc từ số đo hôm nay
+    python3 scripts/thuoc-do.py --lap-moc       # CHỈ khi CHƯA có tệp mốc nào (từ chối nếu đã có)
 
 Cách đếm (đổi cách đếm = đổi con số, phải ghi lại ở đây và lập lại mốc có lý do):
 
 1. **tran-kich-thuoc** — số dòng (`splitlines`) mỗi tệp `.py/.ts/.tsx/.mts/.mjs/.cjs/.js`
-   dưới `src/`, bỏ `node_modules`, `.next`, `__pycache__`, tệp sinh `*.generated.ts`.
+   dưới `src/`, bỏ `node_modules`, `.next`, `__pycache__`, `.venv`, mọi thư mục tên
+   `public`, tệp sinh `*.generated.ts`.
    Tệp mới ≤ 400 dòng (luật TK5). Tệp đã quá 400 dòng ghi trong mốc theo TỪNG tệp,
    không được dài thêm.
 2. **moc-phuc-tap** — hàm trong `src/clinicai` có độ phức tạp McCabe > 15 (`ruff
-   --select C901`). Hàm vượt không được tăng số; hàm mới không được vượt 15.
+   --select C901 --ignore-noqa`: `# noqa: C901` KHÔNG làm hàm biến mất khỏi số đo).
+   Hàm vượt không được tăng số; hàm mới không được vượt 15. Khoá = `tệp::hàm`; tách
+   module làm hàm đổi tệp thì khoá cũ→mới: đổi tên khoá trong tệp mốc, GIỮ NGUYÊN giá
+   trị (không được cao hơn), ghi lý do trong PR.
 3. **moc-if-theo-vai** — số DÒNG trong `src/dashboard` (app, lib, components, proxy.ts)
    mà TSX/TS tự so sánh vai: (A) so trực tiếp với tên vai `=== "DOCTOR"`…, hoặc (B) gọi
    hàm vai của `lib/roles.ts` (`isDoctorRole(`, `canWriteClinical(`…). Bỏ dòng chú thích,
    `*.test.*`, `lib/roles.ts` (nơi định nghĩa vai), tệp sinh. Mỗi dòng tính một lần.
-   Cách đếm khớp bản đo 23/11 (65 dòng); con số "123" cũ không có nguồn đếm.
+   Cách đếm khớp bản đo 23/11 (65; nay 64); con số "123" cũ không có nguồn đếm.
+   GIỚI HẠN: là cận dưới — không bắt `["DOCTOR"].includes(role)`, `case "DOCTOR":`;
+   dòng có `//` cuối dòng vẫn tính; danh sách hàm vai `_HAM_VAI` viết tay.
 4. **moc-ten-ham-trung** — tên hàm CẤP MODULE (`def`/`async def`) trong `src/clinicai`
    xuất hiện ở ≥ 2 tệp Python. Mốc ghi tên → số tệp; tên mới hoặc số tệp tăng là vi phạm.
 5. **moc-cua-thieu-response-model** — cửa API (`@x.get|post|put|patch|delete(...)`) trong
@@ -108,6 +114,7 @@ def do_moc_phuc_tap() -> dict[str, int]:
         "check",
         "--select",
         "C901",
+        "--ignore-noqa",
         "--config",
         f"lint.mccabe.max-complexity={NGUONG_PHUC_TAP}",
         "--no-cache",
@@ -261,7 +268,8 @@ CACH_SUA = {
     ),
     "moc-phuc-tap": (
         "Tách hàm thành các hàm nhỏ (mỗi nhánh `if`/`for`/`except` một hàm có tên), "
-        "đưa về ≤ 15. Không nâng mốc."
+        "đưa về ≤ 15. Không nâng mốc, không `# noqa: C901`. Nếu chỉ là dời hàm sang "
+        "tệp khác khi tách module: đổi tên khoá trong tệp mốc, giữ nguyên giá trị."
     ),
     "moc-if-theo-vai": (
         "Đừng tự suy 'ai được bấm' trong TSX: để API trả cờ đã tính sẵn "
@@ -358,7 +366,6 @@ def ghi_moc(chi_so: str, du_lieu: dict[str, int]) -> None:
             "`python3 scripts/thuoc-do.py --ha-moc`. Nâng mốc để test xanh là vi phạm "
             "(thiet-ke-code.md, mục 'Khi một luật ở đây cản việc'). Cách đếm: đầu thuoc-do.py."
         ),
-        "tong": tong(du_lieu, chi_so),
         "chi_tiet": dict(sorted(du_lieu.items())),
     }
     tep.write_text(
@@ -372,6 +379,9 @@ def main() -> int:
     ap.add_argument("--ha-moc", action="store_true", help="hạ mốc xuống số đo (chỉ hạ)")
     ap.add_argument("--lap-moc", action="store_true", help="tạo mốc lần đầu")
     a = ap.parse_args()
+    if a.lap_moc and any(f.exists() for f in TEN_MOC.values()):
+        print("Từ chối --lap-moc: đã có tệp mốc. Mốc chỉ được HẠ bằng --ha-moc.")
+        return 2
     do_het = {c: DO[c]() for c in CHI_SO}
     co_loi = False
     for c in CHI_SO:

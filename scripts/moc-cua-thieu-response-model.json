@@ -1,6 +1,5 @@
 {
   "_ghi_chu": "MỐC RATCHET — cửa API thiếu response_model: tệp router → số cửa. CHỈ ĐƯỢC HẠ: sửa tốt thì chạy `python3 scripts/thuoc-do.py --ha-moc`. Nâng mốc để test xanh là vi phạm (thiet-ke-code.md, mục 'Khi một luật ở đây cản việc'). Cách đếm: đầu thuoc-do.py.",
-  "tong": 611,
   "chi_tiet": {
     "src/clinicai/api/v1/health.py": 4,
     "src/clinicai/api/v1/patients.py": 9,

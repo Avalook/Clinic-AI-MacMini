@@ -55,19 +55,27 @@ def test_khong_vuot_moc(chi_so: str) -> None:
 
 @pytest.mark.parametrize("chi_so", thuoc_do.CHI_SO)
 def test_moc_hop_le(chi_so: str) -> None:
-    """Mốc phải đọc được, khớp `tong`, và tệp > 400 dòng mới được vào mốc kích thước."""
+    """Mốc đọc được, giá trị dương; tệp > 400 dòng mới được vào mốc kích thước."""
     tho = json.loads(thuoc_do.TEN_MOC[chi_so].read_text(encoding="utf-8"))
     chi_tiet = {k: int(v) for k, v in tho["chi_tiet"].items()}
-    assert tho["tong"] == thuoc_do.tong(chi_tiet, chi_so), (
-        f"{chi_so}: trường `tong` lệch `chi_tiet` — đừng sửa tay, chạy "
-        "python3 scripts/thuoc-do.py --ha-moc"
-    )
+    assert chi_tiet and all(v > 0 for v in chi_tiet.values()), chi_so
     if chi_so == "tran-kich-thuoc":
         thua = [k for k, v in chi_tiet.items() if v <= thuoc_do.TRAN_FILE_MOI]
         assert not thua, f"mốc có tệp ≤ {thuoc_do.TRAN_FILE_MOI} dòng: {thua}"
     if chi_so == "moc-phuc-tap":
         thap = [k for k, v in chi_tiet.items() if v <= thuoc_do.NGUONG_PHUC_TAP]
         assert not thap, f"mốc có hàm không vượt trần phức tạp: {thap}"
+
+
+def test_bo_do_khong_do_ra_rong_tren_cay_that() -> None:
+    """Sàn: dời/đổi tên thư mục làm bộ đo đo rỗng thì test xanh GIẢ — chặn ở đây."""
+    assert len(list(thuoc_do.BACKEND.rglob("*.py"))) > 300
+    assert list((thuoc_do.DASHBOARD / "app").rglob("*.tsx"))
+    assert len(list((thuoc_do.BACKEND / "api").rglob("*.py"))) > 20
+    assert sum(thuoc_do.do_moc_cua_thieu_response_model().values()) > 100
+    assert len(thuoc_do.do_moc_ten_ham_trung()) > 50
+    assert thuoc_do.do_moc_if_theo_vai()
+    assert thuoc_do.do_tran_kich_thuoc()
 
 
 def test_moc_khong_co_tep_ma() -> None:
@@ -171,6 +179,49 @@ def test_do_phuc_tap_thay_ham_16_khong_thay_ham_15(du_an_gia: Path) -> None:
     ma = ham("vua_du", 14) + "\n" + ham("rat_roi", 15)
     (du_an_gia / "src" / "clinicai" / "m.py").write_text(ma)
     assert thuoc_do.do_moc_phuc_tap() == {"src/clinicai/m.py::rat_roi": 16}
+
+
+def test_do_phuc_tap_khong_bi_noqa_che(du_an_gia: Path) -> None:
+    nhanh = "\n".join(f"    if x == {i}:\n        return {i}" for i in range(16))
+    (du_an_gia / "src" / "clinicai" / "n.py").write_text(
+        f"def lach(x: int) -> int:  # noqa: C901\n{nhanh}\n    return 0\n"
+    )
+    assert thuoc_do.do_moc_phuc_tap() == {"src/clinicai/n.py::lach": 17}
+
+
+def test_lap_moc_tu_choi_khi_da_co_moc(
+    du_an_gia: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    ten_moc = {c: du_an_gia / f"{c}.json" for c in thuoc_do.CHI_SO}
+    monkeypatch.setattr(thuoc_do, "TEN_MOC", ten_moc)
+    ten_moc["moc-phuc-tap"].write_text('{"chi_tiet": {"a::f": 20}}')
+    monkeypatch.setattr("sys.argv", ["thuoc-do.py", "--lap-moc"])
+    assert thuoc_do.main() == 2
+    assert not ten_moc["tran-kich-thuoc"].exists()  # không ghi gì
+    assert "Từ chối" in capsys.readouterr().out
+
+
+def test_main_ha_moc_chi_ha_khong_nang(
+    du_an_gia: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    b = du_an_gia / "src" / "clinicai"
+    (b / "a.py").write_text("x = 1\n" * 450)  # đang 450, mốc cũ 500 → hạ về 450
+    ten_moc = {c: du_an_gia / f"{c}.json" for c in thuoc_do.CHI_SO}
+    monkeypatch.setattr(thuoc_do, "TEN_MOC", ten_moc)
+    for c in thuoc_do.CHI_SO:
+        ten_moc[c].write_text('{"chi_tiet": {}}')
+    ten_moc["tran-kich-thuoc"].write_text(
+        '{"chi_tiet": {"src/clinicai/a.py": 500, "src/clinicai/da_tach.py": 600}}'
+    )
+    monkeypatch.setattr("sys.argv", ["thuoc-do.py", "--ha-moc"])
+    assert thuoc_do.main() == 0
+    moi = json.loads(ten_moc["tran-kich-thuoc"].read_text())["chi_tiet"]
+    assert moi == {"src/clinicai/a.py": 450}  # hạ, và bỏ tệp đã hết vi phạm
+    # Dài thêm thì --ha-moc từ chối và KHÔNG ghi đè mốc
+    (b / "a.py").write_text("x = 1\n" * 501)
+    assert thuoc_do.main() == 1
+    cu = json.loads(ten_moc["tran-kich-thuoc"].read_text())["chi_tiet"]
+    assert cu == {"src/clinicai/a.py": 450}
 
 
 def test_do_if_theo_vai_ca_bien(du_an_gia: Path) -> None:

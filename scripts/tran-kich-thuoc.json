@@ -1,6 +1,5 @@
 {
   "_ghi_chu": "MỐC RATCHET — tệp > 400 dòng: số dòng từng tệp (tệp mới ≤ 400, tệp cũ không dài thêm). CHỈ ĐƯỢC HẠ: sửa tốt thì chạy `python3 scripts/thuoc-do.py --ha-moc`. Nâng mốc để test xanh là vi phạm (thiet-ke-code.md, mục 'Khi một luật ở đây cản việc'). Cách đếm: đầu thuoc-do.py.",
-  "tong": 321,
   "chi_tiet": {
     "src/clinicai/api/identity.py": 1120,
     "src/clinicai/api/v1/patients.py": 462,
