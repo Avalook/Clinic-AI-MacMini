@@ -204,10 +204,6 @@ def _require(identity: StaffIdentity, roles: frozenset[ClinicRole], cau: str) ->
         raise SafetyGateError(cau)
 
 
-def _iso(value: datetime | None) -> str | None:
-    return value.isoformat() if value is not None else None
-
-
 def _num(value: Decimal | int | None) -> float | int | None:
     if value is None:
         return None

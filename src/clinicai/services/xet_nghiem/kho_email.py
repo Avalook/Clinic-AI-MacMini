@@ -13,7 +13,7 @@ biểu thức SQL (`_TRANG_THAI`) dùng cho cả cột lẫn bộ lọc. Mỗi l
 from __future__ import annotations
 
 import re
-from datetime import date, datetime, timedelta
+from datetime import datetime, timedelta
 from typing import Any, Final
 from zoneinfo import ZoneInfo
 
@@ -21,6 +21,7 @@ import asyncpg
 
 from clinicai.api.exceptions import NotFoundError
 from clinicai.api.identity import StaffIdentity
+from clinicai.core.clock import doc_ngay
 from clinicai.core.kho_tep import don_tren_kho
 from clinicai.events.catalogue import XetNghiemTepDrive
 from clinicai.events.emit import emit_event, nguoi
@@ -66,15 +67,6 @@ async def cua_kho(conn: asyncpg.Connection, identity: StaffIdentity) -> None:
         raise NotFoundError("Không tìm thấy.")
 
 
-def _ngay(v: object) -> date | None:
-    if isinstance(v, date):
-        return v
-    try:
-        return date.fromisoformat(str(v).strip()) if v not in (None, "") else None
-    except ValueError:
-        return None
-
-
 def doc_loc(tham: dict[str, Any]) -> dict[str, Any]:
     """HÀM THUẦN: tham số lọc từ người dùng ⇒ bộ lọc sạch. Rác ⇒ bỏ lọc đó, không ném.
     `q` là số (≥ 6 chữ số; cho phép cách / chấm / gạch / +84) ⇒ tìm SĐT (+84 ⇒ 0);
@@ -94,8 +86,8 @@ def doc_loc(tham: dict[str, Any]) -> dict[str, Any]:
     except ValueError:
         co = CO_MAC_DINH
     return {
-        "tu_ngay": _ngay(tham.get("tu_ngay")),
-        "den_ngay": _ngay(tham.get("den_ngay")),
+        "tu_ngay": doc_ngay(tham.get("tu_ngay")),
+        "den_ngay": doc_ngay(tham.get("den_ngay")),
         "trang_thai": tt if tt in NHAN else None,
         "chu": None if la_so else (ghep_khach.chuan(q) or None),
         "so": so if la_so else None,

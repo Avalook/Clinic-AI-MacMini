@@ -22,7 +22,6 @@ from __future__ import annotations
 import os
 import uuid
 from collections.abc import Sequence
-from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -31,6 +30,7 @@ import structlog
 
 from clinicai.api.exceptions import NotFoundError, ValidationError
 from clinicai.api.identity import StaffIdentity
+from clinicai.core.clock import iso
 from clinicai.core.exceptions import SafetyGateError
 from clinicai.core.kho_tep import KHO_VPS, chay_tren_kho, don_tren_kho
 from clinicai.permissions.can import can
@@ -89,10 +89,6 @@ async def doc_anh(khoa: str, vi_tri: str, mime: str) -> tuple[bytes, str]:
     return noi_dung, mime
 
 
-def _iso(v: Any) -> str | None:
-    return v.isoformat() if isinstance(v, datetime) else None
-
-
 async def anh_cua_cac_lan_thu(
     conn: asyncpg.Connection, clinic_id: str, cycle_ids: Sequence[str]
 ) -> dict[str, list[dict[str, Any]]]:
@@ -116,7 +112,7 @@ async def anh_cua_cac_lan_thu(
     ra: dict[str, list[dict[str, Any]]] = {}
     for r in rows:
         ra.setdefault(r["cycle_id"], []).append(
-            {"id": r["id"], "luc": _iso(r["tai_len_luc"]), "boi": r["boi"]}
+            {"id": r["id"], "luc": iso(r["tai_len_luc"]), "boi": r["boi"]}
         )
     return ra
 

@@ -7,7 +7,6 @@ Vòng đọc + khép lượt KHÔNG gọi thẳng nữa — khối VÒNG ĐỌC 
 
 from __future__ import annotations
 
-from datetime import datetime
 from typing import Any
 
 import asyncpg
@@ -15,7 +14,7 @@ import structlog
 
 from clinicai.api.exceptions import ValidationError
 from clinicai.api.identity import ClinicRole, StaffIdentity
-from clinicai.core.clock import doc_ngay_xem, hom_nay_vn
+from clinicai.core.clock import doc_ngay_xem, hom_nay_vn, iso
 from clinicai.core.exceptions import SafetyGateError
 from clinicai.core.tran import canh_bao_neu_day
 from clinicai.events.catalogue import (
@@ -45,10 +44,6 @@ logger = structlog.get_logger()
 
 #: Giữ nguồn nhật ký cũ — đọc lại event_log không phải đổi truy vấn.
 ORIGIN = "api:luot-kham"
-
-
-def _iso(value: datetime | None) -> str | None:
-    return value.isoformat() if value is not None else None
 
 
 #: "VIỆC CỦA ĐỐI TÁC" — một chỗ nói cho mọi lệnh của bàn đối tác (29/09/2026):
@@ -293,7 +288,7 @@ class DoiTacService:
                     "loai": t["loai_tep"],
                     "mime": t["mime"],
                     "so_byte": int(t["so_byte"] or 0),
-                    "luc": _iso(t["tai_len_luc"]),
+                    "luc": iso(t["tai_len_luc"]),
                     "boi": t["tai_len_boi"],
                     "thu_hoi": t["thu_hoi_luc"] is not None,
                     "da_xoa": t["da_xoa_luc"] is not None,
@@ -330,13 +325,13 @@ class DoiTacService:
                     "ten_dich_vu": r["ten_dich_vu"],
                     "ma_kiotviet": r["ma_kiotviet"],
                     "appointment_id": r["appointment_id"],
-                    "chi_dinh_luc": _iso(r["created_at"]),
+                    "chi_dinh_luc": iso(r["created_at"]),
                     "trang_thai": tt,
                     # Chữ máy chủ viết (16/10/2026) — mọi màn cùng một bộ chữ.
                     "trang_thai_chu": chu_trang_thai_doi_tac(tt),
-                    "lay_mau_luc": _iso(r["finished_at"]),
-                    "cho_tai_lieu_luc": _iso(r["doi_tac_cho_tai_lieu_luc"]),
-                    "ket_qua_luc": _iso(r["ket_qua_luc"]),
+                    "lay_mau_luc": iso(r["finished_at"]),
+                    "cho_tai_lieu_luc": iso(r["doi_tac_cho_tai_lieu_luc"]),
+                    "ket_qua_luc": iso(r["ket_qua_luc"]),
                     "ghi_chu_lay_mau": r["ghi_chu_lay_mau"],
                     "ghi_chu_tai_lieu": r["ghi_chu_tai_lieu"],
                     "tep": tep_theo_viec.get(oid, []),
@@ -357,7 +352,7 @@ class DoiTacService:
                             "so_tien": int(r["thu_so_tien"]),
                             "hinh_thuc": r["thu_hinh_thuc"],
                             "ghi_chu": r["thu_ghi_chu"],
-                            "luc": _iso(r["thu_luc"]),
+                            "luc": iso(r["thu_luc"]),
                             "boi": r["thu_boi"],
                         }
                         if r["thu_id"]
@@ -492,7 +487,7 @@ class DoiTacService:
                     "viec": [],
                 },
             )
-            luc = _iso(r["created_at"])
+            luc = iso(r["created_at"])
             if luc and (k["cho_tu"] is None or luc < k["cho_tu"]):
                 k["cho_tu"] = luc
             k["viec"].append(theo_id[r["chi_dinh_id"]])

@@ -18,12 +18,12 @@ from __future__ import annotations
 import json
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
-from datetime import datetime
 from typing import Any
 
 import asyncpg
 
 from clinicai.api.identity import StaffIdentity
+from clinicai.core.clock import iso
 from clinicai.events.catalogue import KhachDaChonDichVu
 from clinicai.events.emit import emit_event, nguoi
 from clinicai.permissions.can import can, doi_quyen
@@ -440,7 +440,7 @@ async def cho_khach_quyet(
                 "nguoi_bam_chi_dinh": r["nguoi_bam_chi_dinh"],
                 "lam_them": nhan_lam_them(r["nguon_lam_them"]),
                 "lan_chi_dinh": r["lan_chi_dinh"],
-                "chi_dinh_luc": _iso(r["chi_dinh_luc"]),
+                "chi_dinh_luc": iso(r["chi_dinh_luc"]),
                 # Chip "Buổi k/N · đã trả trước" (liệu trình, 08/10/2026).
                 "lieu_trinh": _json_hoac_none(r["lieu_trinh"]),
             }
@@ -576,7 +576,7 @@ async def ap_lua_chon(
         "not_selected_order_ids": sorted(set(inp.order_ids_seen) - chosen),
         "changed_order_ids": sorted(changes),
         "order_versions": {i: versions[i] for i in sorted(inp.order_ids_seen)},
-        "confirmed_at": _iso(confirmed_at),
+        "confirmed_at": iso(confirmed_at),
         "confirmed_by": confirmed_by,
     }
     if changes:
@@ -611,10 +611,6 @@ async def ap_lua_chon(
             correlation_id=inp.visit_id,
         )
     return result
-
-
-def _iso(value: datetime | None) -> str | None:
-    return value.isoformat() if value is not None else None
 
 
 class ServiceSelectionService:

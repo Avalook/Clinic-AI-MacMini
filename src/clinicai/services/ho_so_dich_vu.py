@@ -22,6 +22,7 @@ import structlog
 
 from clinicai.api.exceptions import NotFoundError
 from clinicai.api.identity import StaffIdentity
+from clinicai.core.clock import iso
 from clinicai.core.exceptions import ValidationError
 from clinicai.events.catalogue import ChiDinhDaDat
 from clinicai.events.emit import HE_THONG, NguoiGayRa, emit_event
@@ -72,10 +73,6 @@ def _ten_phieu(form_id: str) -> str:
         return form_id
 
 
-def _iso(v: Any) -> str | None:
-    return v.isoformat() if v is not None else None
-
-
 async def _luot(conn: asyncpg.Connection, cid: str, vid: str) -> asyncpg.Record:
     r = await conn.fetchrow(_LUOT_SQL, cid, vid)
     if r is None:
@@ -107,7 +104,7 @@ async def doc(
                 p = json.loads(p) if isinstance(p, str) else dict(p or {})
                 lich_su.append(
                     {
-                        "luc": _iso(e["occurred_at"]),
+                        "luc": iso(e["occurred_at"]),
                         "ai": e["ai"],
                         "tu": p.get("tu_ten"),
                         "sang": p.get("den_ten"),
@@ -144,7 +141,7 @@ async def doc(
                 "form_id": p["form_id"],
                 "ten": _ten_phieu(p["form_id"]),
                 "so_o": int(p["so_o"]),
-                "sua_luc": _iso(p["sua_luc"]),
+                "sua_luc": iso(p["sua_luc"]),
             }
             for p in phieu
             if p["form_id"] != phieu_hien

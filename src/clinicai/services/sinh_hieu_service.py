@@ -19,7 +19,7 @@ from clinicai.api.exceptions import ValidationError
 from clinicai.api.identity import (
     StaffIdentity,
 )
-from clinicai.core.clock import CLINIC_TZ
+from clinicai.core.clock import CLINIC_TZ, iso
 from clinicai.events.catalogue import (
     SinhHieuBatDau,
     SinhHieuDaDo,
@@ -57,10 +57,6 @@ class LoiSinhHieuError(ValidationError):
     def __init__(self, message: str, truong: tuple[str, ...] = ()) -> None:
         super().__init__(message)
         self.truong = list(truong)
-
-
-def _iso(value: datetime | None) -> str | None:
-    return value.isoformat() if value is not None else None
 
 
 class SinhHieuService:
@@ -165,7 +161,7 @@ class SinhHieuService:
                         "ok": True,
                         "already": True,
                         "vitals_status": "in_progress",
-                        "bat_dau_do_luc": _iso(ai["luc"]),
+                        "bat_dau_do_luc": iso(ai["luc"]),
                     }
                 gio = (
                     ai["luc"].astimezone(CLINIC_TZ).strftime("%H:%M")
@@ -213,7 +209,7 @@ class SinhHieuService:
             "ok": True,
             "already": False,
             "vitals_status": "in_progress",
-            "bat_dau_do_luc": _iso(luc),
+            "bat_dau_do_luc": iso(luc),
         }
 
     async def dong_bo_sinh_hieu_tu_ho_so(

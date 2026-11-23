@@ -19,6 +19,7 @@ import asyncpg
 
 from clinicai.api.exceptions import ConflictError, NotFoundError, ValidationError
 from clinicai.api.identity import StaffIdentity
+from clinicai.core.clock import doc_ngay
 from clinicai.events.catalogue import XetNghiemMau, XetNghiemViec
 from clinicai.events.emit import emit_event, nguoi
 from clinicai.services.tai_khoan_nhan_service import doc_id
@@ -41,14 +42,6 @@ def _mau_id(raw: object) -> str:
     if m is None:
         raise ValidationError("Chọn mẫu.")
     return m
-
-
-def doc_ngay(raw: object) -> date | None:
-    """'2026-11-08' → date. Rác → None (không ném — luật backend)."""
-    try:
-        return date.fromisoformat(str(raw).strip()[:10]) if raw else None
-    except ValueError:
-        return None
 
 
 async def _mot_viec(

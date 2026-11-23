@@ -38,7 +38,7 @@ import asyncpg
 import structlog
 
 from clinicai.api.identity import StaffIdentity
-from clinicai.core.clock import CLINIC_TZ
+from clinicai.core.clock import CLINIC_TZ, iso
 from clinicai.core.shifts import CAC_CA, NHAN_CA, ca_tu_settings, khung_chot_ca
 from clinicai.core.tran import canh_bao_neu_day
 from clinicai.services.bao_cao_thuoc_service import doc_thuoc_theo_khach
@@ -148,10 +148,6 @@ def _ngay_vn(v: Any) -> str | None:
     if isinstance(v, datetime):
         return v.astimezone(CLINIC_TZ).date().isoformat()
     return None
-
-
-def _iso(v: Any) -> str | None:
-    return v.isoformat() if isinstance(v, datetime) else None
 
 
 def _o_tien() -> dict[str, int]:
@@ -271,7 +267,7 @@ def gom_bao_cao(
                 {
                     "loai": "huy",
                     "id": str(c.get("id")),
-                    "luc": _iso(c.get("closed_at")),
+                    "luc": iso(c.get("closed_at")),
                     "khach": c.get("ten_khach"),
                     "ma_bn": c.get("ma_bn"),
                     "loai_tien": loai,
@@ -283,7 +279,7 @@ def gom_bao_cao(
                     "cho": False,
                     # G4c: huỷ phiếu của ca đã chốt — tính vào ca này.
                     "dieu_chinh_ca_truoc": chi_huy,
-                    "thu_luc": _iso(c.get("paid_at")) if chi_huy else None,
+                    "thu_luc": iso(c.get("paid_at")) if chi_huy else None,
                 }
             )
         else:
@@ -320,7 +316,7 @@ def gom_bao_cao(
             {
                 "loai": "hoan",
                 "id": str(r.get("refund_id")),
-                "luc": _iso(
+                "luc": iso(
                     (r.get("completed_at") if xong else None) or r.get("created_at")
                 ),
                 "khach": r.get("ten_khach"),
@@ -352,7 +348,7 @@ def gom_bao_cao(
     dt_ds = [
         {
             "id": str(r.get("id")),
-            "luc": _iso(r.get("ghi_luc")),
+            "luc": iso(r.get("ghi_luc")),
             "khach": r.get("ten_khach"),
             "ma_bn": r.get("ma_bn"),
             "dich_vu": r.get("ten"),
@@ -370,7 +366,7 @@ def gom_bao_cao(
         {
             "id": str(r.get("id")),
             "cycle_id": str(r.get("cycle_id")),
-            "luc": _iso(r.get("luc")),
+            "luc": iso(r.get("luc")),
             "khach": r.get("ten_khach"),
             "ma_bn": r.get("ma_bn"),
             "loai_tien": r.get("kind") if r.get("kind") in TEN_LOAI else None,
@@ -404,7 +400,7 @@ def gom_bao_cao(
         {
             "id": c.get("id"),
             "visit_id": c.get("visit_id"),
-            "luc": _iso(c.get("paid_at")),
+            "luc": iso(c.get("paid_at")),
             "kind": c.get("kind"),
             "khach": c.get("ten_khach"),
             "ma_bn": c.get("ma_bn"),
@@ -482,7 +478,7 @@ def gom_bao_cao(
         "chi_tiet_giam_gia": [
             {
                 "id": str(c.get("id")),
-                "luc": _iso(c.get("paid_at")),
+                "luc": iso(c.get("paid_at")),
                 "khach": c.get("ten_khach"),
                 "ma_bn": c.get("ma_bn"),
                 "trang_thai": c.get("status"),
@@ -929,11 +925,11 @@ def csv_hang_hoa(bc: Mapping[str, Any], loai: Any) -> str:
     return "\ufeff" + buf.getvalue()
 
 
-def _ngay_vn_chu(iso: str) -> str:
+def _ngay_vn_chu(chu: str) -> str:
     try:
-        return date.fromisoformat(iso).strftime("%d/%m/%Y")
+        return date.fromisoformat(chu).strftime("%d/%m/%Y")
     except ValueError:
-        return iso
+        return chu
 
 
 TEN_TRANG_THAI_THUOC = {
@@ -974,12 +970,12 @@ def _csv_thuoc(w: Any, tt: Mapping[str, Any] | None) -> None:
         )
 
 
-def _gio(iso: str | None) -> str:
-    if not iso:
+def _gio(chu: str | None) -> str:
+    if not chu:
         return ""
     try:
         return (
-            datetime.fromisoformat(iso).astimezone(CLINIC_TZ).strftime("%d/%m/%Y %H:%M")
+            datetime.fromisoformat(chu).astimezone(CLINIC_TZ).strftime("%d/%m/%Y %H:%M")
         )
     except ValueError:
         return ""

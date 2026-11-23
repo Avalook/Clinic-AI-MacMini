@@ -40,7 +40,7 @@ import asyncpg
 
 from clinicai.api.exceptions import ConflictError, NotFoundError, ValidationError
 from clinicai.api.identity import ClinicRole, StaffIdentity
-from clinicai.core.clock import CLINIC_TZ_NAME, now_vn
+from clinicai.core.clock import CLINIC_TZ_NAME, doc_ngay, now_vn
 from clinicai.core.exceptions import SafetyGateError
 from clinicai.ho_so.cong_doc import NguCanhHoSo, dong
 from clinicai.permissions.can import can
@@ -72,16 +72,6 @@ DOC_ROLES = frozenset(
 #: chỉ định, kê đơn CHỈ CẦN LEGO"). Thư ký (Bàn khám thiếu Hoàn tất) chỉ đọc.
 # 28/09/2026: ghi = quyền GHI BỆNH ÁN (thư ký / điều dưỡng cùng phòng như bác sĩ).
 QUYEN_GHI_THAI_KY = "clinical.record.write"
-
-
-def doc_ngay(raw: Any) -> date | None:
-    """YYYY-MM-DD → date; rỗng/rác → None. Không ném."""
-    if not isinstance(raw, str) or not raw.strip():
-        return None
-    try:
-        return date.fromisoformat(raw.strip()[:10])
-    except ValueError:
-        return None
 
 
 def tuoi_thai_tu_edd(edd: date | None, hom_nay: date) -> dict[str, int] | None:

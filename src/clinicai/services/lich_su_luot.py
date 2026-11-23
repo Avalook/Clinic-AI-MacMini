@@ -22,7 +22,7 @@ from typing import Any
 
 import asyncpg
 
-from clinicai.core.clock import CLINIC_TZ
+from clinicai.core.clock import CLINIC_TZ, doc_ngay
 from clinicai.services.nhan_luot import doc_nhan_luot, tra_nhan
 
 #: Nhãn hiện cạnh mỗi lượt (máy chủ nói, màn chỉ vẽ).
@@ -71,16 +71,6 @@ SELECT v.visit_id::text, v.appointment_id::text, v.status,
  ORDER BY luc DESC, v.visit_id
  LIMIT {TRAN}
 """
-
-
-def doc_ngay(v: Any) -> date | None:
-    """Chuỗi ngày người dùng gửi (yyyy-mm-dd) → date; rác / rỗng → None."""
-    if isinstance(v, date) and not isinstance(v, datetime):
-        return v
-    try:
-        return date.fromisoformat(str(v or "").strip()[:10])
-    except ValueError:
-        return None
 
 
 def ngay_vn(luc: Any) -> date | None:
@@ -166,4 +156,4 @@ async def doc(
     }
 
 
-__all__ = ["LOAI_DU_LIEU_SQL", "NHAN_LOAI", "TRAN", "doc", "doc_ngay", "loc", "ngay_vn"]
+__all__ = ["LOAI_DU_LIEU_SQL", "NHAN_LOAI", "TRAN", "doc", "loc", "ngay_vn"]
