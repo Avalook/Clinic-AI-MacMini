@@ -3,6 +3,22 @@
 > Viết 24/11/2026. Phần mềm đã dựng sẵn và đang **TẮT**. Khi phòng khám có tài
 > khoản liên thông thì chỉ cần điền biến môi trường rồi bật. Không phải viết thêm code.
 
+## Trạng thái và hai lựa chọn mặc định (Tuyền chốt 24/11/2026)
+
+**Chưa bật.** Quy trình đơn thuốc và tiền hiện do chủ phòng khám tính toán bên
+ngoài hệ thống. Công tắc `DTQG_BAT` giữ **TẮT**. Phần mềm không đổi màn nào và
+không đổi hành vi hiện tại chút nào.
+
+Hai lựa chọn dưới đây được chọn để phản ánh đúng cách hệ thống đang chạy. Đây là
+**mặc định, có thể đổi** khi chủ phòng khám chốt quy trình:
+
+- **(a) "Đơn chốt"** là lúc lượt khám **đã đóng**, tức khách về hoặc về giữa chừng.
+  Lựa chọn này khớp cách hệ thống đang chạy và không thêm bước nào cho nhân viên.
+- **(b) Đơn đã gửi lên hệ thống quốc gia mà bị sửa** thì phần mềm tạo **đơn thay
+  thế với mã mới**. Đơn cũ giữ nguyên, theo luật thiết kế "không sửa quá khứ" và
+  QĐ 425 Điều 9. Chỉ tạo đơn thay thế khi phần nội dung đơn đổi (thuốc, chẩn đoán,
+  bác sĩ, họ tên, ngày sinh).
+
 ## Vì sao phải làm
 
 Các điều khoản dưới đây đã đối chiếu với văn bản gốc:
