@@ -39,7 +39,8 @@ của đúng bước đó**, có lý do, có sự kiện — không chụp rồi
 - File mới ≤ **400 dòng**, hàm ≤ **60 dòng**. Vượt ⇒ tách theo nghiệp vụ trước khi thêm.
 - File đã quá trần (vd `luot_kham_service.py`, `doi_tac_service.py`, `quay_thu_service.py`):
   **không thêm hàm mới vào đó**. Viết ở module mới, file cũ chỉ thêm một dòng gọi.
-  Số dòng của chúng **chỉ được giảm** (`scripts/tran-kich-thuoc.json` khi có).
+  Số dòng của chúng **chỉ được giảm** (`scripts/tran-kich-thuoc.json`, test
+  `test_thuoc_do_ratchet.py`; bớt được thì `python3 scripts/thuoc-do.py --ha-moc`).
 - PR > ~400 dòng (không tính test, migration, tệp sinh) ⇒ tách.
 
 ## 6. SQL có nhà
