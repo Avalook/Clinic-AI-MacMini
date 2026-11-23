@@ -202,7 +202,8 @@ def test_them_bac_si_chuan_bi() -> None:
     assert "chưa có" in str(
         chuan_bi([ENV["DTQG_LOCATION_ID"]], {**ENV_THAT, "DTQG_MAT_KHAU_CO_SO": "x"})
     )
-    assert "Cách dùng" in str(chuan_bi([], ENV_THAT))
+    cach = str(chuan_bi([], ENV_THAT))
+    assert "python -m clinicai.services.don_thuoc_quoc_gia.them_bac_si" in cach
 
 
 @pytest.mark.asyncio
