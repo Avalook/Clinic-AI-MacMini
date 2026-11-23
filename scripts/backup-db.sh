@@ -38,7 +38,8 @@ KEEP_DAYS="${BACKUP_KEEP_DAYS:-7}"
 # Giữ theo PHÚT, đè KEEP_DAYS và MEDIA_KEEP_DAYS khi đặt — bản 15 phút dùng 1440.
 # Vì sao không dùng ngày: `find -mtime +2` chỉ xoá tệp đủ 3 ngày, và 61 bản/ngày ×
 # 95 MB đã lấp 17 GB ổ gốc 48 GB (23/11/2026, còn 2,1 GB). Bản CFS giữ 2 ngày,
-# bản đêm giữ 7 ngày — ổ máy chủ chỉ cần ngày gần nhất.
+# bản đêm giữ 7 ngày — ổ máy chủ chỉ cần ngày gần nhất. CHỈ đặt cho unit 15
+# phút: nó dọn cả tar media/tệp chưa đẩy theo cùng số phút.
 KEEP_MINUTES="${BACKUP_KEEP_MINUTES:-}"
 case "$KEEP_MINUTES" in
     ''|*[!0-9]*|0) KEEP_MINUTES="" ;;
