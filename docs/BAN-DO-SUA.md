@@ -333,6 +333,14 @@ Lỗi 409 cần lý do đính chính (dòng đã thu / bán / giao): proxy `lib/
 Test: `T/services/test_don_thuoc_ban_tu_van_1310_db.py`, `T/services/test_hanh_trinh_tu_van_db.py`,
 `T/unit/test_hanh_trinh_moc.py`, FT `don-thuoc-ban-tu-van-boundary.test.mts`, `npm run test:phieu-kham`.
 
+**Liên thông đơn thuốc quốc gia (TT 26/2025, QĐ 808 — 24/11/2026, TẮT mặc định)** — không
+màn nào. Đơn của lượt đã đóng → hàng chờ `dtqg_gui` (mig `20261124020000`) → worker `su-kien`
+gửi. Code `S/don_thuoc_quoc_gia/` (`cau_hinh` công tắc `DTQG_BAT` · `anh_xa` đơn → gói ·
+`hang_cho` vào hàng · `gui` rút hàng · `vong` + canh gác `DTQG_*`), cổng
+`src/clinicai/ports/don_thuoc_quoc_gia.py`, adapter `src/clinicai/adapters/don_thuoc_quoc_gia/`
+(`gia_lap`, `that`). Bật / biến / trường thiếu: `docs/LIEN-THONG-DON-THUOC.md`. Test:
+`T/unit/test_don_thuoc_quoc_gia.py`, `T/services/test_don_thuoc_quoc_gia_db.py`.
+
 **Dịch vụ của lượt trong hồ sơ khám — đổi dịch vụ, phiếu cũ, lượt Điều trị (07/10/2026)**
 — UI `D/_lam-viec/phieu-kham/KhoiDichVuHoSo.tsx` (đầu phiếu + hồ sơ tối giản ở
 `PhieuKhamLuot.tsx` nhánh `chonDuoc`) → `/api/ho-so-kham` → `R/ho_so_kham.py` →
