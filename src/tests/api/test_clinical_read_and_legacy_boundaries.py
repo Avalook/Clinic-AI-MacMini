@@ -9,12 +9,6 @@ from clinicai.api.exceptions import ValidationError
 from clinicai.api.identity import RoleGuard
 from clinicai.api.v1.routers.clinical_forms import router as form_router
 from clinicai.api.v1.routers.clinical_records import router as record_router
-from clinicai.api.v1.routers.orchestrator import (
-    router as orchestrator_router,
-)
-from clinicai.api.v1.routers.orchestrator import (
-    scoped_thread_id,
-)
 from clinicai.api.v1.routers.scheduling import router as scheduling_router
 from clinicai.permissions.catalogue import PRESET, QUYEN
 from clinicai.permissions.y_khoa import QUYEN_Y_KHOA, cua_y_khoa
@@ -145,19 +139,3 @@ def test_medical_profile_columns_are_an_explicit_allowlist() -> None:
 
     with pytest.raises(ValidationError, match="không hợp lệ"):
         validated_profile({"auth_user_id": "attacker-controlled"})
-
-
-def test_debug_orchestrator_is_management_only_and_threads_are_actor_scoped() -> None:
-    route = _route(orchestrator_router, "/orchestrator/chat", "POST")
-    assert not _role_guards(route)
-    guards = _cua_quyen(route)
-    assert len(guards) == 1
-    # CHỈ LEGO (28/09/2026): lego Vận hành hệ thống.
-    assert getattr(guards[0], "quyen", None) == ("ops.view",)
-
-    assert scoped_thread_id("clinic-a", "staff-a", "same-client-id") != (
-        scoped_thread_id("clinic-a", "staff-b", "same-client-id")
-    )
-    assert scoped_thread_id("clinic-a", "staff-a", "same-client-id") != (
-        scoped_thread_id("clinic-b", "staff-a", "same-client-id")
-    )

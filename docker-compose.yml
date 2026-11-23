@@ -16,8 +16,7 @@
 # Runtime secrets: CLINIC_ENV_FILE must name the same explicit file passed to
 #   --env-file. This prevents a staging command from loading production runtime
 #   secrets from a shared `.env` file.
-# Optional profiles:  --profile workers   (RabbitMQ worker + notification relay)
-#                     --profile notifications (notification relay only)
+# Optional profiles:  --profile notifications (notification relay)
 #                     --profile pos       (POS outbox relay — ADR-0010)
 #                     --profile cloudflare (cloudflared tunnel)
 
@@ -183,7 +182,6 @@ services:
     pids_limit: 256
     env_file: ["${CLINIC_ENV_FILE:?set CLINIC_ENV_FILE to .env.prod or .env.staging}"]
     environment:
-      CHECKPOINTER_BACKEND: ${CHECKPOINTER_BACKEND:-postgres}
       GOOGLE_DRIVE_SA_FILE: /run/secrets/drive_sa_key
       OPS_STATUS_FILE: /run/clinicai-ops/status.json
       MEDIA_ROOT: /var/lib/clinicai/media
@@ -231,32 +229,6 @@ services:
       timeout: 5s
       retries: 5
       start_period: 40s
-    networks: [internal, supabase]
-
-  # ---- Async worker (opt-in: --profile workers) ----------------------------
-  worker:
-    <<: *clinic-service-defaults
-    build:
-      context: .
-      dockerfile: Dockerfile.api
-    image: clinicai-api:${IMAGE_TAG:-latest}
-    profiles: ["workers"]
-    restart: unless-stopped
-    mem_limit: ${WORKER_MEMORY_LIMIT:-256m}
-    pids_limit: 256
-    env_file: ["${CLINIC_ENV_FILE:?set CLINIC_ENV_FILE to .env.prod or .env.staging}"]
-    command: ["python", "-m", "clinicai.worker"]
-    depends_on:
-      rabbitmq:
-        condition: service_healthy
-    healthcheck:
-      # Consumer không có vòng poll, nên nhịp tim là "kết nối broker còn mở",
-      # đánh dấu mỗi WORKER_HEARTBEAT_INTERVAL (30s). Cửa sổ 180s = 6 nhịp.
-      test: ["CMD-SHELL", "test $$(( $$(date +%s) - $$(cat /tmp/worker-alive 2>/dev/null || echo 0) )) -lt 180"]
-      interval: 30s
-      timeout: 5s
-      retries: 3
-      start_period: 60s
     networks: [internal, supabase]
 
   # POS outbox relay (ADR-0010). Opt-in only after configuring a real adapter;
@@ -402,16 +374,15 @@ services:
         target: /var/lib/clinicai/media-vps
     networks: [internal, supabase]
 
-  # Lightweight notification outbox relay. It polls Supabase directly and does
-  # not depend on RabbitMQ. `workers` keeps current full-stack semantics; the
-  # `notifications` profile can run this service on its own.
+  # Lightweight notification outbox relay. It polls Postgres directly (opt-in:
+  # --profile notifications). RabbitMQ + service `worker` gỡ 24/11/2026.
   notification-relay:
     <<: *clinic-service-defaults
     build:
       context: .
       dockerfile: Dockerfile.api
     image: clinicai-api:${IMAGE_TAG:-latest}
-    profiles: ["workers", "notifications"]
+    profiles: ["notifications"]
     restart: unless-stopped
     mem_limit: ${NOTIFICATION_RELAY_MEMORY_LIMIT:-256m}
     pids_limit: 128
@@ -436,41 +407,6 @@ services:
       retries: 3
       start_period: 60s
     networks: [internal, supabase]
-
-  rabbitmq:
-    <<: *clinic-service-defaults
-    image: rabbitmq:3.13-management-alpine
-    profiles: ["workers"]
-    restart: unless-stopped
-    mem_limit: ${RABBITMQ_MEMORY_LIMIT:-512m}
-    pids_limit: 512
-    environment:
-      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-clinicai}
-      # Empty is allowed while the profile is disabled so the base stack still
-      # resolves. If workers are enabled, the entrypoint and deploy preflight
-      # both fail closed instead of creating a broker with a shared default.
-      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-}
-      RABBITMQ_DEFAULT_VHOST: ${RABBITMQ_VHOST:-clinicai}
-    entrypoint:
-      - /bin/sh
-      - -ec
-      - |
-        if [ -z "$${RABBITMQ_DEFAULT_PASS:-}" ]; then
-          echo "RabbitMQ password is required when the workers profile is enabled" >&2
-          exit 78
-        fi
-        exec docker-entrypoint.sh rabbitmq-server
-    volumes:
-      - rabbitmq_data:/var/lib/rabbitmq
-      - ./docker/rabbitmq/definitions.json:/etc/rabbitmq/definitions.json:ro
-      - ./docker/rabbitmq/rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf:ro
-    healthcheck:
-      test: ["CMD", "rabbitmq-diagnostics", "ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 30s
-    networks: [internal]
 
   # ---- Monitoring + logs (bound to localhost → private via Tailscale) ------
   uptime-kuma:
@@ -588,6 +524,5 @@ secrets:
 volumes:
   caddy_data:
   caddy_config:
-  rabbitmq_data:
   kuma_data:
   dozzle_data:

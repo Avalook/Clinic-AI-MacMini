@@ -249,7 +249,6 @@ test("proxy đang sống chỉ kiểm đăng nhập, không gác bằng vai", ()
     "cskh-action/route.ts",
     "dispatch/[action]/route.ts",
     "lab-result/[id]/review/route.ts",
-    "lab-result/[id]/triage/route.ts",
     "patients/check-duplicate/route.ts",
     "patients/route.ts",
     "patients/sdt-them/route.ts",

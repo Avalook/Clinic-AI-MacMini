@@ -1,6 +1,6 @@
 # BẢN ĐỒ CODE — màn → API → router → service → test
 
-> Sinh bởi `scripts/ban-do-code.py` lúc 2026-11-24 00:41. **Đừng sửa tay** —
+> Sinh bởi `scripts/ban-do-code.py` lúc 2026-11-24 01:57. **Đừng sửa tay** —
 > chạy `python3 scripts/ban-do-code.py` để sinh lại; CI (`--kiem`, job backend
 > của `scripts/ci-may.sh`) đỏ khi tệp này lệch code.
 
@@ -624,7 +624,7 @@ Mục lục: 1. Màn · 2. API Next → backend · 3. Service → màn · 4. S�
 - service: XuatHoaDonService.xem · HoaDonMisaService.gan_trang_thai · xuat_hoa_don_service
 - test: test_thue_gtgt_db.py, test_xuat_hoa_don_db.py, test_hoa_don_misa_db.py
 
-## 2. API Next → backend (132)
+## 2. API Next → backend (131)
 
 Mỗi `app/api/**/route.ts`: đường `/api/v1` nó proxy → hàm router FastAPI → service.
 
@@ -700,7 +700,7 @@ Mỗi `app/api/**/route.ts`: đường `/api/v1` nó proxy → hàm router FastA
 
 #### `/api/auth/nhat-ky-doi-mat-khau` · `src/dashboard/app/api/auth/nhat-ky-doi-mat-khau/route.ts`
 - POST `/api/v1/me/nhat-ky-doi-mat-khau` → `src/clinicai/api/v1/routers/identity.py:ghi_nhat_ky_doi_mat_khau_ca_nhan` → record_event
-- test: src/tests/integration/test_rabbitmq_connectivity.py, src/tests/services/test_soat_xet_nghiem_doi_tac_db.py
+- test: src/tests/services/test_smoke_main_174_175_db.py, src/tests/services/test_soat_xet_nghiem_doi_tac_db.py
 - màn dùng: /doi-tac
 
 #### `/api/booking-overrides/doctor/[id]` · `src/dashboard/app/api/booking-overrides/doctor/[id]/route.ts`
@@ -1078,11 +1078,6 @@ Mỗi `app/api/**/route.ts`: đường `/api/v1` nó proxy → hàm router FastA
 #### `/api/lab-result/[id]/review` · `src/dashboard/app/api/lab-result/[id]/review/route.ts`
 - POST `/api/v1/lab/results/{lab_result_id}/review` → `src/clinicai/api/v1/routers/lab.py:review_and_finalize_lab_result` → LabSafetyService.finalize_review
 - test: src/tests/unit/test_lab_safety_service.py
-- màn dùng: (không màn nào gọi thấy được ?)
-
-#### `/api/lab-result/[id]/triage` · `src/dashboard/app/api/lab-result/[id]/triage/route.ts`
-- POST `/api/v1/lab/triage/{lab_result_id}` → `src/clinicai/api/v1/routers/lab.py:triage_lab_result` → build_lab_triage_subgraph, build_lab_triage_subgraph.ainvoke, LabTriageState
-- test: src/tests/graphs/lab_triage/test_lab_triage_skeleton.py, src/tests/graphs/task_manager/test_task_manager_graph.py
 - màn dùng: (không màn nào gọi thấy được ?)
 
 #### `/api/lam-them` · `src/dashboard/app/api/lam-them/route.ts`
@@ -1697,7 +1692,7 @@ Mỗi `app/api/**/route.ts`: đường `/api/v1` nó proxy → hàm router FastA
 - test: src/tests/services/test_thue_gtgt_db.py, src/tests/services/test_xuat_hoa_don_db.py, src/tests/services/test_hoa_don_misa_db.py
 - màn dùng: /xuat-hoa-don
 
-## 3. Service → màn (216)
+## 3. Service → màn (196)
 
 | Service | Tệp | Màn dùng |
 |---|---|---|
@@ -1705,11 +1700,8 @@ Mỗi `app/api/**/route.ts`: đường `/api/v1` nó proxy → hàm router FastA
 | `agent_tom_tat` | `src/clinicai/services/agent_tom_tat.py` | /doi-tac, /giam-sat, /login |
 | `AndrologyReviewService` | `src/clinicai/services/andrology_review_service.py` | /ban-kham, /ban-kham/[phong], /tu-van |
 | `AnhChuyenKhoanService` | `src/clinicai/services/anh_chuyen_khoan_service.py` | /pharmacy, /thu-ngan/dich-vu, /thu-ngan/dich-vu/lich-su, /thu-ngan/thuoc, /thu-ngan/thuoc/lich-su |
-| `append` | `src/clinicai/tools/event_log/append.py` | — (chỉ API/worker) |
-| `AppendEventInput` | `src/clinicai/tools/event_log/append.py` | — (chỉ API/worker) |
 | `audit` | `src/clinicai/services/audit.py` | /doi-tac, /settings/new-user, /settings/tai-khoan |
 | `AuditLogService` | `src/clinicai/services/audit_log_service.py` | /audit-log |
-| `AuthService` | `src/clinicai/services/auth_service.py` | — (chỉ API/worker) |
 | `ban_theo_don_service` | `src/clinicai/services/ban_theo_don_service.py` | /pharmacy |
 | `ban_thuoc_service` | `src/clinicai/services/ban_thuoc_service.py` | /pharmacy |
 | `BangHanhTrinhService` | `src/clinicai/services/bang_hanh_trinh_service.py` | /ban-kham, /ban-kham/[phong], /do-sinh-hieu, /doi-tac, /duyet-ket-qua, /hanh-trinh, /home, /patient-list (+11) |
@@ -1730,13 +1722,11 @@ Mỗi `app/api/**/route.ts`: đường `/api/v1` nó proxy → hàm router FastA
 | `CashierScopeService` | `src/clinicai/services/cashier_scope_service.py` | /ban-kham, /ban-kham/[phong], /ban-xet-nghiem, /do-sinh-hieu, /doi-tac, /hanh-trinh, /home, /kho-vat-tu (+14) |
 | `catalogue` | `src/clinicai/permissions/catalogue.py` | /phan-quyen |
 | `chay_bong_doc` | `src/clinicai/services/chay_bong_doc.py` | /ops |
-| `check_sla` | `src/clinicai/tools/task/check_sla.py` | — (chỉ API/worker) |
 | `CheckoutService` | `src/clinicai/services/checkout_service.py` | /hanh-trinh, /reception/checkout, /reception/queue, /thu-ngan/dich-vu, /thu-ngan/dich-vu/lich-su, /thu-ngan/thuoc, /thu-ngan/thuoc/lich-su |
 | `chi_dinh_cu_service` | `src/clinicai/services/chi_dinh_cu_service.py` | /ban-kham, /ban-kham/[phong], /do-sinh-hieu, /doi-tac, /duyet-ket-qua, /hanh-trinh, /home, /patient-list (+11) |
 | `chi_phi` | `src/clinicai/llm/chi_phi.py` | /doi-tac, /giam-sat, /login |
 | `ChiDinhService` | `src/clinicai/services/chi_dinh_service.py` | /ban-kham, /ban-kham/[phong], /patient-list, /tu-van |
 | `ChotSoCaService` | `src/clinicai/services/chot_so_ca_service.py` | /reports |
-| `classify` | `src/clinicai/tools/lab/classify.py` | — (chỉ API/worker) |
 | `clinic_policy` | `src/clinicai/services/clinic_policy.py` | — (chỉ API/worker) |
 | `ClinicalFormService` | `src/clinicai/services/clinical_form_service.py` | /ban-kham, /ban-kham/[phong], /customers, /patient-list, /tu-van |
 | `ClinicalRecordService` | `src/clinicai/services/clinical_record_service.py` | /ban-kham, /ban-kham/[phong], /patient-list, /tu-van |
@@ -1747,9 +1737,6 @@ Mỗi `app/api/**/route.ts`: đường `/api/v1` nó proxy → hàm router FastA
 | `CongNoService` | `src/clinicai/services/cong_no_service.py` | /hanh-trinh, /reception/checkout, /reception/queue, /thu-ngan/dich-vu, /thu-ngan/dich-vu/lich-su, /thu-ngan/thuoc, /thu-ngan/thuoc/lich-su |
 | `ConsentService` | `src/clinicai/services/consent_service.py` | — (chỉ API/worker) |
 | `ConsoleService` | `src/clinicai/services/console_service.py` | /console |
-| `context` | `src/clinicai/tools/_common/context.py` | — (chỉ API/worker) |
-| `create_task` | `src/clinicai/tools/task/create_task.py` | — (chỉ API/worker) |
-| `CreateTaskInput` | `src/clinicai/tools/task/create_task.py` | — (chỉ API/worker) |
 | `cskh_service` | `src/clinicai/services/cskh_service.py` | — (chỉ API/worker) |
 | `CskhService` | `src/clinicai/services/cskh_service.py` | /appointments, /patients/new |
 | `danh_sach_hoa_don_service` | `src/clinicai/services/danh_sach_hoa_don_service.py` | /hoa-don |
@@ -1774,11 +1761,7 @@ Mỗi `app/api/**/route.ts`: đường `/api/v1` nó proxy → hàm router FastA
 | `EpisodeService` | `src/clinicai/services/episode_service.py` | — (chỉ API/worker) |
 | `excel_export` | `src/clinicai/services/excel_export.py` | /pharmacy, /pharmacy/inventory, /print/tem-lo |
 | `excel_report_export` | `src/clinicai/services/excel_report_export.py` | — (chỉ API/worker) |
-| `find_oncall` | `src/clinicai/tools/scheduling/find_oncall.py` | — (chỉ API/worker) |
-| `FindOncallInput` | `src/clinicai/tools/scheduling/find_oncall.py` | — (chỉ API/worker) |
 | `FormEngineService` | `src/clinicai/services/form_engine_service.py` | /ban-kham, /ban-kham/[phong], /doi-tac, /patient-list, /phong/[ma], /print/ket-qua-luot/[visitId], /print/ket-qua/[orderId], /print/phieu-kham/[visitId] (+3) |
-| `get_summary` | `src/clinicai/tools/patient/get_summary.py` | — (chỉ API/worker) |
-| `GetPatientSummaryInput` | `src/clinicai/tools/patient/get_summary.py` | — (chỉ API/worker) |
 | `ghi_chu_luot` | `src/clinicai/services/ghi_chu_luot.py` | /ban-kham, /ban-kham/[phong], /customers, /patient-list, /print/phieu-kham/[visitId], /print/tom-tat-kham/[patientId], /tu-van |
 | `GhiChuKhachService` | `src/clinicai/services/ghi_chu_khach_service.py` | /ban-kham, /ban-kham/[phong], /customers, /patient-list, /tu-van |
 | `GuiZaloService` | `src/clinicai/services/tuong_tac_cskh_service.py` | — (chỉ API/worker) |
@@ -1800,9 +1783,7 @@ Mỗi `app/api/**/route.ts`: đường `/api/v1` nó proxy → hàm router FastA
 | `khung` | `src/clinicai/phieu_kham/khung.py` | /ban-kham, /ban-kham/[phong], /doi-tac, /duyet-ket-qua, /hanh-trinh, /patient-list, /pharmacy, /phong (+8) |
 | `kiem_ke_ca_service` | `src/clinicai/services/kiem_ke_ca_service.py` | /pharmacy/inventory |
 | `KyNangService` | `src/clinicai/services/ky_nang_service.py` | /phan-quyen |
-| `lab_triage` | `src/clinicai/graphs/lab_triage/__init__.py` | — (chỉ API/worker) |
 | `LabSafetyService` | `src/clinicai/services/lab_safety_service.py` | — (chỉ API/worker) |
-| `LabTriageState` | `src/clinicai/graphs/lab_triage/state.py` | — (chỉ API/worker) |
 | `LamThemTaiQuayService` | `src/clinicai/services/lam_them_tai_quay_service.py` | /do-sinh-hieu, /reception/queue, /settings/day-noi |
 | `LamTruocThuSauService` | `src/clinicai/services/lam_truoc_thu_sau.py` | /ban-kham, /ban-kham/[phong], /do-sinh-hieu, /doi-tac, /duyet-ket-qua, /hanh-trinh, /home, /patient-list (+11) |
 | `lech_kiem_ke_service` | `src/clinicai/services/lech_kiem_ke_service.py` | /pharmacy, /pharmacy/inventory, /print/tem-lo |
@@ -1833,7 +1814,6 @@ Mỗi `app/api/**/route.ts`: đường `/api/v1` nó proxy → hàm router FastA
 | `NhanTaiPhongService` | `src/clinicai/services/nhan_tai_phong.py` | /ban-kham, /ban-kham/[phong], /doi-tac, /duyet-ket-qua, /hanh-trinh, /patient-list, /phong/[ma], /print/phieu-thu/[id] (+3) |
 | `nhat_ky_van_hanh` | `src/clinicai/services/nhat_ky_van_hanh.py` | /ops |
 | `OpsStatusService` | `src/clinicai/services/ops_status.py` | /ops |
-| `OrchestratorService` | `src/clinicai/orchestrator/service.py` | — (chỉ API/worker) |
 | `PatientService` | `src/clinicai/services/patient_service.py` | /appointments, /ban-kham, /ban-kham/[phong], /customers, /patient-list, /patients/new, /tu-van |
 | `payment_access_service` | `src/clinicai/services/payment_access_service.py` | /hanh-trinh, /pharmacy, /reception/checkout, /reception/queue, /settings/tai-khoan-nhan, /thu-ngan/dich-vu, /thu-ngan/dich-vu/lich-su, /thu-ngan/thuoc (+1) |
 | `PaymentService` | `src/clinicai/services/payment_service.py` | /pharmacy, /settings/tai-khoan-nhan, /thu-ngan/dich-vu, /thu-ngan/dich-vu/lich-su, /thu-ngan/thuoc, /thu-ngan/thuoc/lich-su |
@@ -1852,13 +1832,10 @@ Mỗi `app/api/**/route.ts`: đường `/api/v1` nó proxy → hàm router FastA
 | `quay_thu_service` | `src/clinicai/services/quay_thu_service.py` | — (chỉ API/worker) |
 | `QuayThuocService` | `src/clinicai/services/quay_thuoc_service.py` | /pharmacy, /thu-ngan/dich-vu, /thu-ngan/dich-vu/lich-su, /thu-ngan/thuoc, /thu-ngan/thuoc/lich-su |
 | `QuayThuService` | `src/clinicai/services/quay_thu_service.py` | /ban-kham, /ban-kham/[phong], /ban-xet-nghiem, /do-sinh-hieu, /doi-tac, /hanh-trinh, /home, /kho-vat-tu (+14) |
-| `query_tasks` | `src/clinicai/tools/task/query_tasks.py` | — (chỉ API/worker) |
-| `QueryTasksFilter` | `src/clinicai/tools/task/query_tasks.py` | — (chỉ API/worker) |
 | `queue_order` | `src/clinicai/services/queue_order.py` | — (chỉ API/worker) |
 | `queue_rows` | `src/clinicai/services/queue_rows.py` | — (chỉ API/worker) |
 | `quyen_ban` | `src/clinicai/services/xet_nghiem/quyen_ban.py` | /ban-xet-nghiem, /ban-xet-nghiem/kho-email, /settings/doi-tac |
 | `QUYEN_THEO_KHU` | `src/clinicai/services/work_item_service.py` | — (chỉ API/worker) |
-| `read_policy` | `src/clinicai/tools/kb/read_policy.py` | — (chỉ API/worker) |
 | `RecallJobService` | `src/clinicai/services/recall_job_service.py` | /customers, /nhac-tai-kham |
 | `RecallService` | `src/clinicai/services/recall_service.py` | — (chỉ API/worker) |
 | `report_access_service` | `src/clinicai/services/report_access_service.py` | /reports |
@@ -1867,7 +1844,6 @@ Mỗi `app/api/**/route.ts`: đường `/api/v1` nó proxy → hàm router FastA
 | `ReportsService` | `src/clinicai/services/reports_service.py` | /reports |
 | `RosterService` | `src/clinicai/services/config_service.py` | /appointments, /customers, /doi-tac, /patients/new, /schedule, /settings, /settings/clinic-config |
 | `SchedulingService` | `src/clinicai/services/scheduling_service.py` | — (chỉ API/worker) |
-| `send_zalo` | `src/clinicai/tools/communication/send_zalo.py` | — (chỉ API/worker) |
 | `ServiceExecutionService` | `src/clinicai/services/service_execution_service.py` | /ban-kham, /ban-kham/[phong], /do-sinh-hieu, /doi-tac, /duyet-ket-qua, /hanh-trinh, /home, /patient-list (+11) |
 | `ServiceOrderService` | `src/clinicai/services/service_order_service.py` | — (chỉ API/worker) |
 | `ServiceRoutingService` | `src/clinicai/services/service_routing_service.py` | /ban-kham, /ban-kham/[phong], /do-sinh-hieu, /doi-tac, /duyet-ket-qua, /hanh-trinh, /home, /patient-list (+11) |
@@ -1900,7 +1876,6 @@ Mỗi `app/api/**/route.ts`: đường `/api/v1` nó proxy → hàm router FastA
 | `ultrasound_board_service` | `src/clinicai/services/ultrasound_board_service.py` | — (chỉ API/worker) |
 | `UltrasoundBoardService` | `src/clinicai/services/ultrasound_board_service.py` | /ban-kham, /ban-kham/[phong], /patient-list, /tu-van |
 | `UltrasoundService` | `src/clinicai/services/ultrasound_service.py` | — (chỉ API/worker) |
-| `update_task_status` | `src/clinicai/tools/task/update_task_status.py` | — (chỉ API/worker) |
 | `vat_tu_ban_service` | `src/clinicai/services/vat_tu_ban_service.py` | /kho-vat-tu |
 | `vat_tu_danh_muc_service` | `src/clinicai/services/vat_tu_danh_muc_service.py` | /kho-vat-tu |
 | `vat_tu_kho_man_service` | `src/clinicai/services/vat_tu_kho_man_service.py` | /kho-vat-tu |
