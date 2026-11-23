@@ -17,6 +17,7 @@ from pydantic import BaseModel, Field
 
 from clinicai.api.identity import StaffIdentity, get_current_identity
 from clinicai.core.database import get_db_pool
+from clinicai.permissions.y_khoa import GhiXemHoSo, ghi_xem_ho_so
 from clinicai.services.lieu_trinh_service import LieuTrinhService
 from clinicai.services.lieu_trinh_tien import LieuTrinhTienService
 
@@ -33,9 +34,12 @@ async def theo_luot(
     visit_id: UUID,
     identity: StaffIdentity = Depends(get_current_identity),
     pool: asyncpg.Pool = Depends(get_db_pool),
+    xem: GhiXemHoSo = Depends(ghi_xem_ho_so),
 ) -> dict[str, Any]:
     """Thẻ liệu trình ở hồ sơ khám: liệu trình + chỉ định điều trị của lượt."""
-    return await LieuTrinhService(pool).theo_luot(identity=identity, visit_id=visit_id)
+    data = await LieuTrinhService(pool).theo_luot(identity=identity, visit_id=visit_id)
+    await xem("phieu_kham", visit_id=str(visit_id))
+    return data
 
 
 @router.get("/lieu-trinh/theo-khach/{clinic_patient_id}")
@@ -43,11 +47,14 @@ async def theo_khach(
     clinic_patient_id: UUID,
     identity: StaffIdentity = Depends(get_current_identity),
     pool: asyncpg.Pool = Depends(get_db_pool),
+    xem: GhiXemHoSo = Depends(ghi_xem_ho_so),
 ) -> dict[str, Any]:
     """Khung khách / quầy: mọi liệu trình của khách."""
-    return await LieuTrinhService(pool).theo_khach(
+    data = await LieuTrinhService(pool).theo_khach(
         identity=identity, clinic_patient_id=clinic_patient_id
     )
+    await xem("lich_su_kham", khach=str(clinic_patient_id))
+    return data
 
 
 @router.get("/lieu-trinh/chip")

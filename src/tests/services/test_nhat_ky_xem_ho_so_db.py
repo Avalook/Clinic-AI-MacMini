@@ -5,7 +5,9 @@ Khoá:
      (không đường thật có id). Gọi lại trong 5 phút → vẫn một dòng (gộp).
   2. Gộp ép ở DB: chỉ mục duy nhất theo khung 5 phút (không chỉ bộ nhớ tiến trình).
   3. Sổ CHỈ THÊM: UPDATE / DELETE / TRUNCATE bị chặn.
-  4. Chỉ quyền `ops.view` đọc được nhật ký; màn đọc không trả họ tên khách.
+  4. Chỉ quyền riêng `ho_so.access_log.view` (Quản lý) đọc được nhật ký qua API —
+     `ops.view` thì gần như ai cũng có; vai `authenticated` (đường PostgREST) không
+     SELECT được bảng; màn đọc không trả họ tên khách.
   5. Ghi hỏng không làm hỏng lượt đọc — lỗi vào kho lỗi.
   6. Đầu vào rác (id không phải uuid, ngày rác) không ném.
 """
@@ -140,7 +142,15 @@ async def test_so_chi_them_sua_xoa_truncate_bi_chan(pool: asyncpg.Pool) -> None:
     assert len(await _dong(pool, pid)) == 1
 
 
-async def test_chi_ops_view_doc_duoc_va_khong_lo_ho_ten(
+async def test_vai_authenticated_khong_select_duoc_bang(pool: asyncpg.Pool) -> None:  # noqa: F811
+    """Đường PostgREST (vai `authenticated`): REVOKE + RLS không policy."""
+    async with pool.acquire() as conn, conn.transaction():
+        await conn.execute("SET LOCAL ROLE authenticated")
+        with pytest.raises(asyncpg.InsufficientPrivilegeError):
+            await conn.fetch("SELECT * FROM nhat_ky_xem_ho_so LIMIT 1")
+
+
+async def test_chi_quyen_rieng_doc_duoc_va_khong_lo_ho_ten(
     pool: asyncpg.Pool,  # noqa: F811
     client: httpx.AsyncClient,
 ) -> None:
@@ -197,8 +207,7 @@ async def test_ghi_hong_khong_chan_nguoi_doc_va_vao_kho_loi(
 
 async def test_dau_vao_rac_khong_nem(pool: asyncpg.Pool) -> None:  # noqa: F811
     ca = await _dung(pool)
-    for k in ("visit_id", "appointment_id", "service_order_id", "tep_id", "xn_cu_id"):
-        rac: dict[str, Any] = {k: "khong-phai-uuid"}
+    for k in nk._SQL_TRA_KHACH:  # mọi khoá tra, kể cả khoá ảnh siêu âm (chuỗi)
         assert (
             await nk.ghi(
                 pool,
@@ -207,12 +216,42 @@ async def test_dau_vao_rac_khong_nem(pool: asyncpg.Pool) -> None:  # noqa: F811
                 vai="DOCTOR",
                 loai="ket_qua",
                 cua=f"GET /thu/rac-{k}",
-                **rac,
+                tra={k: "khong-phai-uuid"},
             )
             is False
         )
+    # Khoá tra lạ = lỗi lập trình → ném (dependency đưa vào kho lỗi).
+    with pytest.raises(ValueError):
+        await nk.ghi(
+            pool,
+            clinic_id=CLINIC,
+            staff_id=ca.bac_si.staff_id,
+            vai="DOCTOR",
+            loai="ket_qua",
+            cua="GET /thu/khoa-la",
+            tra={"khoa_la": "x"},
+        )
     kq = await nk.doc(pool, clinic_id=CLINIC, tu="abc", den="32/13/2026", staff_id="x")
     assert kq["tu"] == kq["den"]  # ngày rác → hôm nay
+
+
+async def test_tra_khach_tu_anh_sieu_am(pool: asyncpg.Pool) -> None:  # noqa: F811
+    ca = await _dung(pool)
+    pid = await _benh_nhan(pool, ca)
+    visit = await _check_in(pool, ca, pid, ca.loai_kham)
+    khoa = f"{CLINIC}/sieu-am/{uuid.uuid4()}.jpg"
+    await pool.execute(
+        "INSERT INTO ultrasound_record (clinic_id, visit_id, clinic_patient_id,"
+        " ultrasound_type, image_refs) VALUES ($1::uuid, $2::uuid, $3::uuid,"
+        " 'Phụ khoa', ARRAY[$4])",
+        CLINIC,
+        visit,
+        pid,
+        khoa,
+    )
+    await GhiXemHoSo(pool, ca.bac_si, "GET /thu/anh")("tep_ket_qua", anh_sieu_am=khoa)
+    dong = await _dong(pool, pid)
+    assert [(d["loai"], d["doi_tuong_id"]) for d in dong] == [("tep_ket_qua", khoa)]
 
 
 async def test_loai_khop_check_cua_db(pool: asyncpg.Pool) -> None:  # noqa: F811

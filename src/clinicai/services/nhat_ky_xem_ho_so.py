@@ -20,6 +20,7 @@ Ba luật của file:
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from datetime import UTC, date, datetime, time, timedelta
 from typing import Any
 from uuid import UUID
@@ -59,47 +60,49 @@ def khung_cua(luc: datetime) -> datetime:
     return _MOC + so_khung * KHUNG_GOP
 
 
+#: Tên khoá tra khách (cũng là tên tham số ở cửa: `xem(..., visit_id=…)`) → SQL.
+#: Thêm một cách tra = thêm một dòng ở đây. Thứ tự = ưu tiên khi có nhiều khoá.
+_SQL_TRA_KHACH: dict[str, str] = {
+    "visit_id": "SELECT clinic_patient_id::text FROM visit"
+    " WHERE clinic_id = $1::uuid AND visit_id = $2::uuid",
+    "appointment_id": "SELECT clinic_patient_id::text FROM appointment"
+    " WHERE clinic_id = $1::uuid AND id = $2::uuid",
+    "service_order_id": "SELECT v.clinic_patient_id::text FROM service_order so"
+    " JOIN visit v ON v.visit_id = so.visit_id AND v.clinic_id = so.clinic_id"
+    " WHERE so.clinic_id = $1::uuid AND so.id = $2::uuid",
+    "tep_id": "SELECT clinic_patient_id::text FROM tep_ket_qua"
+    " WHERE clinic_id = $1::uuid AND id = $2::uuid",
+    # Xét nghiệm CŨ nhập từ Notion (lich_su_notion.xet_nghiem).
+    "xn_cu_id": "SELECT clinic_patient_id::text FROM lich_su_notion.xet_nghiem"
+    " WHERE clinic_id = $1::uuid AND notion_id = $2::uuid",
+    # Khoá ảnh siêu âm (chuỗi `<clinic_id>/…`) nằm trong `image_refs` của bản ghi.
+    "anh_sieu_am": "SELECT clinic_patient_id::text FROM ultrasound_record"
+    " WHERE clinic_id = $1::uuid AND $2 = ANY(image_refs) LIMIT 1",
+}
+
+_SQL_GHI = """
+    INSERT INTO nhat_ky_xem_ho_so
+        (clinic_id, staff_id, vai, clinic_patient_id, loai, doi_tuong_id,
+         cua, xem_luc, khung)
+    VALUES ($1::uuid, $2::uuid, $3, $4::uuid, $5, $6, $7,
+            COALESCE($8::timestamptz, now()), $9::timestamptz)
+    ON CONFLICT DO NOTHING
+"""
+
+
 async def tra_khach(
-    conn: asyncpg.Connection,
-    clinic_id: str,
-    *,
-    visit_id: str | None = None,
-    appointment_id: str | None = None,
-    service_order_id: str | None = None,
-    tep_id: str | None = None,
-    xn_cu_id: str | None = None,
+    conn: asyncpg.Connection, clinic_id: str, tra: Mapping[str, str | None]
 ) -> str | None:
-    """Khách của một bản ghi, trong ĐÚNG phòng khám. Không thấy → None."""
-    for ten, khoa in (
-        ("visit", visit_id),
-        ("appointment", appointment_id),
-        ("service_order", service_order_id),
-        ("tep", tep_id),
-        ("xn_cu", xn_cu_id),
-    ):
+    """Khách của một bản ghi, trong ĐÚNG phòng khám. Không thấy / id rác → None."""
+    for ten, sql in _SQL_TRA_KHACH.items():
+        khoa = tra.get(ten)
         if khoa:
             try:
-                kq = await conn.fetchval(_SQL_TRA_KHACH[ten], clinic_id, khoa)
+                kq = await conn.fetchval(sql, clinic_id, khoa)
             except (asyncpg.DataError, ValueError):  # id rác (không phải uuid)
                 return None
             return str(kq) if kq else None
     return None
-
-
-_SQL_TRA_KHACH = {
-    "visit": "SELECT clinic_patient_id::text FROM visit"
-    " WHERE clinic_id = $1::uuid AND visit_id = $2::uuid",
-    "appointment": "SELECT clinic_patient_id::text FROM appointment"
-    " WHERE clinic_id = $1::uuid AND id = $2::uuid",
-    "service_order": "SELECT v.clinic_patient_id::text FROM service_order so"
-    " JOIN visit v ON v.visit_id = so.visit_id AND v.clinic_id = so.clinic_id"
-    " WHERE so.clinic_id = $1::uuid AND so.id = $2::uuid",
-    "tep": "SELECT clinic_patient_id::text FROM tep_ket_qua"
-    " WHERE clinic_id = $1::uuid AND id = $2::uuid",
-    # Xét nghiệm CŨ nhập từ Notion (lich_su_notion.xet_nghiem).
-    "xn_cu": "SELECT clinic_patient_id::text FROM lich_su_notion.xet_nghiem"
-    " WHERE clinic_id = $1::uuid AND notion_id = $2::uuid",
-}
 
 
 async def ghi(
@@ -111,63 +114,37 @@ async def ghi(
     loai: str,
     cua: str,
     khach: str | None = None,
-    visit_id: str | None = None,
-    appointment_id: str | None = None,
-    service_order_id: str | None = None,
-    tep_id: str | None = None,
-    xn_cu_id: str | None = None,
+    tra: Mapping[str, str | None] | None = None,
     doi_tuong_id: str | None = None,
     luc: datetime | None = None,
 ) -> bool:
-    """Ghi một lượt xem. True = có dòng mới; False = đã gộp vào khung / không rõ khách.
+    """Ghi một lượt xem. True = có dòng mới; False = đã gộp / không rõ khách.
 
-    Ném khi DB hỏng — người gọi (dependency ở `permissions/y_khoa.py`) nuốt và
-    đưa vào kho lỗi. `luc` chỉ để test; đời thật là giờ máy chủ.
+    `khach` biết sẵn thì truyền (khỏi một truy vấn); không thì `tra` = {tên khoá
+    trong `_SQL_TRA_KHACH`: id}. Ném khi DB hỏng / khoá lạ — người gọi
+    (`permissions/y_khoa.py`) nuốt và đưa vào kho lỗi. `luc` chỉ để test.
     """
-    if loai not in LOAI:
-        raise ValueError(f"loai không hợp lệ: {loai}")
+    tra = tra or {}
+    if loai not in LOAI or not set(tra) <= set(_SQL_TRA_KHACH):
+        raise ValueError(f"loai / khoá tra không hợp lệ: {loai} {sorted(tra)}")
     if doi_tuong_id is None:
-        doi_tuong_id = (
-            visit_id or appointment_id or service_order_id or tep_id or xn_cu_id
-        )
+        doi_tuong_id = next((v for v in tra.values() if v), None)
     khung = khung_cua(luc or datetime.now(UTC))
-    # Khoá gộp dựng trước khi tra khách: đã thấy cùng (người, cửa, bản ghi) trong
-    # khung này thì khỏi tra lẫn ghi.
+    # Đã thấy cùng (người, cửa, bản ghi) trong khung này → khỏi tra lẫn ghi.
     khoa_nho = (clinic_id, staff_id, loai, cua, khach or "", doi_tuong_id or "")
     if _DA_GHI.get(khoa_nho) == khung:
         return False
     async with pool.acquire() as conn:
         if khach is None:
-            khach = await tra_khach(
-                conn,
-                clinic_id,
-                visit_id=visit_id,
-                appointment_id=appointment_id,
-                service_order_id=service_order_id,
-                tep_id=tep_id,
-                xn_cu_id=xn_cu_id,
-            )
+            khach = await tra_khach(conn, clinic_id, tra)
         if not khach:
             return False
         trang_thai = await conn.execute(
-            """
-            INSERT INTO nhat_ky_xem_ho_so
-                (clinic_id, staff_id, vai, clinic_patient_id, loai, doi_tuong_id,
-                 cua, xem_luc, khung)
-            VALUES ($1::uuid, $2::uuid, $3, $4::uuid, $5, $6, $7,
-                    COALESCE($8::timestamptz, now()), $9::timestamptz)
-            ON CONFLICT DO NOTHING
-            """,
-            clinic_id,
-            staff_id,
-            vai,
-            khach,
-            loai,
-            doi_tuong_id,
-            cua[:200],
-            luc,
-            khung,
-        )
+            _SQL_GHI, clinic_id, staff_id, vai, khach, loai, doi_tuong_id,
+            cua[:200], luc, khung,
+        )  # fmt: skip
+    # Chạm trần thì xoá cả bộ nhớ: chỉ tốn thêm một vòng INSERT bị ON CONFLICT
+    # chặn, không sai dữ liệu — đơn giản hơn LRU.
     if len(_DA_GHI) >= _TRAN_BO_NHO:
         _DA_GHI.clear()
     _DA_GHI[khoa_nho] = khung

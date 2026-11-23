@@ -101,13 +101,12 @@ class GhiXemHoSo:
         loai: str,
         *,
         khach: str | None = None,
-        visit_id: str | None = None,
-        appointment_id: str | None = None,
-        service_order_id: str | None = None,
-        tep_id: str | None = None,
-        xn_cu_id: str | None = None,
         doi_tuong_id: str | None = None,
+        **tra: str | None,
     ) -> None:
+        """`khach` biết sẵn thì truyền; không thì một khoá tra (`visit_id`,
+        `appointment_id`, `service_order_id`, `tep_id`, `xn_cu_id`, `anh_sieu_am`
+        — `services/nhat_ky_xem_ho_so._SQL_TRA_KHACH`)."""
         from clinicai.services import kho_loi, nhat_ky_xem_ho_so
 
         try:
@@ -119,11 +118,7 @@ class GhiXemHoSo:
                 loai=loai,
                 cua=self.cua,
                 khach=khach,
-                visit_id=visit_id,
-                appointment_id=appointment_id,
-                service_order_id=service_order_id,
-                tep_id=tep_id,
-                xn_cu_id=xn_cu_id,
+                tra=tra,
                 doi_tuong_id=doi_tuong_id,
             )
         except Exception as exc:  # noqa: BLE001 — nhật ký hỏng không chặn người đọc
