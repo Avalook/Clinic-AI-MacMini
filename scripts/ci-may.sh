@@ -93,7 +93,7 @@ job_backend() {
   # Thước đo RATCHET "chỉ được giảm" (~3s, không cần DB): tệp dài, McCabe, `if` theo
   # vai, tên hàm trùng, cửa thiếu response_model. Cùng kiểm này nằm trong pytest
   # (test_thuoc_do_ratchet.py); chạy ở đây để đỏ sớm, trước khi dựng DB.
-  python3 scripts/thuoc-do.py --kiem
+  "$VENV/python" scripts/thuoc-do.py --kiem  # đúng ruff của .venv (bản ghim), như pytest
   DB_CONTAINER=ci_may_test DB_PORT="$CONG_TEST" ./scripts/tests/dung-db-kiem.sh
   # PYTEST SONG SONG (28/09/2026): trước chạy tuần tự trên 1 nhân (~250–700s,
   # nhân ấy chỉ bận ~30% — còn lại chờ database). Mỗi worker một DATABASE nhân

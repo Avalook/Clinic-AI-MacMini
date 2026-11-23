@@ -1,6 +1,5 @@
 {
   "_ghi_chu": "MỐC RATCHET — tên hàm cấp module trùng ở ≥ 2 tệp: tên → số tệp. CHỈ ĐƯỢC HẠ: sửa tốt thì chạy `python3 scripts/thuoc-do.py --ha-moc`. Nâng mốc để test xanh là vi phạm (thiet-ke-code.md, mục 'Khi một luật ở đây cản việc'). Cách đếm: đầu thuoc-do.py.",
-  "tong": 166,
   "chi_tiet": {
     "_as_dict": 4,
     "_bao_nguoi_truc_khi_chet": 2,

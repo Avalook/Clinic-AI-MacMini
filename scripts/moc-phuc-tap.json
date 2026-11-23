@@ -1,6 +1,5 @@
 {
   "_ghi_chu": "MỐC RATCHET — hàm McCabe > 15: tệp::hàm → độ phức tạp. CHỈ ĐƯỢC HẠ: sửa tốt thì chạy `python3 scripts/thuoc-do.py --ha-moc`. Nâng mốc để test xanh là vi phạm (thiet-ke-code.md, mục 'Khi một luật ở đây cản việc'). Cách đếm: đầu thuoc-do.py.",
-  "tong": 29,
   "chi_tiet": {
     "src/clinicai/core/shifts.py::kiem_cau_hinh_ca": 16,
     "src/clinicai/events/consumers/chuong.py::bao_chuong": 21,
