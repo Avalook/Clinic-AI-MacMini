@@ -60,7 +60,7 @@ Xếp theo mức phòng khám bị ảnh hưởng thật.
 ### 7. Người ngoài đọc được dữ liệu khách; tự xếp ca để vượt quyền
 - **Phòng khám thấy:** không thấy gì — đó mới là chỗ nguy. "Tài khoản đối tác, tivi phòng chờ mở được danh sách khách, tiền, xét nghiệm."
 - **Gốc:** PostgREST (`/rest/v1` — cổng đọc thẳng database của Supabase tự dựng, đang mở ra Internet) cho mọi tài khoản đã đăng nhập đọc bảng khách, tiền (`supabase/migrations/20260730000004_tenant_scoped_rls.sql:149-171`, `20260730000008_table_grants.sql:48-59`). Ai cũng tự xếp mình vào ca "Điều phối" được → thu/hoàn tiền dù đã tắt lego (`cashier_scope_service.py:386`, `payment_service.py:342`). Người lạ ghi được ảnh 8MB/lần lên đĩa (`src/dashboard/app/api/console/feedback/route.ts:17-41`).
-- **Sửa:** khoá `/rest/v1`, chỉ chừa 2 bảng đăng nhập cần (#532). Cấm tự xếp mình vào ca Điều phối, tiền theo ca vẫn đòi lego. Kiểm phiên trước khi ghi đĩa.
+- **Sửa:** lớp 1 — đóng `/rest/v1` + `/realtime/v1` ở Caddy (PR 23/11, nhánh `claude/dong-rest-v1-caddy`); lớp 2 ở database — khoá quyền, chỉ chừa 2 bảng đăng nhập cần (#532, chưa làm lại). Cấm tự xếp mình vào ca Điều phối, tiền theo ca vẫn đòi lego. Kiểm phiên trước khi ghi đĩa.
 - **Mức 3** · 3 PR · đã có: #532 (Tuyền chạy trước lệnh ACL chỉ đọc ở #527). Nguồn: #527 C1–C3, C7, B1 · `KIEM-TOAN` 7.2.
 - **Thêm 23/10 (soát hệ thống + lego):**
   - Sự kiện `patient.created` ghi nguyên họ tên, ngày sinh, 2 SĐT, CCCD vào `event_log` (`src/clinicai/services/patient_service.py:213-235`, đã xem tận mắt). Bảng chỉ-thêm, có chốt cấm xoá → nằm mãi và đi theo mọi bản sao lưu. Sửa chỗ ghi mới (chỉ ghi mã khách) thì nhỏ; dọn phần đã ghi cần kế hoạch riêng. Mức 3.

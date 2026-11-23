@@ -497,7 +497,8 @@ chỉ nằm trên ổ đĩa VPS**, không có bản sao ở đâu cả.
   │   · gắn header bảo mật (HSTS, nosniff, DENY khung, …)          │
   │   · /health              → trả "ok" ngay, không đi đâu cả       │
   │   · /auth/v1/token*      → auth_guard  (canh đăng nhập)        │
-  │   · /auth|rest|realtime/v1/* → cổng Supabase tự dựng           │
+  │   · /rest|realtime/v1    → 403 (đóng 23/11/2026)               │
+  │   · /auth/v1/*           → cổng Supabase tự dựng               │
   │   · còn lại              → dashboard:3000                       │
   └───────────────────────────────┬─────────────────────────────────┘
                                   ▼
@@ -970,7 +971,7 @@ staging thì đăng xuất một lần là cái giá đúng phải trả.
 | `SITE_ADDRESS` | Khối site của Caddy: `:80` khi đứng sau đường hầm, hoặc tên miền để Caddy tự xin chứng chỉ. **Bắt buộc** |
 | `CADDY_BIND_ADDRESS` | Địa chỉ Caddy nghe: `0.0.0.0` (prod) vs `127.0.0.1` (staging) |
 | `CADDY_HTTP_PORT` / `CADDY_HTTPS_PORT` | 80/443 (prod) · 8080/8443 (staging) |
-| `SUPABASE_GATEWAY_HOST` | Máy chủ Caddy chuyển `/auth/v1`, `/rest/v1`, `/realtime/v1` tới |
+| `SUPABASE_GATEWAY_HOST` | Máy chủ Caddy chuyển `/auth/v1` tới (`/rest/v1`, `/realtime/v1` đóng 403 từ 23/11/2026) |
 | `SUPABASE_NETWORK` | Tên mạng Docker ngoài của bộ Supabase thuộc môi trường đó |
 | `TUNNEL_TOKEN` | Vé đường hầm Cloudflare. Có giá trị → tự bật profile `cloudflare` |
 
@@ -7751,7 +7752,8 @@ khám đang chạy thật.
 | `header { ... }` | HSTS 1 năm, `nosniff`, `X-Frame-Options DENY`, `Referrer-Policy`, `Permissions-Policy` khoá camera/mic/GPS, `-Server` (không lộ stack) |
 | `handle /health` | `respond "ok" 200` — cho healthcheck compose, chạy được cả ở chế độ `:80` |
 | `@dangnhap path /auth/v1/token*` | → `auth-guard` (nginx nhỏ chặn dò mật khẩu) |
-| `@supabase path /auth/v1/* /rest/v1/* /realtime/v1/*` | → gateway Supabase; `handle` (**không** `handle_path`) để giữ nguyên tiền tố |
+| `@dong_supabase path /rest/v1 /rest/v1/* /realtime/v1 /realtime/v1/*` | → `respond 403` (23/11/2026): khoá anon nằm trong JS trình duyệt, RLS lọc theo phòng khám chứ không theo vai → để mở là Đối tác/TV đọc thẳng ~110 bảng. Trình duyệt chỉ gọi `supabase.auth.*`; test `src/tests/test_caddy_dong_rest_v1.py` canh |
+| `@supabase path /auth/v1/*` | → gateway Supabase; `handle` (**không** `handle_path`) để giữ nguyên tiền tố |
 | `handle { reverse_proxy dashboard:3000 }` | Còn lại → Next.js. **API không bao giờ lộ ra ngoài** |
 
 **VÌ SAO có `auth-guard` riêng.** Đo 12/08/2026: **10 lần đăng nhập sai liên tiếp vào PROD
