@@ -19,6 +19,8 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field
 from datetime import date
 
+from clinicai.core.clock import doc_ngay_xem
+
 #: Giả lập (staging / thử) hay hệ thống thật.
 GIA_LAP = "gia_lap"
 THAT = "that"
@@ -127,10 +129,8 @@ def doc_cau_hinh_dtqg(env: Mapping[str, str] | None = None) -> CauHinh | list[st
             loi.append(f"{ten} phải là uuid")
     if not _MA_CO_SO.match(g["DTQG_MA_CO_SO"]):
         loi.append("DTQG_MA_CO_SO phải là mã cơ sở KCB đúng 5 ký tự chữ/số")
-    gui_tu: date | None = None
-    try:
-        gui_tu = date.fromisoformat(g["DTQG_GUI_TU"])
-    except ValueError:
+    gui_tu = doc_ngay_xem(g["DTQG_GUI_TU"])
+    if gui_tu is None:
         loi.append("DTQG_GUI_TU phải là ngày yyyy-mm-dd")
     ncc = (g["DTQG_NHA_CUNG_CAP"] or GIA_LAP).lower()
     if ncc not in (GIA_LAP, THAT):

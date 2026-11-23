@@ -230,8 +230,10 @@ BEGIN
     -- 132 → 133 (05/11/2026): anh_chuyen_khoan_thu_ho (20261105240000, ảnh CK của
     -- khoản thu hộ đối tác — CHỈ SELECT, như anh_chuyen_khoan).
     -- 133 → 135 (05/11/2026): drive_tep, drive_nhip (20261106100000, chặng 4 Drive).
-    IF scoped_count <> 135 THEN
-        RAISE EXCEPTION 'expected 135 tenant-scoped read policies, found %', scoped_count;
+    -- 135 → 136 (24/11/2026): dtqg_gui (20261124020000, hàng chờ đơn thuốc quốc gia —
+    -- CHỈ SELECT, TO service_role).
+    IF scoped_count <> 136 THEN
+        RAISE EXCEPTION 'expected 136 tenant-scoped read policies, found %', scoped_count;
     END IF;
 END
 $every_tenant_table_is_scoped$;
