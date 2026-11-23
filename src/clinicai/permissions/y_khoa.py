@@ -18,7 +18,7 @@ from __future__ import annotations
 import asyncpg
 import structlog
 
-from clinicai.api.identity import CLINICAL_WRITE_ROLES, StaffIdentity
+from clinicai.api.identity import StaffIdentity
 from clinicai.permissions.can import can
 from clinicai.permissions.cua_quyen import cua_quyen
 
@@ -77,55 +77,8 @@ async def doc_duoc_in_phieu(conn: asyncpg.Connection, identity: StaffIdentity) -
     return False
 
 
-async def ghi_mo_ho_so(
-    pool: asyncpg.Pool,
-    identity: StaffIdentity,
-    *,
-    noi: str,
-    khach: str | None = None,
-    visit_id: str | None = None,
-) -> None:
-    """NHẬT KÝ MỞ HỒ SƠ Y KHOA — ai mở hồ sơ của khách nào, lúc nào, ở màn nào.
-
-    Tuyền duyệt 24/09/2026 cùng lúc mở quyền đọc y khoa cho quản lý: mở rộng
-    quyền nhưng phải truy được dấu vết. CHỈ ghi cho người KHÔNG thuộc vai lâm
-    sàng (bác sĩ, bác sĩ siêu âm, thư ký y khoa, điều dưỡng siêu âm) — đây là
-    câu hỏi "ai ngoài đội chuyên môn đã xem", không phải hàng rào quyền; ghi cả
-    bác sĩ thì mỗi ca vài trăm dòng, nhật ký thành nhiễu và không ai đọc.
-
-    Chỉ ghi MÃ khách + tên màn (`services/audit.py`: không bao giờ ghi nội dung).
-    Không làm hỏng lượt đọc: ghi lỗi thì chỉ log cảnh báo.
-    """
-    # Theo VAI TÀI KHOẢN, không theo vai lego (26/09/2026): quản lý bật lego Bàn
-    # khám thì qua cửa bác sĩ, nhưng vẫn là người ngoài đội chuyên môn khi hỏi
-    # "ai đã xem hồ sơ" — điều kiện Tuyền đặt khi mở quyền đọc cho quản lý.
-    if identity.vai_goc in CLINICAL_WRITE_ROLES:
-        return
-    from clinicai.services.audit import record_event
-
-    try:
-        async with pool.acquire() as conn:
-            if khach is None and visit_id:
-                khach = await conn.fetchval(
-                    "SELECT clinic_patient_id::text FROM visit"
-                    " WHERE clinic_id = $1::uuid AND visit_id = $2::uuid",
-                    identity.clinic_id,
-                    visit_id,
-                )
-            if not khach:
-                return
-            await record_event(
-                conn,
-                event_type="clinical_record.opened",
-                aggregate_type="patient",
-                aggregate_id=khach,
-                identity=identity,
-                origin=f"api:{noi}",
-                payload={"man": noi, "visit_id": visit_id},
-            )
-    except Exception:  # noqa: BLE001 — nhật ký hỏng không được chặn người đọc
-        logger.warning("ghi_mo_ho_so_loi", noi=noi, exc_info=True)
-
+# Nhật ký AI MỞ HỒ SƠ (24/11/2026): không còn ở đây — `api/xem_ho_so.py` ghi
+# mọi vai, sau khi cửa đọc thành công, vào bảng `nhat_ky_xem_ho_so`.
 
 __all__ = [
     "QUYEN_GHI_Y_KHOA",
@@ -133,5 +86,4 @@ __all__ = [
     "cua_ghi_y_khoa",
     "cua_y_khoa",
     "doc_duoc_y_khoa",
-    "ghi_mo_ho_so",
 ]

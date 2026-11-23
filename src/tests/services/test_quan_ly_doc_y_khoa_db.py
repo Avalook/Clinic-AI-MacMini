@@ -1,4 +1,4 @@
-"""Quản lý đọc được nội dung y khoa theo QUYỀN + nhật ký mở hồ sơ (24/09/2026).
+"""Quản lý đọc được nội dung y khoa theo QUYỀN (24/09/2026).
 
 Tuyền chốt: "quản lý quyền cao nhất — có module đó thì mọi quyền của nó có cả".
 Chạy trên Postgres thật (nhóm mẫu theo migration 20260924000014 → 15), không giả `can`.
@@ -27,19 +27,12 @@ from tests.services.test_thu_tien_xep_phong_mang_sang_db import (
 pytestmark = [pytest.mark.db, pytest.mark.asyncio]
 
 
-async def _so_lan_mo(pool: asyncpg.Pool, khach: str, staff_id: str) -> int:  # noqa: F811
-    return int(
-        await pool.fetchval(
-            "SELECT count(*) FROM event_log WHERE event_type = 'clinical_record.opened'"
-            " AND aggregate_id = $1::uuid"
-            " AND metadata->>'clinic_staff_id' = $2",
-            khach,
-            staff_id,
-        )
-    )
+# Nhật ký ai mở hồ sơ: từ 24/11/2026 ở `test_nhat_ky_xem_ho_so_db.py` (bảng
+# `nhat_ky_xem_ho_so`, mọi vai, ghi qua dependency chung — gọi thẳng hàm router
+# như dưới đây thì không qua dependency nên không ghi).
 
 
-async def test_quan_ly_mo_duoc_ho_so_va_de_lai_dau_vet(pool: asyncpg.Pool) -> None:  # noqa: F811
+async def test_quan_ly_mo_duoc_ho_so(pool: asyncpg.Pool) -> None:  # noqa: F811
     ca = await _dung(pool)
     async with pool.acquire() as conn:
         ql = await _nguoi(conn, ca.loc, "MANAGEMENT")
@@ -58,18 +51,10 @@ async def test_quan_ly_mo_duoc_ho_so_va_de_lai_dau_vet(pool: asyncpg.Pool) -> No
     assert await cua_y_khoa(identity=ql, pool=pool) is ql
     hs = await doc_ho_so_lam_sang(patient_id=pid, identity=ql, pool=pool)
     assert "draft" in hs
-    assert await _so_lan_mo(pool, pid, ql.staff_id) == 1
 
 
-async def test_le_tan_van_bi_chan_va_bac_si_khong_ghi_nhat_ky(
-    pool: asyncpg.Pool,  # noqa: F811
-) -> None:
+async def test_le_tan_van_bi_chan(pool: asyncpg.Pool) -> None:  # noqa: F811
     ca = await _dung(pool)
-    pid = await _benh_nhan(pool, ca)
-    await _check_in(pool, ca, pid, ca.loai_kham)
     await ve_goi_mau_cu(pool, ca.le_tan)  # gói lego cũ (mở full lego 30/09)
     with pytest.raises(SafetyGateError):
         await cua_y_khoa(identity=ca.le_tan, pool=pool)
-    # Bác sĩ mở hồ sơ hằng ngày — không ghi, để nhật ký còn đọc được.
-    await doc_ho_so_lam_sang(patient_id=pid, identity=ca.bac_si, pool=pool)
-    assert await _so_lan_mo(pool, pid, ca.bac_si.staff_id) == 0

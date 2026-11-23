@@ -11,6 +11,7 @@ import OpsCenter from "./OpsCenter";
 import SucKhoeApi from "./SucKhoeApi";
 import LoiCanhBao from "./LoiCanhBao";
 import NhatKyVanHanh from "./NhatKyVanHanh";
+import AiXemHoSo from "./AiXemHoSo";
 import ToanCanh from "./ToanCanh";
 import LuuLuongOps from "./LuuLuongOps";
 import ThuLuatMoi from "./ThuLuatMoi";
@@ -23,6 +24,7 @@ const TAB = [
   { ma: "toan-canh", ten: "Toàn cảnh" },
   { ma: "loi", ten: "Lỗi & cảnh báo" },
   { ma: "nhat-ky", ten: "Nhật ký vận hành" },
+  { ma: "xem-ho-so", ten: "Ai xem hồ sơ" },
   { ma: "traffic", ten: "Lưu lượng & Thiết bị" },
   { ma: "thu-luat", ten: "Thử luật mới" },
 ] as const;
@@ -59,6 +61,8 @@ export default async function OpsPage({
         <LoiCanhBao />
       ) : dangMo === "nhat-ky" ? (
         <NhatKyVanHanh />
+      ) : dangMo === "xem-ho-so" ? (
+        <AiXemHoSo />
       ) : dangMo === "traffic" ? (
         <LuuLuongOps />
       ) : dangMo === "thu-luat" ? (

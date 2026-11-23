@@ -13,7 +13,7 @@ from clinicai.api.identity import (
     StaffIdentity,
 )
 from clinicai.core.database import get_db_pool
-from clinicai.permissions.y_khoa import cua_ghi_y_khoa, cua_y_khoa, ghi_mo_ho_so
+from clinicai.permissions.y_khoa import cua_ghi_y_khoa, cua_y_khoa
 from clinicai.services.andrology_review_service import AndrologyReviewService
 from clinicai.services.clinical_form_service import ClinicalFormService
 from clinicai.services.phan_hoi_thuoc_service import doc_theo_khach
@@ -49,7 +49,6 @@ async def read_clinical_form(
     data = await ClinicalFormService(pool).get_form(
         visit_id=str(visit_id), service_code=service_code, identity=identity
     )
-    await ghi_mo_ho_so(pool, identity, noi="phieu-kham-cu", visit_id=str(visit_id))
     return data
 
 
