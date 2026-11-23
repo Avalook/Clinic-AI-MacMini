@@ -90,6 +90,10 @@ job_backend() {
   # docs/BAN-DO-CODE.md sinh từ code (~2 giây): lệch = đổi màn/route/router mà
   # quên chạy `python3 scripts/ban-do-code.py`.
   python3 scripts/ban-do-code.py --kiem
+  # Thước đo RATCHET "chỉ được giảm" (~3s, không cần DB): tệp dài, McCabe, `if` theo
+  # vai, tên hàm trùng, cửa thiếu response_model. Cùng kiểm này nằm trong pytest
+  # (test_thuoc_do_ratchet.py); chạy ở đây để đỏ sớm, trước khi dựng DB.
+  python3 scripts/thuoc-do.py --kiem
   DB_CONTAINER=ci_may_test DB_PORT="$CONG_TEST" ./scripts/tests/dung-db-kiem.sh
   # PYTEST SONG SONG (28/09/2026): trước chạy tuần tự trên 1 nhân (~250–700s,
   # nhân ấy chỉ bận ~30% — còn lại chờ database). Mỗi worker một DATABASE nhân
