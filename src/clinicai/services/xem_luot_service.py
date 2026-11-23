@@ -24,7 +24,6 @@ from __future__ import annotations
 
 import json
 from collections.abc import Collection
-from datetime import date, datetime
 from decimal import Decimal
 from typing import Any
 
@@ -32,6 +31,7 @@ import asyncpg
 
 from clinicai.api.exceptions import NotFoundError
 from clinicai.api.identity import VAI_LAM_VIEC, ClinicRole, StaffIdentity
+from clinicai.core.clock import iso
 from clinicai.core.exceptions import SafetyGateError
 from clinicai.permissions.can import quyen_hieu_luc
 from clinicai.permissions.y_khoa import QUYEN_Y_KHOA, doc_duoc_in_phieu
@@ -74,12 +74,6 @@ QUYEN_THUOC: tuple[str, ...] = (
 def goi_duoc(identity: StaffIdentity) -> bool:
     """Được mở Xem lượt / Hành trình: thành viên nội bộ (vai tài khoản)."""
     return identity.vai_goc in GOI_DUOC
-
-
-def _iso(v: Any) -> str | None:
-    if isinstance(v, (datetime, date)):
-        return v.isoformat()
-    return None
 
 
 def _so(v: Any) -> float | int | None:
@@ -127,7 +121,7 @@ async def doc_su_kien_luot(
         {
             "viec": action_label_theo_nguon(r["event_type"], r["nguon"]),
             "ma": r["event_type"],
-            "luc": _iso(r["occurred_at"]),
+            "luc": iso(r["occurred_at"]),
             "ai": r["ai"],
             "vai": r["vai"],
         }
@@ -151,7 +145,7 @@ def _moc_dich_vu(r: Any) -> list[dict[str, Any]]:
         ("Có kết quả", r["ket_qua_luc"], None),
         ("Bác sĩ duyệt kết quả", r["duyet_luc"], r["nguoi_duyet_ket_qua"]),
     ]
-    return [{"viec": v, "luc": _iso(luc), "ai": ai} for v, luc, ai in moc if luc]
+    return [{"viec": v, "luc": iso(luc), "ai": ai} for v, luc, ai in moc if luc]
 
 
 def muc_duoc_xem(quyen: Collection[str]) -> dict[str, bool]:
@@ -210,7 +204,7 @@ async def dong_thoi_gian_luot(
             )
         ra.append(
             {
-                "luc": _iso(r["occurred_at"]),
+                "luc": iso(r["occurred_at"]),
                 "su_kien": r["event_type"],
                 "nhan": nhan,
                 "chi_tiet": chi_tiet,
@@ -349,7 +343,7 @@ class XemLuotService:
             # Lượt chuyển từ Notion: chỉ có NGÀY (giờ 00:00 giả), cố ý không có
             # dòng thu — giao diện không in giờ, không in "Chưa thu".
             "ho_so_cu": bool(v["ho_so_cu"]),
-            "check_in_luc": _iso(v["checked_in_at"]),
+            "check_in_luc": iso(v["checked_in_at"]),
             "trang_thai_luot": v["status"],
             # INCOMPLETE = khách về giữa chừng (checkout_service.close) — lễ tân
             # và CSKH cần thấy rõ, không lẫn với "đã khám xong".
@@ -365,12 +359,12 @@ class XemLuotService:
                 if da_do and do is not None
                 else None
             ),
-            "kham_xong_luc": _iso(v["exam_completed_at"]),
+            "kham_xong_luc": iso(v["exam_completed_at"]),
             "dang_o": v["dang_o_phong"] or v["dang_o_buoc"],
             "da_thu_dich_vu": r["da_thu_dv"],
             "da_thu_thuoc": r["da_thu_thuoc"],
-            "dong_luot_luc": _iso(v["closed_at"]),
-            "lich_tiep_theo": _iso(r["lich_tiep"]),
+            "dong_luot_luc": iso(v["closed_at"]),
+            "lich_tiep_theo": iso(r["lich_tiep"]),
         }
 
     @staticmethod
@@ -506,7 +500,7 @@ class XemLuotService:
         return [
             {
                 "visit_id": r["visit_id"],
-                "luc": _iso(r["checked_in_at"] or r["created_at"]),
+                "luc": iso(r["checked_in_at"] or r["created_at"]),
                 "trang_thai": r["status"],
                 "dich_vu": r["dich_vu"],
                 "bac_si": r["bac_si"],
@@ -537,7 +531,7 @@ class XemLuotService:
 
         def dong(r: asyncpg.Record) -> dict[str, Any]:
             return {
-                "luc": _iso(r["created_at"]),
+                "luc": iso(r["created_at"]),
                 "nguoi_do": r["nguoi_do"],
                 "tam_thu": r["systolic"],
                 "tam_truong": r["diastolic"],
@@ -662,7 +656,7 @@ class XemLuotService:
             "ky": {
                 "da_ky": v["status"] in ("FINALIZED", "AMENDED"),
                 "trang_thai": v["status"],
-                "luc": _iso(v["finalized_at"]),
+                "luc": iso(v["finalized_at"]),
                 "nguoi_ky": v["nguoi_ky"],
                 "nguoi_bam_ky": v["nguoi_bam_ky"],
             },
@@ -672,8 +666,8 @@ class XemLuotService:
                     "vong": r["round_no"],
                     "trang_thai": r["status"],
                     "ket_qua": r["outcome"],
-                    "bat_dau": _iso(r["started_at"]),
-                    "xong": _iso(r["completed_at"]),
+                    "bat_dau": iso(r["started_at"]),
+                    "xong": iso(r["completed_at"]),
                     "bac_si": r["bac_si"],
                     "nguoi_bam_bat_dau": r["nguoi_bam"],
                 }
@@ -687,15 +681,15 @@ class XemLuotService:
                 "ke_hoach": tk,
                 "revision": ba["revision"] if ba else None,
                 "co_don_nhap_cho_duyet": bool(ba["co_don_nhap"]) if ba else False,
-                "cap_nhat_luc": _iso(ba["updated_at"]) if ba else None,
+                "cap_nhat_luc": iso(ba["updated_at"]) if ba else None,
             },
             "phieu": (
                 {
                     "ma": phieu["service_code"],
                     "nguoi_tao": ten_nguoi.get(str(phieu["created_by"] or "")),
                     "nguoi_sua_cuoi": ten_nguoi.get(str(phieu["updated_by"] or "")),
-                    "tao_luc": _iso(phieu["created_at"]),
-                    "sua_luc": _iso(phieu["updated_at"]),
+                    "tao_luc": iso(phieu["created_at"]),
+                    "sua_luc": iso(phieu["updated_at"]),
                     "form_code": v["form_code"],
                 }
                 if phieu
@@ -717,8 +711,8 @@ class XemLuotService:
                 {
                     "trang_thai": r["status"],
                     "ly_do": r["reason"],
-                    "han": _iso(r["due_at"]),
-                    "dong_luc": _iso(r["closed_at"]),
+                    "han": iso(r["due_at"]),
+                    "dong_luc": iso(r["closed_at"]),
                     "chu": r["chu"],
                     "dich_vu": r["service_name"],
                 }
@@ -750,9 +744,9 @@ class XemLuotService:
                 "loai": r["kind"],
                 "trang_thai": r["status"],
                 "so_tien": _so(r["amount"]),
-                "luc": _iso(r["paid_at"]),
+                "luc": iso(r["paid_at"]),
                 "nguoi_thu": r["nguoi_thu"] or r["paid_by_text"],
-                "huy_luc": _iso(r["voided_at"]),
+                "huy_luc": iso(r["voided_at"]),
                 "nguoi_huy": r["nguoi_huy"],
                 "ly_do_huy": r["void_reason"],
             }
@@ -793,21 +787,21 @@ class XemLuotService:
                 "don_vi": r["unit"],
                 "cach_dung": r["dosage_instructions"],
                 "da_cap": _so(r["dispensed_qty"]),
-                "cap_luc": _iso(r["dispensed_at"]),
+                "cap_luc": iso(r["dispensed_at"]),
                 "trang_thai_cap": r["dispense_status"],
                 "ly_do_tu_choi": r["refusal_reason"],
                 "nguoi_cap": r["nguoi_cap"],
                 # CP6: dòng đã đính chính vẫn hiện — đánh dấu, kèm dòng thay.
                 "id": r["id"],
                 "da_dinh_chinh": r["removed_at"] is not None,
-                "dinh_chinh_luc": _iso(r["removed_at"]),
+                "dinh_chinh_luc": iso(r["removed_at"]),
                 "ly_do_dinh_chinh": r["removal_reason"],
                 "nguoi_dinh_chinh": r["nguoi_dinh_chinh"],
                 "thay_boi": r["thay_boi"],
                 # C14: số lượng do quầy thu thuốc điền (bác sĩ để trống).
                 "so_luong_do_thu_ngan": r["so_luong_dien_luc"] is not None,
                 "nguoi_dien_so_luong": r["nguoi_dien_so_luong"],
-                "dien_so_luong_luc": _iso(r["so_luong_dien_luc"]),
+                "dien_so_luong_luc": iso(r["so_luong_dien_luc"]),
                 # C19: số bác sĩ kê gốc khi quầy đã sửa (NULL = bác sĩ để trống).
                 "so_luong_ke_goc": r["so_luong_ke_goc"],
             }

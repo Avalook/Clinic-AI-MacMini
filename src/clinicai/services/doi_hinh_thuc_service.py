@@ -25,7 +25,6 @@ Hàm thuần có test không cần DB (``tests/unit/test_doi_hinh_thuc.py``).
 from __future__ import annotations
 
 from collections.abc import Iterable, Mapping, Sequence
-from datetime import datetime
 from typing import Any
 
 import asyncpg
@@ -33,6 +32,7 @@ import structlog
 
 from clinicai.api.exceptions import ConflictError, NotFoundError, ValidationError
 from clinicai.api.identity import StaffIdentity
+from clinicai.core.clock import iso
 from clinicai.core.exceptions import SafetyGateError
 from clinicai.events.catalogue import HinhThucThuDaDoi
 from clinicai.events.emit import emit_event, nguoi
@@ -97,10 +97,6 @@ def doc_ly_do(raw: object) -> str | None:
     if len(ly) > 500:
         raise ValidationError("Lý do tối đa 500 ký tự.")
     return ly
-
-
-def _iso(v: Any) -> str | None:
-    return v.isoformat() if isinstance(v, datetime) else None
 
 
 def doc_chia(tien_mat: object, chuyen_khoan: object, so_tien: int) -> tuple[int, int]:
@@ -169,7 +165,7 @@ def dung_trang_thai(
                 "ma_gd": d.get("reference"),
                 "ly_do": d.get("ly_do"),
                 "boi": d.get("boi"),
-                "luc": _iso(d.get("luc")),
+                "luc": iso(d.get("luc")),
             }
         )
     out: dict[str, dict[str, Any]] = {}

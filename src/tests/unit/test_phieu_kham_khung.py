@@ -19,13 +19,13 @@ from typing import Any
 
 import pytest
 
+from clinicai.core.clock import doc_ngay
 from clinicai.core.exceptions import ValidationError
 from clinicai.phieu_kham.che_do import CHE_DO, doi_ghi_duoc, ghi_duoc
 from clinicai.phieu_kham.khung import (
     FORM_IDS,
     cac_o,
     dinh_nghia,
-    doc_ngay,
     kiem_du_lieu,
     kiem_khung,
     tat_ca,

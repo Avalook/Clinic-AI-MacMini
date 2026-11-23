@@ -26,6 +26,7 @@ from clinicai.api.identity import (
     _resolve_identity,
     doc_vai_theo_lego,
 )
+from clinicai.core.clock import doc_ngay
 from clinicai.core.database import get_db_pool
 from clinicai.main import app
 from clinicai.permissions import cache
@@ -33,7 +34,6 @@ from clinicai.permissions.catalogue import quyen_cua_khoi
 from clinicai.services.don_du_lieu_thu_service import (
     che_sdt,
     chuan_khach,
-    doc_ngay,
     ngay_mac_dinh,
     nhom_so_dong,
     xac_nhan_dung,

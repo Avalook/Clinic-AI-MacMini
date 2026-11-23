@@ -14,8 +14,9 @@ import asyncpg
 import pytest
 
 from clinicai.api.v1.routers.ho_so_kham import lich_su
+from clinicai.core.clock import doc_ngay
 from clinicai.services.danh_sach_benh_nhan_service import _LUOT_SQL
-from clinicai.services.lich_su_luot import doc_ngay, loc
+from clinicai.services.lich_su_luot import loc
 from tests.services.test_check_in_lai_sau_hoan_tac_db import (  # noqa: F401
     CLINIC,
     pool,

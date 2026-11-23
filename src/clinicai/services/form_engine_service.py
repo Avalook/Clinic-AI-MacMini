@@ -39,7 +39,7 @@ import asyncpg
 
 from clinicai.api.exceptions import ConflictError
 from clinicai.api.identity import ClinicRole, StaffIdentity
-from clinicai.core.clock import CLINIC_TZ
+from clinicai.core.clock import CLINIC_TZ, iso
 from clinicai.core.exceptions import (
     ChuaThuTienError,
     SafetyGateError,
@@ -876,7 +876,7 @@ class FormEngineService:
                     # ISO-8601 chuẩn (`2026-09-23T05:06:32+00:00`), không phải
                     # `str(datetime)` — bản sau có dấu cách thay chữ T, và ảnh
                     # chụp này còn phải đọc lại được sau nhiều năm.
-                    "hoan_tat_luc": _gio_iso(moi["hoan_tat_luc"]),
+                    "hoan_tat_luc": iso(moi["hoan_tat_luc"]),
                 }
                 ban_thu = await self._ghi_lan_sua(
                     conn,
@@ -1398,7 +1398,7 @@ class FormEngineService:
             "dang_sua": bool(dong["dang_sua"]),
             "revision": dong["revision"],
             # Lần lưu gần nhất — chân "Bản n · người sửa · giờ" (phiếu điều trị).
-            "sua_luc": _gio_iso(dong["sua_luc"]),
+            "sua_luc": iso(dong["sua_luc"]),
             # Mẫu không có bước Hoàn tất (lưu là ghi nhận) — màn không vẽ nút.
             "khong_hoan_tat": dong["form_id"] in MAU_KHONG_HOAN_TAT,
             "khung": khung,
@@ -1448,15 +1448,6 @@ def _kiem_du_lieu(du_lieu: dict[str, Any]) -> dict[str, Any]:
     return sach
 
 
-def _gio_iso(gio: Any) -> str | None:
-    """Mốc thời gian trong ảnh chụp luôn là ISO-8601, không phải `str(datetime)`.
-
-    `str()` cho ra `2026-09-23 05:06:32+00:00` — dấu cách thay chữ T. Đọc lại
-    được, nhưng không phải chuẩn, và ảnh chụp này còn phải mở ra sau nhiều năm.
-    """
-    return gio.isoformat() if hasattr(gio, "isoformat") else (gio or None)
-
-
 def _anh_phien_ban(
     dong: asyncpg.Record,
     *,
@@ -1482,7 +1473,7 @@ def _anh_phien_ban(
         nguoi_nhap = dong["nhap_boi"]
         nguoi_lam = dong["thuc_hien_boi"]
         chot_boi = dong["hoan_tat_boi"]
-        chot_luc = _gio_iso(dong["hoan_tat_luc"])
+        chot_luc = iso(dong["hoan_tat_luc"])
     return {
         "du_lieu": du_lieu,
         "nhap_boi": str(nguoi_nhap) if nguoi_nhap else None,

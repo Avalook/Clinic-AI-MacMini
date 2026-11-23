@@ -27,6 +27,7 @@ import asyncpg
 
 from clinicai.api.exceptions import NotFoundError
 from clinicai.api.identity import StaffIdentity
+from clinicai.core.clock import iso
 from clinicai.core.exceptions import ValidationError
 from clinicai.permissions.doc_bang import doi_mot_quyen
 from clinicai.phieu_kham.che_do import KHOI1_THU_THUAT, che_do_khoi1
@@ -199,10 +200,6 @@ NHAN = {
 }
 
 
-def _iso(v: Any) -> str | None:
-    return v.isoformat() if v is not None else None
-
-
 def trang_thai_the(execution_status: str | None, noi_lam: str | None) -> str:
     """Trạng thái của thẻ chỉ định điều trị — hàm thuần."""
     ex = execution_status or "PENDING"
@@ -259,7 +256,7 @@ async def doc_the(
                     "form_id": p["form_id"],
                     "trang_thai": p["trang_thai"],
                     "revision": p["revision"],
-                    "sua_luc": _iso(p["sua_luc"]),
+                    "sua_luc": iso(p["sua_luc"]),
                     "nguoi_sua": p["nguoi_sua"],
                     "o": o_phieu(p["khung"], p["du_lieu"]),
                 },
@@ -296,8 +293,8 @@ async def doc_the(
                 if tt in ("XONG", "DANG_LAM_BAN_KHAM")
                 else None,
                 "nguoi_lam": r["nguoi_lam"] if tt != "CHUA_LAM" else None,
-                "bat_dau_luc": _iso(r["started_at"]) if tt != "CHUA_LAM" else None,
-                "xong_luc": _iso(r["completed_at"]) if tt == "XONG" else None,
+                "bat_dau_luc": iso(r["started_at"]) if tt != "CHUA_LAM" else None,
+                "xong_luc": iso(r["completed_at"]) if tt == "XONG" else None,
                 "attempt_id": r["attempt_id"] if dang_ban_kham else None,
                 "execution_revision": int(r["execution_revision"] or 0),
                 "da_thu": bool(t is not None and t.finance_state in READY_STATES),

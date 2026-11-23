@@ -27,13 +27,13 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass, field
-from datetime import datetime
 from typing import Any
 
 import asyncpg
 
 from clinicai.api.exceptions import NotFoundError
 from clinicai.api.identity import StaffIdentity
+from clinicai.core.clock import iso
 from clinicai.core.exceptions import SafetyGateError
 from clinicai.core.tran import canh_bao_neu_day
 from clinicai.events.catalogue import ChiDinhDaDat, ChiDinhDatLai, DichVuKhamDaDoi
@@ -246,10 +246,6 @@ def _ve_tien_bo(d: dict[str, Any]) -> str:
     return f"tiền thừa {_tien(thua)}"
 
 
-def _iso(v: Any) -> str | None:
-    return v.isoformat() if isinstance(v, datetime) else None
-
-
 def dong_so(r: dict[str, Any], *, chi_xem: bool = False) -> dict[str, Any]:
     """Một dòng `so_sua_chi_dinh` → dạng màn đọc (nhãn do máy chủ đặt)."""
     ct = r.get("chi_tiet")
@@ -268,8 +264,8 @@ def dong_so(r: dict[str, Any], *, chi_xem: bool = False) -> dict[str, Any]:
     )
     return {
         "id": str(r["id"]),
-        "luc": _iso(r.get("luc")),
-        "sua_luc": _iso(r.get("sua_luc")),
+        "luc": iso(r.get("luc")),
+        "sua_luc": iso(r.get("sua_luc")),
         "nhom": r.get("nhom"),
         "nhom_nhan": NHAN_NHOM.get(str(r.get("nhom")), ""),
         "hanh_dong": r.get("hanh_dong"),
@@ -284,9 +280,9 @@ def dong_so(r: dict[str, Any], *, chi_xem: bool = False) -> dict[str, Any]:
         "da_thu": int(r.get("da_thu") or 0),
         "tien_thua": int(r.get("tien_thua") or 0),
         "ly_do": r.get("ly_do"),
-        "da_bao_bac_si_luc": _iso(r.get("da_bao_bac_si_luc")),
+        "da_bao_bac_si_luc": iso(r.get("da_bao_bac_si_luc")),
         "hoan_tac_boi": r.get("hoan_tac_boi_ten"),
-        "hoan_tac_luc": _iso(r.get("hoan_tac_luc")),
+        "hoan_tac_luc": iso(r.get("hoan_tac_luc")),
         "hoan_tac_duoc": hoan_tac_duoc,
     }
 
@@ -636,7 +632,7 @@ async def da_bo_cua_cac_luot(
                 "lan": d["lan_chi_dinh"],
                 "gia": int(d["gia"]) if d["gia"] is not None else None,
                 "cau": cau_xoa(d),
-                "luc": _iso(d["luc"]),
+                "luc": iso(d["luc"]),
                 "ly_do": d["ly_do"],
                 "da_thu": int(d["da_thu"] or 0),
                 "tien_thua": int(d["tien_thua"] or 0),

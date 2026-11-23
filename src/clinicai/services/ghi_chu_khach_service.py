@@ -20,7 +20,7 @@ Dữ liệu là thông tin VẬN HÀNH (lịch, tiền, tên dịch vụ), khôn
 
 from __future__ import annotations
 
-from datetime import date, datetime
+from datetime import date
 from decimal import Decimal
 from typing import Any
 
@@ -28,7 +28,7 @@ import asyncpg
 
 from clinicai.api.exceptions import NotFoundError, ValidationError
 from clinicai.api.identity import StaffIdentity
-from clinicai.core.clock import now_vn
+from clinicai.core.clock import iso, now_vn
 from clinicai.core.exceptions import SafetyGateError
 from clinicai.core.tran import canh_bao_neu_day
 from clinicai.core.trang_thai_lich import mo_lai_duoc
@@ -78,10 +78,6 @@ async def _kiem_khach(conn: asyncpg.Connection, clinic_id: str, pid: str) -> Non
     )
     if co is None:
         raise NotFoundError("Không tìm thấy khách này.")
-
-
-def _iso(v: datetime | date | None) -> str | None:
-    return v.isoformat() if v is not None else None
 
 
 def _so(v: Decimal | int | float | None) -> int:
@@ -383,9 +379,9 @@ class GhiChuKhachService:
                 {
                     "visit_id": r["visit_id"],
                     "trang_thai": r["status"],
-                    "check_in_luc": _iso(r["checked_in_at"]),
-                    "kham_xong_luc": _iso(r["exam_completed_at"]),
-                    "dong_luot_luc": _iso(r["closed_at"]),
+                    "check_in_luc": iso(r["checked_in_at"]),
+                    "kham_xong_luc": iso(r["exam_completed_at"]),
+                    "dong_luot_luc": iso(r["closed_at"]),
                     "dich_vu": r["dich_vu"],
                     "bac_si": r["bac_si"],
                     "dang_o": r["dang_o"] if r["closed_at"] is None else None,
@@ -403,22 +399,22 @@ class GhiChuKhachService:
                     "ten": r["ten"],
                     "trang_thai": r["exec_status"],
                     "phong": r["phong"],
-                    "luc": _iso(r["created_at"]),
+                    "luc": iso(r["created_at"]),
                 }
                 for r in chua_lam
             ],
             "tien": {
                 "da_tra": _so(da_tra["tong"]) if da_tra else 0,
                 "so_lan_tra": int(da_tra["so_lan"]) if da_tra else 0,
-                "tra_lan_cuoi": _iso(da_tra["lan_cuoi"]) if da_tra else None,
+                "tra_lan_cuoi": iso(da_tra["lan_cuoi"]) if da_tra else None,
                 "con_phai_thu": sum(x["so_tien"] for x in con_no),
                 "con_phai_thu_chi_tiet": con_no,
             },
             "hen_tai_kham": [
                 {
                     "id": r["id"],
-                    "ngay_hen": _iso(r["ngay_hen"]),
-                    "han_goi": _iso(r["han_goi"]),
+                    "ngay_hen": iso(r["ngay_hen"]),
+                    "han_goi": iso(r["han_goi"]),
                     "trang_thai": r["trang_thai"],
                     "ket_qua": r["ket_qua"],
                     "ghi_chu": r["ghi_chu"],
@@ -439,7 +435,7 @@ class GhiChuKhachService:
 def _lich(r: asyncpg.Record) -> dict[str, Any]:
     return {
         "id": r["id"],
-        "luc": _iso(r["slot_start"]),
+        "luc": iso(r["slot_start"]),
         "trang_thai": r["status"],
         "dich_vu": r["dich_vu"],
         "bac_si": r["bac_si"],
