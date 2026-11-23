@@ -16,7 +16,7 @@ from pydantic import BaseModel, Field
 from clinicai.api.identity import StaffIdentity, get_current_identity
 from clinicai.core.database import get_db_pool
 from clinicai.permissions.doc_bang import doi_mot_quyen
-from clinicai.permissions.y_khoa import doc_duoc_in_phieu, ghi_mo_ho_so
+from clinicai.permissions.y_khoa import doc_duoc_in_phieu
 from clinicai.services import (
     dieu_tri_ban_kham,
     ghi_chu_luot,
@@ -82,7 +82,6 @@ async def tom_tat_kham_doc(
             so_lan=so_lan,
             bo=bo,
         )
-    await ghi_mo_ho_so(pool, identity, noi="tom-tat-kham", khach=str(clinic_patient_id))
     return data
 
 

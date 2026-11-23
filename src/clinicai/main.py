@@ -14,6 +14,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
 from clinicai.api.auth import api_key_middleware
+from clinicai.api.cua_noi_bo import CUA_NOI_BO
 from clinicai.api.identity import mo_quyen_tam_thoi
 from clinicai.api.loi_dau_vao import cau_loi_dau_vao
 from clinicai.api.middleware import (
@@ -23,10 +24,7 @@ from clinicai.api.middleware import (
     RequestIdMiddleware,
     TimingMiddleware,
 )
-from clinicai.api.runaway_guard import (
-    runaway_guard,
-    runaway_guard_khong_chan_vai,
-)
+from clinicai.api.runaway_guard import runaway_guard_khong_chan_vai
 from clinicai.api.v1.health import router as health_router
 from clinicai.api.v1.patients import router as patients_router
 from clinicai.api.v1.routers.audit_log import router as audit_log_router
@@ -238,8 +236,9 @@ app.add_middleware(RequestIdMiddleware)  # outermost: every response gets an id
 #
 # One list, in one file, because the thing it measures is per PERSON: scattering
 # `Depends(runaway_guard)` across endpoints would work, but the next endpoint
-# somebody adds would silently sit outside the count.
-_GUARDED = [Depends(runaway_guard)]
+# somebody adds would silently sit outside the count. The list (+ nhật ký xem hồ
+# sơ, 24/11/2026) lives in api/cua_noi_bo.py.
+_GUARDED = CUA_NOI_BO
 
 app.include_router(health_router)
 # ĐĂNG NHẬP: endpoint DUY NHẤT không đòi token, vì nó là nơi cấp token.
