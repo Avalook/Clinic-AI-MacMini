@@ -25,7 +25,7 @@ import asyncpg
 from clinicai.ports.don_thuoc_quoc_gia import GoiDon
 from clinicai.services.don_thuoc_quoc_gia.anh_xa import (
     dau_don,
-    dau_van_tay,
+    dau_van_tay_goi_don,
     doc_goi_don,
     goi_sang_json,
     goi_tu_json,
@@ -102,7 +102,7 @@ def can_ban_moi(g: GoiDon, cu: asyncpg.Record | None) -> bool:
         return False
     if cu is None:
         return True
-    if cu["dau_van_tay"] == dau_van_tay(g):
+    if cu["dau_van_tay"] == dau_van_tay_goi_don(g):
         return False
     if cu["da_gui"] and not cu["la_huy"]:
         # Đã lên hệ thống quốc gia: chỉ phần ĐƠN đổi mới thành đơn thay thế.
@@ -140,14 +140,14 @@ async def _vao_hang_lo(conn: asyncpg.Connection, ch: CauHinh, vids: list[str]) -
             (cu["phien_ban"] if cu else 0) + 1,
             g.ma_don,
             json.dumps(goi_sang_json(g), ensure_ascii=False),
-            dau_van_tay(g),
+            dau_van_tay_goi_don(g),
             not g.thuoc,
         )
         them += str(kq).endswith(" 1")
     return them
 
 
-async def vao_hang(pool: asyncpg.Pool, ch: CauHinh) -> int:
+async def vao_hang_don_thuoc(pool: asyncpg.Pool, ch: CauHinh) -> int:
     """Một lượt soát HẾT cửa sổ `soat_ngay` (theo trang `LO_SOAT`, con trỏ
     (closed_at, visit_id) — lượt mới nhất không bao giờ bị lô cũ chiếm chỗ).
     Trả số phiên bản mới đã vào hàng. CÓ THỂ ném (lỗi DB)."""
@@ -178,5 +178,5 @@ __all__ = [
     "KHONG_CAN",
     "LOI",
     "trang_thai_dong",
-    "vao_hang",
+    "vao_hang_don_thuoc",
 ]

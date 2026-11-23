@@ -1,7 +1,7 @@
 """Liên thông đơn thuốc quốc gia (TT 26/2025, QĐ 808) — hàng chờ trên Postgres.
 
 Mỗi bài dựng một CƠ SỞ riêng (clinic_location mới) nên lượt của bài khác / seed
-không lọt vào ứng viên. Nhà cung cấp là `ProviderGiaLap` bơm vào `mot_vong`.
+không lọt vào ứng viên. Nhà cung cấp là `ProviderGiaLap` bơm vào `mot_vong_dtqg`.
 
 Bất biến ép ở Postgres (SO-LUAT Phần 6), test chỉ kiểm KẾT QUẢ:
   · `uq_dtqg_gui_phien_ban` — hai bên cùng vào hàng một nội dung → một dòng.
@@ -17,9 +17,9 @@ import asyncpg
 import pytest
 
 from clinicai.adapters.don_thuoc_quoc_gia.gia_lap import KhongKy, ProviderGiaLap
-from clinicai.services.don_thuoc_quoc_gia.cau_hinh import CauHinh, doc_cau_hinh
+from clinicai.services.don_thuoc_quoc_gia.cau_hinh import CauHinh, doc_cau_hinh_dtqg
 from clinicai.services.don_thuoc_quoc_gia.gui import GO_HET_SAU_KHI_GUI
-from clinicai.services.don_thuoc_quoc_gia.vong import mot_vong
+from clinicai.services.don_thuoc_quoc_gia.vong import mot_vong_dtqg
 from tests.services.test_don_thuoc_quoc_gia_anh_xa_db import (
     _canh,
     _go_het,
@@ -45,11 +45,11 @@ async def _dong_hang(p: asyncpg.Pool, vid: str) -> list[Any]:
 async def _vong(
     p: asyncpg.Pool, c: dict[str, Any], gl: ProviderGiaLap
 ) -> dict[str, Any]:
-    return await mot_vong(p, env=c["env"], nha_cung_cap=(gl, KhongKy()))
+    return await mot_vong_dtqg(p, env=c["env"], nha_cung_cap=(gl, KhongKy()))
 
 
 def _ch(c: dict[str, Any]) -> CauHinh:
-    ch = doc_cau_hinh(c["env"])
+    ch = doc_cau_hinh_dtqg(c["env"])
     assert isinstance(ch, CauHinh), ch
     return ch
 
@@ -88,7 +88,7 @@ async def test_cong_tac_tat_khong_doi_gi(pool: asyncpg.Pool) -> None:  # noqa: F
     truoc = await pool.fetchval("SELECT count(*) FROM canh_bao")
     gl = ProviderGiaLap()
     for tat in ({**c["env"], "DTQG_BAT": ""}, {**c["env"], "DTQG_BAT": "0"}):
-        assert await mot_vong(pool, env=tat, nha_cung_cap=(gl, KhongKy())) == {
+        assert await mot_vong_dtqg(pool, env=tat, nha_cung_cap=(gl, KhongKy())) == {
             "tat": True
         }
     assert await _dong_hang(pool, vid) == [] and gl.loi_goi == []
@@ -101,7 +101,7 @@ async def test_bat_ma_cau_hinh_sai_mo_canh_bao_khong_ghi(
     c = await _canh(pool)
     vid = await _luot(pool, c)
     gl = ProviderGiaLap()
-    ket = await mot_vong(pool, env={**c["env"], "DTQG_MA_CO_SO": "x"})
+    ket = await mot_vong_dtqg(pool, env={**c["env"], "DTQG_MA_CO_SO": "x"})
     assert any("DTQG_MA_CO_SO" in x for x in ket["loi_cau_hinh"])
     assert await _dong_hang(pool, vid) == [] and gl.loi_goi == []
     assert (
