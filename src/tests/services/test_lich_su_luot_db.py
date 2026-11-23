@@ -22,6 +22,7 @@ from tests.services.test_check_in_lai_sau_hoan_tac_db import (  # noqa: F401
     pool,
 )
 from tests.services.test_doi_dich_vu_kham_db import _dung
+from tests.xem_thu import xem_that
 
 
 @pytest.mark.parametrize(
@@ -143,6 +144,7 @@ async def test_lich_su_liet_ke_ca_luot_khong_phieu_va_notion(
         dich_vu_id=None,
         identity=ca["bs"],
         pool=pool,
+        xem=xem_that(pool, ca["bs"]),
     )
     loai = {x["visit_id"]: x["loai_du_lieu"] for x in goi["luot"]}
     assert loai == {v5: "v5", cu: "cu", trong: "trong", notion: "notion"}
@@ -158,6 +160,7 @@ async def test_lich_su_liet_ke_ca_luot_khong_phieu_va_notion(
         dich_vu_id=None,
         identity=ca["bs"],
         pool=pool,
+        xem=xem_that(pool, ca["bs"]),
     )
     assert len(rac["luot"]) == 4
     # Lọc đúng một ngày.
@@ -168,6 +171,7 @@ async def test_lich_su_liet_ke_ca_luot_khong_phieu_va_notion(
         dich_vu_id=None,
         identity=ca["bs"],
         pool=pool,
+        xem=xem_that(pool, ca["bs"]),
     )
     assert [x["visit_id"] for x in mot["luot"]] == [trong]
 

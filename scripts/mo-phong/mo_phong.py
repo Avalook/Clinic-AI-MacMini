@@ -299,8 +299,8 @@ def k14(k: Khach) -> None:
     k.lam("Hoàn tất", lambda: b.kham_xong(ph))
     k.lam("QUẢN LÝ mở hồ sơ y khoa", lambda: b.ai("ql").get(f"/clinical-records/doc?patient_id={k.pid}"))
     k.lam("hồ sơ QL mở có nhật ký", lambda: int(sql(
-        "select count(*) from event_log where event_type='clinical_record.opened'"
-        f" and aggregate_id='{k.pid}'")[0][0]) >= 1 or (_ for _ in ()).throw(AssertionError("không có nhật ký")))
+        "select count(*) from nhat_ky_xem_ho_so"
+        f" where clinic_patient_id='{k.pid}'")[0][0]) >= 1 or (_ for _ in ()).throw(AssertionError("không có nhật ký")))
     k.lam("LỄ TÂN mở hồ sơ y khoa phải bị chặn",
           lambda: b.ai("letan").get(f"/clinical-records/doc?patient_id={k.pid}"), mong_loi=403)
     k.lam("thu tiền", lambda: b.thu(k.vid))

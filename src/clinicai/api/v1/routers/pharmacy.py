@@ -28,6 +28,7 @@ from clinicai.core.clock import doc_ngay, hom_nay_vn
 from clinicai.core.database import get_db_pool
 from clinicai.permissions.can import can
 from clinicai.permissions.cua_quyen import cua_quyen
+from clinicai.permissions.y_khoa import GhiXemHoSo, ghi_xem_ho_so
 from clinicai.services import (
     ban_theo_don_service,
     ban_thuoc_service,
@@ -243,6 +244,7 @@ async def ban_le_lich_su_don(
     trang: str | None = Query(default=None, max_length=10),
     identity: StaffIdentity = Depends(_BAN_LE),
     pool: asyncpg.Pool = Depends(get_db_pool),
+    xem: GhiXemHoSo = Depends(ghi_xem_ho_so),
 ) -> dict[str, Any]:
     """Vừa chọn khách ở quầy (chưa mở lượt) → lịch sử đơn thuốc, mới → cũ, theo
     trang. Trang rác → trang đầu (không 422)."""
@@ -251,6 +253,7 @@ async def ban_le_lich_su_don(
             clinic_patient_id=str(clinic_patient_id), trang=trang, identity=identity
         )
     )
+    await xem("don_thuoc", khach=str(clinic_patient_id))
     return kq
 
 
@@ -294,11 +297,13 @@ async def doc_ban_le(
     visit_id: UUID,
     identity: StaffIdentity = Depends(_BAN_LE),
     pool: asyncpg.Pool = Depends(get_db_pool),
+    xem: GhiXemHoSo = Depends(ghi_xem_ho_so),
 ) -> dict[str, Any]:
     """Hoá đơn thuốc của lượt bán lẻ (máy chủ tính) + lần thu + cờ quyền."""
     kq: dict[str, Any] = jsonable_encoder(
         await BanLeService(pool).doc(visit_id=str(visit_id), identity=identity)
     )
+    await xem("don_thuoc", visit_id=str(visit_id))
     return kq
 
 

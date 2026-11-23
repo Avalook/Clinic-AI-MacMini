@@ -17,6 +17,7 @@ from clinicai.core.quan_sat import quan_sat
 from clinicai.core.telemetry import SLOW_REQUEST_MS, telemetry
 from clinicai.llm import chi_phi
 from clinicai.permissions.cua_quyen import cua_quyen
+from clinicai.schemas.nhat_ky_xem import NhatKyXemHoSo
 from clinicai.schemas.ops import OpsStatusResponse
 from clinicai.services import (
     agent_giam_sat,
@@ -27,6 +28,7 @@ from clinicai.services import (
     day_tep,
     kho_loi,
     nhat_ky_van_hanh,
+    nhat_ky_xem_ho_so,
     tong_quan_giam_sat,
     traffic_service,
 )
@@ -39,6 +41,11 @@ _MANAGEMENT_GUARD = cua_quyen("ops.view")
 # quản lý phòng khám có `ops.view` cũng không vào được (xem migration
 # 20261009880000).
 _GIAM_SAT_GUARD = cua_quyen("giamsat.view")
+# Ai đã mở hồ sơ khách nào (24/11/2026): quyền RIÊNG, chỉ Quản lý — `ops.view`
+# thì từ "mở full lego" 30/09 gần như ai cũng có.
+_NHAT_KY_XEM_GUARD = cua_quyen(
+    "ho_so.access_log.view", cau="Chỉ quản lý xem được nhật ký ai mở hồ sơ."
+)
 
 
 @router.get("/ops/status", response_model=OpsStatusResponse)
@@ -200,6 +207,30 @@ async def nhat_ky(
     response.headers["Cache-Control"] = "no-store"
     return await nhat_ky_van_hanh.doc_nhat_ky(
         pool, clinic_id=identity.clinic_id, ngay=ngay, tim=tim
+    )
+
+
+@router.get("/ops/xem-ho-so", response_model=NhatKyXemHoSo)
+async def nhat_ky_xem_ho_so_doc(
+    response: Response,
+    tu: str | None = Query(default=None, max_length=10),
+    den: str | None = Query(default=None, max_length=10),
+    ma_khach: str | None = Query(default=None, max_length=32),
+    staff_id: str | None = Query(default=None, max_length=36),
+    identity: StaffIdentity = Depends(_NHAT_KY_XEM_GUARD),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, object]:
+    """Ai đã mở hồ sơ khách nào, lúc nào, qua cửa nào (NĐ 356/2025). Quyền
+    `ho_so.access_log.view` (chỉ Quản lý). Ngày rác → hôm nay; id nhân viên rác
+    → bỏ lọc."""
+    response.headers["Cache-Control"] = "private, no-store"
+    return await nhat_ky_xem_ho_so.doc(
+        pool,
+        clinic_id=identity.clinic_id,
+        tu=tu,
+        den=den,
+        ma_khach=ma_khach,
+        staff_id=staff_id,
     )
 
 

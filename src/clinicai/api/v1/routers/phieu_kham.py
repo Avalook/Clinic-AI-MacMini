@@ -26,7 +26,7 @@ from pydantic import BaseModel, Field
 
 from clinicai.api.identity import StaffIdentity, get_current_identity
 from clinicai.core.database import get_db_pool
-from clinicai.permissions.y_khoa import ghi_mo_ho_so
+from clinicai.permissions.y_khoa import GhiXemHoSo, ghi_xem_ho_so
 from clinicai.phieu_kham.khung import FORM_IDS, dinh_nghia
 from clinicai.services.lich_tai_kham_service import LichTaiKhamService
 from clinicai.services.phieu_kham_service import (
@@ -113,11 +113,14 @@ async def dau_phieu(
     identity: StaffIdentity = Depends(get_current_identity),
     pool: asyncpg.Pool = Depends(get_db_pool),
     kiem_quyen: KiemQuyen = Depends(lay_kiem_quyen),
+    xem: GhiXemHoSo = Depends(ghi_xem_ho_so),
 ) -> dict[str, Any]:
     """Hành chính + sinh hiệu + ghi chú tư vấn ban đầu — chỉ đọc."""
-    return await PhieuKhamService(pool, kiem_quyen=kiem_quyen).dau_phieu(
+    data = await PhieuKhamService(pool, kiem_quyen=kiem_quyen).dau_phieu(
         visit_id=str(visit_id), identity=identity
     )
+    await xem("phieu_kham", visit_id=str(visit_id))
+    return data
 
 
 @router.get("/phieu-kham/luot/{visit_id}/hanh-trinh")
@@ -139,10 +142,11 @@ async def ket_qua_chi_dinh(
     identity: StaffIdentity = Depends(get_current_identity),
     pool: asyncpg.Pool = Depends(get_db_pool),
     kiem_quyen: KiemQuyen = Depends(lay_kiem_quyen),
+    xem: GhiXemHoSo = Depends(ghi_xem_ho_so),
 ) -> dict[str, Any]:
     """Kết quả CLS của từng chỉ định trong lượt — gắn bằng `service_order_id`."""
     svc = PhieuKhamService(pool, kiem_quyen=kiem_quyen)
-    return {
+    ket_qua = {
         "chi_dinh": await svc.ket_qua_chi_dinh(
             visit_id=str(visit_id), identity=identity
         ),
@@ -156,6 +160,8 @@ async def ket_qua_chi_dinh(
             visit_id=str(visit_id), identity=identity
         ),
     }
+    await xem("ket_qua", visit_id=str(visit_id))
+    return ket_qua
 
 
 @router.get("/phieu-kham/luot/{visit_id}/phieu")
@@ -165,12 +171,13 @@ async def phieu_cua_luot(
     identity: StaffIdentity = Depends(get_current_identity),
     pool: asyncpg.Pool = Depends(get_db_pool),
     kiem_quyen: KiemQuyen = Depends(lay_kiem_quyen),
+    xem: GhiXemHoSo = Depends(ghi_xem_ho_so),
 ) -> dict[str, Any]:
     """Phiếu khám của lượt: khung đúng bản đã ghim + dữ liệu + revision."""
     data = await PhieuKhamService(pool, kiem_quyen=kiem_quyen).doc_luot(
         visit_id=str(visit_id), form_id=form_id, identity=identity
     )
-    await ghi_mo_ho_so(pool, identity, noi="phieu-kham", visit_id=str(visit_id))
+    await xem("phieu_kham", visit_id=str(visit_id))
     return data
 
 
@@ -200,13 +207,14 @@ async def lich_su_phieu(
     identity: StaffIdentity = Depends(get_current_identity),
     pool: asyncpg.Pool = Depends(get_db_pool),
     kiem_quyen: KiemQuyen = Depends(lay_kiem_quyen),
+    xem: GhiXemHoSo = Depends(ghi_xem_ho_so),
 ) -> dict[str, Any]:
     """Lịch sử sửa phiếu (P4A): ai · lúc nào · ô nào · trước → sau."""
-    return {
-        "lich_su": await PhieuKhamService(pool, kiem_quyen=kiem_quyen).lich_su(
-            visit_id=str(visit_id), form_id=form_id, identity=identity
-        )
-    }
+    lich_su = await PhieuKhamService(pool, kiem_quyen=kiem_quyen).lich_su(
+        visit_id=str(visit_id), form_id=form_id, identity=identity
+    )
+    await xem("phieu_kham", visit_id=str(visit_id))
+    return {"lich_su": lich_su}
 
 
 @router.get("/phieu-kham/luot/{visit_id}/don-thuoc")
@@ -215,12 +223,13 @@ async def don_thuoc(
     identity: StaffIdentity = Depends(get_current_identity),
     pool: asyncpg.Pool = Depends(get_db_pool),
     kiem_quyen: KiemQuyen = Depends(lay_kiem_quyen),
+    xem: GhiXemHoSo = Depends(ghi_xem_ho_so),
 ) -> dict[str, Any]:
-    return {
-        "dong": await PhieuKhamService(pool, kiem_quyen=kiem_quyen).doc_don_thuoc(
-            visit_id=str(visit_id), identity=identity
-        )
-    }
+    dong = await PhieuKhamService(pool, kiem_quyen=kiem_quyen).doc_don_thuoc(
+        visit_id=str(visit_id), identity=identity
+    )
+    await xem("don_thuoc", visit_id=str(visit_id))
+    return {"dong": dong}
 
 
 @router.put("/phieu-kham/luot/{visit_id}/don-thuoc")

@@ -999,7 +999,16 @@ MODULE: dict[str, Module] = {
         Module(
             ma="van_hanh",
             ten="Vận hành, báo cáo, lịch sử thao tác",
-            quyen=["report.view", "ops.view", "audit.view", "giamsat.view"],
+            # Ai đã mở hồ sơ khách nào (24/11/2026) — ghi qua
+            # `permissions/y_khoa.ghi_xem_ho_so`, đọc ở /ops tab "Ai xem hồ sơ".
+            bang=["nhat_ky_xem_ho_so"],
+            quyen=[
+                "report.view",
+                "ops.view",
+                "audit.view",
+                "giamsat.view",
+                "ho_so.access_log.view",
+            ],
         ),
         Module(
             ma="ke_toan",

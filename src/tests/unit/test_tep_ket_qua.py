@@ -477,6 +477,7 @@ async def test_response_tep_phi_luon_no_store(
 ) -> None:
     from clinicai.api.v1.routers.cskh import doc_tep_ket_qua
     from clinicai.services.tep_ket_qua_service import TepMoDoc
+    from tests.xem_thu import KHONG_GHI
 
     path = tmp_path / "ket-qua.pdf"
     path.write_bytes(PDF)
@@ -502,6 +503,7 @@ async def test_response_tep_phi_luon_no_store(
         request=request,
         identity=_ai(),
         pool=FakePool(),
+        xem=KHONG_GHI,
     )
 
     assert "no-store" in response.headers["cache-control"]

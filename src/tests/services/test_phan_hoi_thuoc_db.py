@@ -195,6 +195,7 @@ async def test_bam_lai_cung_khoa_mot_dong_va_ban_kham_thay_luot_khong_phieu(
     from clinicai.api.idempotency import IdempotencyGuard
     from clinicai.api.v1.routers.clinical_forms import read_exam_history
     from clinicai.api.v1.routers.cskh import PhanHoiThuocBody, ghi_phan_hoi_thuoc
+    from tests.xem_thu import xem_that
 
     ca = await _dung(pool)
     pid = await _benh_nhan(pool, ca)
@@ -228,7 +229,10 @@ async def test_bam_lai_cung_khoa_mot_dong_va_ban_kham_thay_luot_khong_phieu(
 
     # Bàn khám: lượt không phiếu nên `items` rỗng — phản hồi vẫn về theo khách.
     ls = await read_exam_history(
-        clinic_patient_id=uuid.UUID(pid), identity=ca.bac_si, pool=pool
+        clinic_patient_id=uuid.UUID(pid),
+        identity=ca.bac_si,
+        pool=pool,
+        xem=xem_that(pool, ca.bac_si),
     )
     assert ls["items"] == []
     assert [(p["visit_id"], p["noi_dung"]) for p in ls["phan_hoi_thuoc"]] == [

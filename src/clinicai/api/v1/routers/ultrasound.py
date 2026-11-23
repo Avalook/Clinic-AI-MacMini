@@ -26,6 +26,7 @@ from pydantic import BaseModel, Field
 from clinicai.api.identity import StaffIdentity
 from clinicai.core.database import get_db_pool
 from clinicai.permissions.cua_quyen import cua_quyen
+from clinicai.permissions.y_khoa import GhiXemHoSo, ghi_xem_ho_so
 from clinicai.services.media_service import MediaService
 from clinicai.services.ultrasound_board_service import (
     UltrasoundBoardService,
@@ -232,11 +233,13 @@ async def get_image(
     key: str,
     identity: StaffIdentity = Depends(_SONO_GUARD),
     pool: asyncpg.Pool = Depends(get_db_pool),
+    xem: GhiXemHoSo = Depends(ghi_xem_ho_so),
 ) -> Response:
     """Đọc một ảnh. Khoá phải thuộc phòng khám của người hỏi — kiểm ở service."""
     data, mime = await MediaService(pool).read_ultrasound_image(
         identity=identity, key=key
     )
+    await xem("tep_ket_qua", anh_sieu_am=key)
     return Response(
         content=data,
         media_type=mime,

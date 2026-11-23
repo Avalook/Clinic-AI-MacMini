@@ -16,7 +16,11 @@ from pydantic import BaseModel, Field
 from clinicai.api.identity import StaffIdentity, get_current_identity
 from clinicai.core.database import get_db_pool
 from clinicai.permissions.doc_bang import doi_mot_quyen
-from clinicai.permissions.y_khoa import doc_duoc_in_phieu, ghi_mo_ho_so
+from clinicai.permissions.y_khoa import (
+    GhiXemHoSo,
+    doc_duoc_in_phieu,
+    ghi_xem_ho_so,
+)
 from clinicai.services import (
     dieu_tri_ban_kham,
     ghi_chu_luot,
@@ -38,6 +42,7 @@ async def lich_su(
     dich_vu_id: UUID | None = None,
     identity: StaffIdentity = Depends(get_current_identity),
     pool: asyncpg.Pool = Depends(get_db_pool),
+    xem: GhiXemHoSo = Depends(ghi_xem_ho_so),
 ) -> dict[str, Any]:
     """Popup "Lịch sử khám": MỌI lượt của khách (cả không phiếu, Notion).
 
@@ -51,7 +56,7 @@ async def lich_su(
                 QUYEN_DOI_TRONG_HO_SO,
                 cau="Bạn không có quyền xem lịch sử khám.",
             )
-        return await lich_su_luot.doc(
+        data = await lich_su_luot.doc(
             conn,
             clinic_id=identity.clinic_id,
             clinic_patient_id=str(clinic_patient_id),
@@ -59,6 +64,8 @@ async def lich_su(
             den=den,
             dich_vu_id=str(dich_vu_id) if dich_vu_id else None,
         )
+    await xem("lich_su_kham", khach=str(clinic_patient_id))
+    return data
 
 
 @router.get("/ho-so-kham/tom-tat-kham")
@@ -68,6 +75,7 @@ async def tom_tat_kham_doc(
     bo: str | None = Query(default=None, max_length=2000),
     identity: StaffIdentity = Depends(get_current_identity),
     pool: asyncpg.Pool = Depends(get_db_pool),
+    xem: GhiXemHoSo = Depends(ghi_xem_ho_so),
 ) -> dict[str, Any]:
     """Phiếu in "Tóm tắt bệnh án — N lần khám gần nhất" (30/10/2026).
 
@@ -82,7 +90,7 @@ async def tom_tat_kham_doc(
             so_lan=so_lan,
             bo=bo,
         )
-    await ghi_mo_ho_so(pool, identity, noi="tom-tat-kham", khach=str(clinic_patient_id))
+    await xem("ban_in", khach=str(clinic_patient_id))
     return data
 
 
@@ -131,11 +139,14 @@ async def doc_dieu_tri(
     visit_id: UUID,
     identity: StaffIdentity = Depends(get_current_identity),
     pool: asyncpg.Pool = Depends(get_db_pool),
+    xem: GhiXemHoSo = Depends(ghi_xem_ho_so),
 ) -> dict[str, Any]:
     """Thẻ chỉ định điều trị của lượt: phiếu điều trị, trạng thái, nút."""
-    return await dieu_tri_ban_kham.doc_the(
+    data = await dieu_tri_ban_kham.doc_the(
         pool, identity=identity, visit_id=str(visit_id)
     )
+    await xem("phieu_kham", visit_id=str(visit_id))
+    return data
 
 
 class ChonThuThuatBody(BaseModel):
@@ -190,9 +201,12 @@ async def doc_ghi_chu(
     visit_id: UUID,
     identity: StaffIdentity = Depends(get_current_identity),
     pool: asyncpg.Pool = Depends(get_db_pool),
+    xem: GhiXemHoSo = Depends(ghi_xem_ho_so),
 ) -> dict[str, Any]:
     """Ô chữ tự do của lượt "Khác": bản mới nhất, có hiện / ghi được không."""
-    return await ghi_chu_luot.doc(pool, identity=identity, visit_id=str(visit_id))
+    data = await ghi_chu_luot.doc(pool, identity=identity, visit_id=str(visit_id))
+    await xem("phieu_kham", visit_id=str(visit_id))
+    return data
 
 
 @router.put("/ho-so-kham/{visit_id}/ghi-chu")

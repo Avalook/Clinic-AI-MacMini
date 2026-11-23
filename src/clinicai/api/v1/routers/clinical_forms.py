@@ -13,7 +13,12 @@ from clinicai.api.identity import (
     StaffIdentity,
 )
 from clinicai.core.database import get_db_pool
-from clinicai.permissions.y_khoa import cua_ghi_y_khoa, cua_y_khoa, ghi_mo_ho_so
+from clinicai.permissions.y_khoa import (
+    GhiXemHoSo,
+    cua_ghi_y_khoa,
+    cua_y_khoa,
+    ghi_xem_ho_so,
+)
 from clinicai.services.andrology_review_service import AndrologyReviewService
 from clinicai.services.clinical_form_service import ClinicalFormService
 from clinicai.services.phan_hoi_thuoc_service import doc_theo_khach
@@ -44,12 +49,13 @@ async def read_clinical_form(
     # 24/09/2026 (Tuyền: "có module đó thì mọi quyền của nó có cả").
     identity: StaffIdentity = Depends(_FORM_GUARD),
     pool: asyncpg.Pool = Depends(get_db_pool),
+    xem: GhiXemHoSo = Depends(ghi_xem_ho_so),
 ) -> dict[str, Any]:
     """Read one form. Medical content needs a consultation / result pack."""
     data = await ClinicalFormService(pool).get_form(
         visit_id=str(visit_id), service_code=service_code, identity=identity
     )
-    await ghi_mo_ho_so(pool, identity, noi="phieu-kham-cu", visit_id=str(visit_id))
+    await xem("phieu_kham", visit_id=str(visit_id))
     return data
 
 
@@ -58,6 +64,7 @@ async def read_exam_history(
     clinic_patient_id: UUID = Query(..., description="Bệnh nhân"),
     identity: StaffIdentity = Depends(_FORM_GUARD),
     pool: asyncpg.Pool = Depends(get_db_pool),
+    xem: GhiXemHoSo = Depends(ghi_xem_ho_so),
 ) -> dict[str, Any]:
     """Các lượt khám trước của một bệnh nhân — đủ nội dung phiếu, mới nhất trước.
 
@@ -67,12 +74,11 @@ async def read_exam_history(
         phan_hoi = await doc_theo_khach(
             conn, identity.clinic_id, str(clinic_patient_id)
         )
-    return {
-        "items": await ClinicalFormService(pool).lich_su_kham(
-            clinic_patient_id=str(clinic_patient_id), identity=identity
-        ),
-        "phan_hoi_thuoc": phan_hoi,
-    }
+    items = await ClinicalFormService(pool).lich_su_kham(
+        clinic_patient_id=str(clinic_patient_id), identity=identity
+    )
+    await xem("lich_su_kham", khach=str(clinic_patient_id))
+    return {"items": items, "phan_hoi_thuoc": phan_hoi}
 
 
 @router.put("/clinical-forms")

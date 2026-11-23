@@ -18,6 +18,7 @@ from pydantic import BaseModel, Field
 
 from clinicai.api.identity import StaffIdentity, get_current_identity
 from clinicai.core.database import get_db_pool
+from clinicai.permissions.y_khoa import GhiXemHoSo, ghi_xem_ho_so
 from clinicai.services.form_engine_service import FormEngineService
 
 router = APIRouter()
@@ -189,11 +190,14 @@ async def xem_ket_qua(
     service_order_id: UUID,
     identity: StaffIdentity = Depends(get_current_identity),
     pool: asyncpg.Pool = Depends(get_db_pool),
+    xem: GhiXemHoSo = Depends(ghi_xem_ho_so),
 ) -> dict[str, Any]:
     """Phiếu kết quả ĐÃ HOÀN TẤT — chỉ đọc; mở lần đầu là tự ghi "đã xem"."""
-    return await FormEngineService(pool).xem_ket_qua(
+    data = await FormEngineService(pool).xem_ket_qua(
         service_order_id=str(service_order_id), identity=identity
     )
+    await xem("ket_qua", service_order_id=str(service_order_id))
+    return data
 
 
 @router.get("/phieu/in/{service_order_id}")
@@ -201,8 +205,11 @@ async def in_ket_qua(
     service_order_id: UUID,
     identity: StaffIdentity = Depends(get_current_identity),
     pool: asyncpg.Pool = Depends(get_db_pool),
+    xem: GhiXemHoSo = Depends(ghi_xem_ho_so),
 ) -> dict[str, Any]:
     """Dữ liệu in phiếu kết quả (bản chính thức, hoặc nháp kèm nhãn BẢN NHÁP)."""
-    return await FormEngineService(pool).in_ket_qua(
+    data = await FormEngineService(pool).in_ket_qua(
         service_order_id=str(service_order_id), identity=identity
     )
+    await xem("ban_in", service_order_id=str(service_order_id))
+    return data

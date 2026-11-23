@@ -2,6 +2,8 @@
 //   GET ?xem=loi[&chi_mo=1]        → /api/v1/ops/loi        (kiểu lỗi đã gom)
 //   GET ?xem=canh-bao              → /api/v1/ops/canh-bao   (bộ canh gác)
 //   GET ?xem=nhat-ky[&ngay&tim]    → /api/v1/ops/nhat-ky    (ai làm gì, bao lâu)
+//   GET ?xem=xem-ho-so[&tu&den&ma_khach&staff_id] → /api/v1/ops/xem-ho-so
+//                                    (ai mở hồ sơ khách nào — quyền riêng, chỉ QL)
 //   GET ?xem=chay-bong[&tu&den&theo] → /api/v1/ops/chay-bong (thử luật mới)
 //   POST {loi_id, trang_thai}      → /api/v1/ops/loi/{id}/trang-thai
 // Quyền do máy chủ quyết (lego Vận hành — `ops.view`); ở đây không gác thêm.
@@ -26,6 +28,14 @@ export async function GET(request: Request) {
     }
     return proxyJsonToBackend("GET", `/api/v1/ops/nhat-ky?${q.toString()}`, undefined);
   }
+  if (xem === "xem-ho-so") {
+    const q = new URLSearchParams();
+    for (const k of ["tu", "den", "ma_khach", "staff_id"]) {
+      const v = u.searchParams.get(k);
+      if (v) q.set(k, v);
+    }
+    return proxyJsonToBackend("GET", `/api/v1/ops/xem-ho-so?${q.toString()}`, undefined);
+  }
   if (xem === "chay-bong") {
     const q = new URLSearchParams();
     for (const k of ["tu", "den", "theo"]) {
@@ -34,7 +44,10 @@ export async function GET(request: Request) {
     }
     return proxyJsonToBackend("GET", `/api/v1/ops/chay-bong?${q.toString()}`, undefined);
   }
-  return Response.json({ error: "Thiếu ?xem=loi|canh-bao|nhat-ky|chay-bong" }, { status: 400 });
+  return Response.json(
+    { error: "Thiếu ?xem=loi|canh-bao|nhat-ky|xem-ho-so|chay-bong" },
+    { status: 400 },
+  );
 }
 
 export async function POST(request: Request) {

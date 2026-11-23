@@ -11,7 +11,7 @@ from pydantic import BaseModel, Field
 
 from clinicai.api.identity import StaffIdentity, get_current_identity
 from clinicai.core.database import get_db_pool
-from clinicai.permissions.y_khoa import cua_y_khoa
+from clinicai.permissions.y_khoa import GhiXemHoSo, cua_y_khoa, ghi_xem_ho_so
 from clinicai.services.thai_ky_service import ThaiKyService
 
 router = APIRouter()
@@ -50,10 +50,13 @@ async def doc_thai_ky(
     clinic_patient_id: UUID = Query(...),
     identity: StaffIdentity = Depends(_DOC_GUARD),
     pool: asyncpg.Pool = Depends(get_db_pool),
+    xem: GhiXemHoSo = Depends(ghi_xem_ho_so),
 ) -> dict[str, Any]:
-    return await ThaiKyService(pool).doc(
+    data = await ThaiKyService(pool).doc(
         clinic_patient_id=str(clinic_patient_id), identity=identity
     )
+    await xem("phieu_kham", khach=str(clinic_patient_id))
+    return data
 
 
 @router.post("/thai-ky", status_code=201)

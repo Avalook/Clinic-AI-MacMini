@@ -20,7 +20,7 @@ from clinicai.api.identity import (
     get_current_identity,
 )
 from clinicai.core.database import get_db_pool
-from clinicai.permissions.y_khoa import cua_y_khoa, ghi_mo_ho_so
+from clinicai.permissions.y_khoa import GhiXemHoSo, cua_y_khoa, ghi_xem_ho_so
 from clinicai.services.clinical_record_service import ClinicalRecordService
 from clinicai.services.ho_so_lam_sang_doc import doc_ho_so, phieu_in_theo_lich
 
@@ -73,6 +73,7 @@ async def doc_ho_so_lam_sang(
     visit_id: str | None = None,
     identity: StaffIdentity = Depends(_DOC_HO_SO_GUARD),
     pool: asyncpg.Pool = Depends(get_db_pool),
+    xem: GhiXemHoSo = Depends(ghi_xem_ho_so),
 ) -> dict[str, Any]:
     """Hồ sơ lâm sàng của một khách cho màn bệnh án (route giao diện từng tự đọc
     bảy bảng bằng Supabase — nay ở `services/ho_so_lam_sang_doc.py`)."""
@@ -83,7 +84,7 @@ async def doc_ho_so_lam_sang(
         appointment_id=appointment_id,
         visit_id=visit_id,
     )
-    await ghi_mo_ho_so(pool, identity, noi="benh-an", khach=patient_id)
+    await xem("phieu_kham", khach=patient_id, doi_tuong_id=visit_id)
     return data
 
 
@@ -92,6 +93,7 @@ async def in_phieu_theo_lich(
     appointment_id: str,
     identity: StaffIdentity = Depends(_DOC_HO_SO_GUARD),
     pool: asyncpg.Pool = Depends(get_db_pool),
+    xem: GhiXemHoSo = Depends(ghi_xem_ho_so),
 ) -> dict[str, Any]:
     """Dữ liệu phiếu tóm tắt khám để in theo lịch hẹn (ai có khối khám / kết
     quả — `permissions/y_khoa.py`)."""
@@ -100,11 +102,10 @@ async def in_phieu_theo_lich(
     )
     if data is None:
         raise NotFoundError("Không tìm thấy lịch hẹn này.")
-    await ghi_mo_ho_so(
-        pool,
-        identity,
-        noi="in-phieu-kham",
-        khach=data["appointment"]["clinic_patient_id"],
+    await xem(
+        "ban_in",
+        khach=str(data["appointment"]["clinic_patient_id"]),
+        doi_tuong_id=appointment_id,
     )
     return data
 
