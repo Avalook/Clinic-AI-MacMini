@@ -14,18 +14,16 @@ khách):
 from __future__ import annotations
 
 import time
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from typing import Any
 
 import asyncpg
 import structlog
 
-from clinicai.adapters.don_thuoc_quoc_gia.gia_lap import KhongKy, ProviderGiaLap
 from clinicai.ports.don_thuoc_quoc_gia import DonThuocQuocGiaProvider, KySoDonThuoc
 from clinicai.services import canh_gac
 from clinicai.services.canh_gac import KetQuaKiem
 from clinicai.services.don_thuoc_quoc_gia.cau_hinh import (
-    GIA_LAP,
     CauHinh,
     da_bat,
     doc_cau_hinh_dtqg,
@@ -89,29 +87,22 @@ def danh_gia_canh_bao_dtqg(so: Mapping[str, Any]) -> list[KetQuaKiem]:
     return ra
 
 
-def dung_nha_cung_cap(
-    ch: CauHinh,
-) -> tuple[DonThuocQuocGiaProvider, KySoDonThuoc] | None:
-    """Nhà cung cấp + bộ ký số theo cấu hình (đã kiểm ở `doc_cau_hinh`); None =
-    bản này chưa có adapter cho lựa chọn ấy. Bộ ký số thật chưa chọn (docs)."""
-    if ch.nha_cung_cap == GIA_LAP:
-        return _GIA_LAP, KhongKy()
-    # Adapter hệ thống thật (QĐ 808) đến ở PR kế tiếp.
-    return None
-
-
-# Dùng chung một bản trong tiến trình (giả lập nhớ đơn đã nhận).
-_GIA_LAP = ProviderGiaLap()
+#: Nhà cung cấp + bộ ký số. Service chỉ biết CỔNG; adapter cụ thể do chỗ lắp
+#: ráp (`adapters/don_thuoc_quoc_gia/lap_rap.py`) chọn theo cấu hình và truyền vào.
+NhaCungCap = tuple[DonThuocQuocGiaProvider, KySoDonThuoc]
+DungNhaCungCap = Callable[[CauHinh], "NhaCungCap | None"]
 
 
 async def mot_vong_dtqg(
     pool: asyncpg.Pool,
     *,
     env: Mapping[str, str] | None = None,
-    nha_cung_cap: tuple[DonThuocQuocGiaProvider, KySoDonThuoc] | None = None,
+    nha_cung_cap: NhaCungCap | DungNhaCungCap | None = None,
 ) -> dict[str, Any]:
     """Soát → vào hàng → gửi → canh gác. Không bao giờ ném. Công tắc tắt → về
-    ngay, không một câu SQL (worker cũng kiểm trước khi gọi — hai lớp)."""
+    ngay, không một câu SQL (worker cũng kiểm trước khi gọi — hai lớp).
+    `nha_cung_cap`: một cặp có sẵn, hoặc hàm dựng theo cấu hình (trả None =
+    chưa có adapter cho lựa chọn ấy → cảnh báo cấu hình)."""
     if not da_bat(env):
         return {"tat": True}
     ket: dict[str, Any] = {"vao_hang": 0, "da_gui": 0}
@@ -121,7 +112,7 @@ async def mot_vong_dtqg(
             ket["loi_cau_hinh"] = ch
             await canh_gac.ap_dung(pool, danh_gia_canh_bao_dtqg(ket))
             return ket
-        ncc = nha_cung_cap or dung_nha_cung_cap(ch)
+        ncc = nha_cung_cap(ch) if callable(nha_cung_cap) else nha_cung_cap
         if ncc is None:
             ket["loi_cau_hinh"] = [f"chưa có adapter cho '{ch.nha_cung_cap}'"]
             await canh_gac.ap_dung(pool, danh_gia_canh_bao_dtqg(ket))
@@ -141,21 +132,24 @@ async def mot_vong_dtqg(
 _lan_chay = 0.0
 
 
-async def nhip_trong_worker(pool: asyncpg.Pool, *, canh: bool) -> None:
-    """Worker `su-kien` gọi mỗi vòng. Chỉ tiến trình giao MỌI bên nhận (`canh`)
-    mới chạy; công tắc `DTQG_BAT` tắt → về ngay, không một câu SQL; chưa tới
-    `NHIP_GIAY` → về ngay. Không bao giờ ném (`mot_vong_dtqg` tự bắt lỗi)."""
+async def nhip_trong_worker(
+    pool: asyncpg.Pool, *, canh: bool, dung: DungNhaCungCap
+) -> None:
+    """Worker `su-kien` gọi mỗi vòng (qua chỗ lắp ráp). Chỉ tiến trình giao MỌI
+    bên nhận (`canh`) mới chạy; công tắc `DTQG_BAT` tắt → về ngay, không một câu
+    SQL; chưa tới `NHIP_GIAY` → về ngay. Không bao giờ ném."""
     global _lan_chay
     if not canh or not da_bat() or time.monotonic() - _lan_chay < NHIP_GIAY:
         return
     _lan_chay = time.monotonic()
-    await mot_vong_dtqg(pool)
+    await mot_vong_dtqg(pool, nha_cung_cap=dung)
 
 
 __all__ = [
     "NHIP_GIAY",
-    "nhip_trong_worker",
+    "DungNhaCungCap",
+    "NhaCungCap",
     "danh_gia_canh_bao_dtqg",
-    "dung_nha_cung_cap",
     "mot_vong_dtqg",
+    "nhip_trong_worker",
 ]

@@ -78,6 +78,8 @@ SELECT v.visit_id::text AS visit_id, v.closed_at
    AND EXISTS (SELECT 1 FROM public.prescription p
                 WHERE p.clinic_id = v.clinic_id AND p.visit_id = v.visit_id
                   AND p.nguon = 'BAC_SI')
+   -- rx:gom-ca-lich-su: lượt từng có đơn (kể cả dòng đã gỡ) vẫn là ứng viên, để
+   -- bắt "đơn đã gửi rồi bị gỡ hết"; nội dung gói đơn đọc hiện hành ở anh_xa.
    AND ($5::timestamptz IS NULL
         OR (v.closed_at, v.visit_id) > ($5::timestamptz, $6::uuid))
  ORDER BY v.closed_at, v.visit_id

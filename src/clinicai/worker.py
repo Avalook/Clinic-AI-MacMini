@@ -283,7 +283,7 @@ async def _run_su_kien() -> None:
     lan_agent = 0.0
     # SỔ CHẠY BÓNG quyền (04/11/2026): dọn dòng > 45 ngày, mỗi giờ một lượt.
     lan_don_bong = 0.0
-    from clinicai.services.don_thuoc_quoc_gia.vong import nhip_trong_worker as dtqg
+    from clinicai.adapters.don_thuoc_quoc_gia.lap_rap import nhip_worker as dtqg
 
     try:
         while not stop.is_set():
