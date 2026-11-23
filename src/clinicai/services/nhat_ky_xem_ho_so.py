@@ -21,13 +21,14 @@ Ba luật của file:
 from __future__ import annotations
 
 from collections.abc import Mapping
-from datetime import UTC, date, datetime, time, timedelta
+from datetime import UTC, datetime, time, timedelta
 from typing import Any
 from uuid import UUID
 from zoneinfo import ZoneInfo
 
 import asyncpg
 
+from clinicai.core.clock import doc_ngay_xem
 from clinicai.services.nhan_vai import nhan_vai
 
 #: Loại hồ sơ — khớp CHECK `nhat_ky_xem_ho_so_loai_ck`. Đổi ở đây thì phải có
@@ -159,16 +160,9 @@ async def ghi_luot_xem(
 
 def _bien_ngay(tu: str | None, den: str | None) -> tuple[datetime, datetime]:
     """Khoảng nửa mở theo ngày Việt Nam. Ngày rác → hôm nay (không ném)."""
-
-    def _doc(s: str | None) -> date | None:
-        try:
-            return date.fromisoformat(s) if s else None
-        except ValueError:
-            return None
-
     hom_nay = datetime.now(_VN).date()
-    d_tu = _doc(tu) or hom_nay
-    d_den = _doc(den) or d_tu
+    d_tu = doc_ngay_xem(tu) or hom_nay
+    d_den = doc_ngay_xem(den) or d_tu
     if d_den < d_tu:
         d_tu, d_den = d_den, d_tu
     # Trần 93 ngày một lần xem — đủ cho một quý, không quét cả bảng.
