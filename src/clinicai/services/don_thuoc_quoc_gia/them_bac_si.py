@@ -18,11 +18,14 @@ from clinicai.adapters.don_thuoc_quoc_gia.that import ProviderThat
 from clinicai.ports.don_thuoc_quoc_gia import GuiDonError
 from clinicai.services.don_thuoc_quoc_gia.cau_hinh import THAT, CauHinh, doc_cau_hinh
 
+_MODULE = "clinicai.services.don_thuoc_quoc_gia.them_bac_si"
+
 
 def chuan_bi(argv: list[str], env: dict[str, str]) -> tuple[CauHinh, str, str] | str:
     """HÀM THUẦN: (cấu hình, mã bác sĩ, mật khẩu cơ sở) hoặc câu lỗi."""
     if len(argv) != 1:
-        return "Cách dùng: python -m " + __name__ + " <staff_id>"
+        # Viết cứng: chạy bằng `python -m` thì __name__ là "__main__".
+        return "Cách dùng: python -m " + _MODULE + " <staff_id>"
     ch = doc_cau_hinh(env)
     if isinstance(ch, list):
         return "Cấu hình sai: " + "; ".join(ch)
