@@ -12,6 +12,7 @@ import { useEffect, useRef, useState } from "react";
 
 import Button from "@/components/ui/Button";
 import Chip from "@/components/ui/Chip";
+import { fmtDate } from "@/lib/datetime";
 import { INPUT, TBL_DIV, TBL_HEAD, TBL_WRAP } from "../../form-ui";
 import type { InvBatch } from "./InventoryBoard";
 import { guiKho, soKho } from "./gui-kho";
@@ -231,6 +232,7 @@ export default function ChuyenKho({
                     <tr>
                       <th className="px-3 py-2">Thuốc</th>
                       <th className="px-3 py-2">Mã lô</th>
+                      <th className="px-3 py-2">Hạn dùng</th>
                       <th className="px-3 py-2 text-right">Tồn ở {nguon === "KHO" ? "kho" : "quầy"}</th>
                       <th className="px-3 py-2">Chuyển</th>
                     </tr>
@@ -238,7 +240,7 @@ export default function ChuyenKho({
                   <tbody className={TBL_DIV}>
                     {loNguon.length === 0 ? (
                       <tr>
-                        <td colSpan={4} className="px-3 py-6 text-center text-ink-muted">
+                        <td colSpan={5} className="px-3 py-6 text-center text-ink-muted">
                           {nguon === "KHO" ? "Kho đang trống." : "Quầy đang trống."}
                         </td>
                       </tr>
@@ -251,6 +253,9 @@ export default function ChuyenKho({
                           </td>
                           <td className="px-3 py-2 text-ink-muted">
                             {b.batch_code}
+                          </td>
+                          <td className="px-3 py-2 tabular-nums text-ink-muted">
+                            {b.expiry_date ? fmtDate(b.expiry_date) : "Chưa điền hạn"}
                             {b.trang_thai_han === "het_han" ? (
                               <span className="block text-meta text-danger">Đã hết hạn</span>
                             ) : null}
