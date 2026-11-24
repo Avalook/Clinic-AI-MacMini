@@ -7,6 +7,8 @@ import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import ts from "typescript";
 
+import * as datetime from "../lib/datetime.ts";
+
 // Giao diện tách KHO / QUẦY (G7-2, 14/10/2026): màn chỉ vẽ + gửi lệnh, luật ở máy chủ.
 
 const doc = (p: string) => readFileSync(new URL(`../${p}`, import.meta.url), "utf8");
@@ -40,6 +42,7 @@ const MOCK = {
   "next/navigation": { useRouter: () => ({ refresh() {} }) },
   "@/components/ui/Button": Nut,
   "@/components/ui/Chip": Chip,
+  "@/lib/datetime": datetime,
   "../../form-ui": { INPUT: "i", TBL_DIV: "d", TBL_HEAD: "h", TBL_WRAP: "w" },
   "./gui-kho": {
     guiKho: async () => ({ ok: true, data: null }),
@@ -108,6 +111,9 @@ test("ChuyenKho: tắt = nút Bật (chỉ người sửa được), bật = for
   assert.match(bat, /L-kho1/);
   assert.doesNotMatch(bat, /L-quay1/); // chiều mặc định Kho → Quầy: chỉ lô ở kho
   assert.doesNotMatch(bat, /L-kho0/); // lô hết tồn không chuyển được
+  // PM 24/11: chuyển ra quầy phải thấy hạn dùng của từng lô.
+  assert.match(bat, /Hạn dùng/);
+  assert.match(bat, /01\/01\/2027/);
   const chiXem = renderToStaticMarkup(
     React.createElement(Chuyen, { batches, tachKhoQuay: true, suaTachDuoc: false, ghiDuoc: false }),
   );
