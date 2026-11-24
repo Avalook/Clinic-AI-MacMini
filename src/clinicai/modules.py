@@ -28,6 +28,8 @@ from __future__ import annotations
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 
+from clinicai.modules_don_thuoc_quoc_gia import khai_module_don_thuoc_quoc_gia
+
 
 @dataclass(frozen=True)
 class CongDoc:
@@ -94,7 +96,6 @@ MODULE: dict[str, Module] = {
             phat=[
                 "service_order.placed",
                 "service_order.carried_over",
-                "service_order.required_changed",
                 "service_order.required_changed",
                 "service_order.desk_added",
                 "service_order.desk_removed",
@@ -197,8 +198,6 @@ MODULE: dict[str, Module] = {
                 "visit.defer_payment_cleared",
             ],
             bang=["service_selection_state"],
-            # Từ 23/09: hỏi capability trong chính giao dịch của lệnh, không
-            # còn mượn ánh xạ vai của người thu tiền.
             quyen=["service_selection.confirm"],
         ),
         Module(
@@ -989,6 +988,7 @@ MODULE: dict[str, Module] = {
                 "execution.UndoDeskCompletion",
             ],
         ),
+        khai_module_don_thuoc_quoc_gia(),
         Module(
             ma="van_hanh",
             ten="Vận hành, báo cáo, lịch sử thao tác",

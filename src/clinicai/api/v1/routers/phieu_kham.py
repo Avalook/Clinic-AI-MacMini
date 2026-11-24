@@ -26,7 +26,6 @@ from pydantic import BaseModel, Field
 
 from clinicai.api.identity import StaffIdentity, get_current_identity
 from clinicai.core.database import get_db_pool
-from clinicai.permissions.y_khoa import ghi_mo_ho_so
 from clinicai.phieu_kham.khung import FORM_IDS, dinh_nghia
 from clinicai.services.lich_tai_kham_service import LichTaiKhamService
 from clinicai.services.phieu_kham_service import (
@@ -170,7 +169,6 @@ async def phieu_cua_luot(
     data = await PhieuKhamService(pool, kiem_quyen=kiem_quyen).doc_luot(
         visit_id=str(visit_id), form_id=form_id, identity=identity
     )
-    await ghi_mo_ho_so(pool, identity, noi="phieu-kham", visit_id=str(visit_id))
     return data
 
 

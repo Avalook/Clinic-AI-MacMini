@@ -14,6 +14,17 @@ printf '%s\n' \
   'APP_ENV=test' \
   'DATABASE_URL=postgresql://test%2Ber:s%40cret@db.example.test:6543/clinic%5Ftest?sslmode=require' > "$TEST_ENV"
 
+# Đồng hồ giả cho khoá giờ khám (scripts/lib/gio-kham.sh đọc `date -u '+%u %H'`).
+# Mặc định thứ 3 03h UTC = 10h sáng thứ 3 giờ VN — NGOÀI giờ khám, để mọi bài
+# deploy khác không xanh/đỏ theo giờ máy chạy test. FAKE_DATE_UTC="<thứ> <giờ>"
+# giả một lúc khác. Mọi định dạng khác chuyển cho `date` thật.
+cat > "$FAKE_BIN/date" <<'DATE'
+#!/bin/bash
+if [ "$*" = "-u +%u %H" ]; then echo "${FAKE_DATE_UTC:-2 03}"; exit 0; fi
+exec /bin/date "$@"
+DATE
+chmod +x "$FAKE_BIN/date"
+
 fail() {
   echo "FAIL: $*" >&2
   exit 1
@@ -543,6 +554,12 @@ test_deploy_is_pinned_and_serialized() {
   if grep -Eq 'cp +"?\$ENV_FILE"? +\.env|git pull --ff-only *\|\|' "$ROOT/scripts/deploy-backend.sh"; then
     fail "deploy script still copies shared env or swallows pull failure"
   fi
+  # Ghim SHA chỉ có nghĩa khi KHÔNG còn đường nào kéo thêm commit giữa lúc soát
+  # và lúc deploy (01/10: thiếu biến thì script tự `git pull` → prod lên bản chưa
+  # soát). Bỏ qua dòng chú thích — chúng được phép kể lại chuyện đó.
+  if grep -v '^[[:space:]]*#' "$ROOT/scripts/deploy-backend.sh" | grep -Eq 'git +(pull|fetch)'; then
+    fail "deploy script can still pull/fetch new commits, which defeats SHA pinning"
+  fi
   # Kiểm CÓ XẾP HÀNG hay không. Thứ nó bảo vệ là: hai lần deploy chạy chung một
   # máy Docker thì không được chồng lên nhau. Trước 01/10/2026 bài này dò nhóm
   # `concurrency` trong .github/workflows/cd.yml; CD tự động đã chết (runner VPS
@@ -596,8 +613,9 @@ test_deploy_rolls_back_when_initial_up_fails() {
   local previous_env="$deploy_secrets/previous.env"
   local sha
 
-  mkdir -p "$deploy_repo/scripts" "$previous_repo" "$deploy_secrets" "$deploy_tmp"
+  mkdir -p "$deploy_repo/scripts/lib" "$previous_repo" "$deploy_secrets" "$deploy_tmp"
   cp "$ROOT/scripts/deploy-backend.sh" "$deploy_repo/scripts/deploy-backend.sh"
+  cp "$ROOT/scripts/lib/gio-kham.sh" "$deploy_repo/scripts/lib/gio-kham.sh"
   chmod +x "$deploy_repo/scripts/deploy-backend.sh"
   printf '%s\n' 'services: {}' > "$deploy_repo/docker-compose.yml"
   printf '%s\n' 'services: {}' > "$previous_repo/docker-compose.yml"
@@ -656,7 +674,7 @@ DOCKER
   chmod +x "$FAKE_BIN/docker"
 
   git -C "$deploy_repo" init -q
-  git -C "$deploy_repo" add .new-release-marker docker-compose.yml scripts/deploy-backend.sh
+  git -C "$deploy_repo" add .new-release-marker docker-compose.yml scripts/deploy-backend.sh scripts/lib/gio-kham.sh
   git -C "$deploy_repo" -c user.name=Test -c user.email=test@example.test commit -qm init
   sha="$(git -C "$deploy_repo" rev-parse HEAD)"
 
@@ -697,8 +715,9 @@ test_deploy_exact_sha_smoke() {
   local deploy_repo="$TMP_ROOT/deploy-repo"
   local deploy_secrets="$TMP_ROOT/deploy-secrets"
   local deploy_tmp="$TMP_ROOT/deploy-tmp"
-  mkdir -p "$deploy_repo/scripts" "$deploy_secrets" "$deploy_tmp"
+  mkdir -p "$deploy_repo/scripts/lib" "$deploy_secrets" "$deploy_tmp"
   cp "$ROOT/scripts/deploy-backend.sh" "$deploy_repo/scripts/deploy-backend.sh"
+  cp "$ROOT/scripts/lib/gio-kham.sh" "$deploy_repo/scripts/lib/gio-kham.sh"
   chmod +x "$deploy_repo/scripts/deploy-backend.sh"
   cat > "$deploy_secrets/.env.prod" <<'ENV'
 APP_ENV=production
@@ -737,7 +756,7 @@ DOCKER
   # hai trong bài kiểm bị chặn ở "dirty worktree" trước khi tới phép kiểm ref.
   cp "$ROOT/.gitignore" "$deploy_repo/.gitignore"
   git -C "$deploy_repo" init -q
-  git -C "$deploy_repo" add .gitignore scripts/deploy-backend.sh
+  git -C "$deploy_repo" add .gitignore scripts/deploy-backend.sh scripts/lib/gio-kham.sh
   git -C "$deploy_repo" -c user.name=Test -c user.email=test@example.test commit -qm init
   local sha
   sha="$(git -C "$deploy_repo" rev-parse HEAD)"
@@ -753,12 +772,108 @@ DOCKER
   [ "$(file_mode "$active_env")" = "600" ] || \
     fail "active env revision is not mode 600"
 
+  # Nguồn bản phát hành là bản CHỤP bất biến theo SHA, không phải chính checkout:
+  # checkout trên VPS đổi SHA sau mỗi lần deploy, nên rollback ở lần sau sẽ chạy
+  # compose của bản MỚI với ảnh của bản cũ.
+  local active_src
+  active_src="$(grep -E '^source=' "$deploy_secrets/.active-state-prod" | cut -d= -f2-)"
+  [ "$active_src" = "$deploy_secrets/.release-source-prod/$sha" ] && [ -d "$active_src" ] || \
+    fail "pinned deploy did not snapshot the release source (source=$active_src)"
+
   if HOME="$TEST_HOME" TMPDIR="$deploy_tmp" PATH="$FAKE_BIN:/usr/bin:/bin" \
     CLINIC_PATH_PREFIX="$FAKE_BIN" CLINIC_ENV_DIR="$deploy_secrets" \
     CLINIC_DEPLOY_LOCK="$deploy_tmp/deploy.lock" DEPLOY_EXPECTED_SHA=0000000000000000000000000000000000000000 \
     DEPLOY_SOURCE_REF=main "$deploy_repo/scripts/deploy-backend.sh" prod >/dev/null 2>&1; then
     fail "deploy accepted the wrong commit SHA"
   fi
+
+  # prod KHÔNG có đường không-ghim. Khẳng định theo thông điệp (mọi cổng sau đó
+  # cũng thoát khác 0, nên "thất bại" đơn thuần không chứng minh được gì).
+  deploy_prod() {
+    env HOME="$TEST_HOME" TMPDIR="$deploy_tmp" PATH="$FAKE_BIN:/usr/bin:/bin" \
+      CLINIC_PATH_PREFIX="$FAKE_BIN" CLINIC_ENV_DIR="$deploy_secrets" \
+      CLINIC_DEPLOY_LOCK="$deploy_tmp/deploy.lock" "$@" \
+      "$deploy_repo/scripts/deploy-backend.sh" prod
+  }
+  local pin_out="$deploy_tmp/pin.log" pin_rc=0
+  deploy_prod >"$pin_out" 2>&1 || pin_rc=$?
+  [ "$pin_rc" = "2" ] || fail "prod without DEPLOY_EXPECTED_SHA exited $pin_rc, expected 2"
+  grep -q 'phải ghim commit' "$pin_out" || \
+    fail "prod without DEPLOY_EXPECTED_SHA was refused, but not because of the pin: $(cat "$pin_out")"
+  deploy_prod DEPLOY_EXPECTED_SHA="${sha:0:12}" DEPLOY_SOURCE_REF=main >"$pin_out" 2>&1 && \
+    fail "prod accepted an abbreviated SHA"
+  grep -q '40 ký tự' "$pin_out" || \
+    fail "abbreviated SHA was refused, but not because of its length: $(cat "$pin_out")"
+  # Đã ghim SHA vẫn phải đứng đúng nhánh: SHA đúng trên nhánh lạ là bản chưa qua `main`.
+  git -C "$deploy_repo" checkout -q -B nhanh-la
+  deploy_prod DEPLOY_EXPECTED_SHA="$sha" >"$pin_out" 2>&1 && \
+    fail "prod accepted a pinned SHA while on a non-main branch"
+  grep -q "must deploy from" "$pin_out" || \
+    fail "non-main branch was refused, but not because of the ref: $(cat "$pin_out")"
+  git -C "$deploy_repo" checkout -q -B main
+  deploy_prod DEPLOY_EXPECTED_SHA="$sha" >/dev/null 2>&1 || \
+    fail "prod refused a pinned SHA on branch main (no DEPLOY_SOURCE_REF)"
+
+  # ── GIỜ KHÁM: prod dừng TRƯỚC khi dựng gì (20/11: deploy 16:23 thứ 6 giữa ca,
+  # vì tưởng script chặn). FAKE_DATE_UTC là giờ UTC: VN = UTC + 7.
+  # Mã 3 + câu "GIỜ KHÁM", và chưa tới bước build.
+  local gio_utc
+  for gio_utc in "5 09" "1 09" "3 15" "6 00" "7 15" "5 16" "5 08" "5 23"; do
+    pin_rc=0
+    deploy_prod FAKE_DATE_UTC="$gio_utc" DEPLOY_EXPECTED_SHA="$sha" >"$pin_out" 2>&1 || pin_rc=$?
+    case "$gio_utc" in
+      # 23h thứ 6 VN (hết giờ), 15h thứ 6 VN (chưa mở), 6h thứ 7 VN (chưa mở) — deploy được
+      "5 16"|"5 08"|"5 23")
+        [ "$pin_rc" = "0" ] || fail "prod refused a deploy at UTC '$gio_utc' (outside clinic hours): $(cat "$pin_out")" ;;
+      *)
+        [ "$pin_rc" = "3" ] || fail "prod deploy at UTC '$gio_utc' (clinic hours) exited $pin_rc, expected 3: $(cat "$pin_out")"
+        grep -q 'GIỜ KHÁM' "$pin_out" || fail "clinic-hours refusal did not say why: $(cat "$pin_out")"
+        grep -q 'DEPLOY_KHAN_LY_DO=' "$pin_out" || fail "clinic-hours refusal did not say how to proceed in an emergency"
+        if grep -q '\[3/6\] build' "$pin_out"; then fail "prod built images during clinic hours"; fi ;;
+    esac
+  done
+  # Biến của staging KHÔNG mở được prod: prod đòi lý do viết ra.
+  pin_rc=0
+  deploy_prod FAKE_DATE_UTC="5 09" CHO_PHEP_GIO_KHAM=1 DEPLOY_EXPECTED_SHA="$sha" >"$pin_out" 2>&1 || pin_rc=$?
+  [ "$pin_rc" = "3" ] || fail "CHO_PHEP_GIO_KHAM=1 opened a prod deploy during clinic hours (exit $pin_rc)"
+  # Lý do quá ngắn ("x", "khan") không phải lý do.
+  pin_rc=0
+  deploy_prod FAKE_DATE_UTC="5 09" DEPLOY_KHAN_LY_DO="khan" DEPLOY_EXPECTED_SHA="$sha" >"$pin_out" 2>&1 || pin_rc=$?
+  [ "$pin_rc" = "3" ] || fail "a too-short DEPLOY_KHAN_LY_DO opened a prod deploy during clinic hours (exit $pin_rc)"
+  # Lối thoát khẩn: có lý do thì đi tiếp, in cảnh báo, và lý do nằm trong mốc
+  # deploy (màn Ops "Nhật ký vận hành" đọc deploy-status.json / deploy-history.jsonl).
+  deploy_prod FAKE_DATE_UTC="5 09" DEPLOY_KHAN_LY_DO='quầy thu lỗi 500 "khẩn"' \
+    DEPLOY_EXPECTED_SHA="$sha" >"$pin_out" 2>&1 || \
+    fail "prod refused an emergency deploy with a written reason: $(cat "$pin_out")"
+  grep -q 'KHẨN' "$pin_out" || fail "emergency deploy during clinic hours printed no warning"
+  local trang_thai="$deploy_repo/.ops-status/production/deploy-status.json"
+  grep -q 'KHẨN giờ khám: quầy thu lỗi 500 khẩn' "$trang_thai" || \
+    fail "emergency reason was not recorded in deploy-status.json: $(cat "$trang_thai")"
+  python3 -c 'import json,sys; json.load(open(sys.argv[1]))' "$trang_thai" || \
+    fail "deploy-status.json is not valid JSON after an emergency reason"
+  tail -n 1 "$deploy_repo/.ops-status/production/deploy-history.jsonl" | grep -q 'KHẨN giờ khám' || \
+    fail "emergency reason was not recorded in deploy-history.jsonl"
+  # Lý do tiếng Việt DÀI: mốc bị cắt cho vừa trường subject (≤ 200 ký tự), và
+  # phải cắt ở ranh giới chữ. LC_ALL=C giả máy Linux không có locale UTF-8, nơi
+  # `cut -c` cắt theo BYTE — cắt đôi "ẩ" là tệp UTF-8 hỏng, màn Ops (đọc
+  # read_text utf-8) mất cả mốc lẫn 20 dòng lịch sử. Ba độ lệch 0/1/2 byte để
+  # chắc chắn có một lần mốc cắt rơi giữa một chữ 3 byte.
+  local lech
+  for lech in "" "a" "aa"; do
+    deploy_prod LC_ALL=C FAKE_DATE_UTC="5 09" \
+      DEPLOY_KHAN_LY_DO="${lech}$(printf 'ẩ%.0s' $(seq 1 100))" \
+      DEPLOY_EXPECTED_SHA="$sha" >"$pin_out" 2>&1 || \
+      fail "prod refused an emergency deploy with a long reason: $(cat "$pin_out")"
+    python3 - "$trang_thai" "$deploy_repo/.ops-status/production/deploy-history.jsonl" <<'PY' || \
+      fail "long emergency reason broke the deploy marks (lệch '${lech}')"
+import json, sys
+for p in sys.argv[1:]:
+    raw = open(p, "rb").read().decode("utf-8")  # ném nếu byte hỏng
+    rows = [json.loads(l) for l in raw.splitlines() if l.strip()] if p.endswith(".jsonl") else [json.loads(raw)]
+    assert all(len(r["subject"]) <= 200 for r in rows), rows
+assert json.loads(open(sys.argv[1], encoding="utf-8").read())["subject"].startswith("KHẨN giờ khám: ")
+PY
+  done
 
   # Trunk-based moved this check from an equality test on a branch name to a
   # pattern test on a ref, and a pattern is much easier to get subtly wrong.
@@ -787,30 +902,25 @@ DOCKER
 
   rm -f "$deploy_secrets/.env.staging"
 
-  printf '%s\n' \
-    'COMPOSE_PROFILES=workers' \
-    'RABBITMQ_URL=' \
-    'RABBITMQ_PASSWORD=' >> "$deploy_secrets/.env.prod"
+  # Profile `workers` (RabbitMQ) đã gỡ 24/11/2026: còn ai đặt nó thì deploy dừng.
+  printf '%s\n' 'COMPOSE_PROFILES=workers' >> "$deploy_secrets/.env.prod"
   if HOME="$TEST_HOME" TMPDIR="$deploy_tmp" PATH="$FAKE_BIN:/usr/bin:/bin" \
     CLINIC_PATH_PREFIX="$FAKE_BIN" CLINIC_ENV_DIR="$deploy_secrets" \
     CLINIC_DEPLOY_LOCK="$deploy_tmp/deploy.lock" DEPLOY_EXPECTED_SHA="$sha" \
     DEPLOY_SOURCE_REF=main "$deploy_repo/scripts/deploy-backend.sh" prod >/dev/null 2>&1; then
-    fail "workers profile accepted an empty RabbitMQ password/URL"
+    fail "deploy accepted the removed 'workers' profile"
   fi
 }
 
 
 test_compose_has_bounded_runtime_defaults() {
-  grep -Fq 'RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-}' "$ROOT/docker-compose.yml" || \
-    fail "RabbitMQ still has a default password"
-  if grep -Fq 'clinicai_dev_pass' \
-      "$ROOT/docker-compose.yml" "$ROOT/.env.example" \
-      "$ROOT/.env.prod.example" "$ROOT/.env.staging.example"; then
-    fail "RabbitMQ config contains a shared fallback password"
+  # RabbitMQ gỡ 24/11/2026 — không được quay lại (outbox Postgres là đường duy nhất).
+  # Đo khai báo service / biến, không đo chú thích (chú thích được kể lịch sử).
+  if grep -Eq '^  rabbitmq:|^  worker:|RABBITMQ_' \
+      "$ROOT/docker-compose.yml" "$ROOT/docker-compose.journald.yml" \
+      "$ROOT/.env.example" "$ROOT/.env.prod.example" "$ROOT/.env.staging.example"; then
+    fail "RabbitMQ config came back in compose or env templates"
   fi
-  grep -Fq 'RabbitMQ password is required when the workers profile is enabled' \
-    "$ROOT/docker-compose.yml" || \
-    fail "RabbitMQ container does not fail closed when workers are enabled"
 
   grep -Fq 'x-clinic-service-defaults:' "$ROOT/docker-compose.yml" || \
     fail "compose does not define shared security/logging defaults"
@@ -829,7 +939,7 @@ test_compose_renders_every_profile_safely() {
     return
   fi
 
-  RABBITMQ_URL= RABBITMQ_PASSWORD="" CLINIC_ENV_FILE=.env.prod.example \
+  CLINIC_ENV_FILE=.env.prod.example \
     docker compose --env-file "$ROOT/.env.prod.example" \
       -f "$ROOT/docker-compose.yml" -p clinicai_infra_test config --quiet
 
@@ -844,8 +954,8 @@ import sys
 services = json.load(sys.stdin)["services"]
 expected = {
     "api", "caddy", "cloudflared", "dashboard", "day-tep", "dozzle", "drive-xn",
-    "media-quyen", "notification-relay", "pos-relay", "rabbitmq", "su-kien",
-    "uptime-kuma", "worker",
+    "media-quyen", "notification-relay", "pos-relay", "su-kien",
+    "uptime-kuma",
 }
 assert set(services) == expected, set(services)
 for name, service in services.items():

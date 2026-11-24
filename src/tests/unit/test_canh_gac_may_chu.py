@@ -12,7 +12,7 @@ import pytest
 from clinicai.services.canh_gac import KetQuaKiem
 from clinicai.services.canh_gac_may_chu import (
     danh_gia_may_chu,
-    doc_trang_thai,
+    doc_status_may_chu,
     kiem_may_chu,
 )
 
@@ -126,7 +126,7 @@ def test_tep_rac_bao_bo_do_chet(
     tep = tmp_path / "status.json"
     tep.write_bytes(noi_dung)
     monkeypatch.setenv("OPS_STATUS_FILE", str(tep))
-    assert doc_trang_thai() == {}
+    assert doc_status_may_chu() == {}
     assert [k.ma for k in kiem_may_chu(GIUA_NGAY)] == ["MAY_CHU_KHONG_DO"]
 
 

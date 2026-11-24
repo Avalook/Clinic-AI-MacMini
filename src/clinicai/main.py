@@ -2,9 +2,8 @@
 
 import asyncio
 import os
-from contextlib import AsyncExitStack, asynccontextmanager
+from contextlib import asynccontextmanager
 from typing import Any, AsyncIterator
-from uuid import UUID
 
 import asyncpg.exceptions
 import structlog
@@ -14,6 +13,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
 from clinicai.api.auth import api_key_middleware
+from clinicai.api.cua_noi_bo import CUA_NOI_BO
 from clinicai.api.identity import mo_quyen_tam_thoi
 from clinicai.api.loi_dau_vao import cau_loi_dau_vao
 from clinicai.api.middleware import (
@@ -23,14 +23,10 @@ from clinicai.api.middleware import (
     RequestIdMiddleware,
     TimingMiddleware,
 )
-from clinicai.api.runaway_guard import (
-    runaway_guard,
-    runaway_guard_khong_chan_vai,
-)
+from clinicai.api.runaway_guard import runaway_guard_khong_chan_vai
 from clinicai.api.v1.health import router as health_router
 from clinicai.api.v1.patients import router as patients_router
 from clinicai.api.v1.routers.audit_log import router as audit_log_router
-from clinicai.api.v1.routers.auth import router as auth_router
 from clinicai.api.v1.routers.booking import router as booking_router
 from clinicai.api.v1.routers.cashier import router as cashier_router
 from clinicai.api.v1.routers.catalog import router as catalog_router
@@ -66,7 +62,6 @@ from clinicai.api.v1.routers.lieu_trinh import router as lieu_trinh_router
 from clinicai.api.v1.routers.luot_kham import router as luot_kham_router
 from clinicai.api.v1.routers.mau_ket_qua import router as mau_ket_qua_router
 from clinicai.api.v1.routers.ops import router as ops_router
-from clinicai.api.v1.routers.orchestrator import router as orchestrator_router
 from clinicai.api.v1.routers.payment import router as payment_router
 from clinicai.api.v1.routers.phan_quyen import router as phan_quyen_router
 from clinicai.api.v1.routers.pharmacy import router as pharmacy_router
@@ -84,7 +79,6 @@ from clinicai.api.v1.routers.theo_doi_thu_thuat import (
     router as theo_doi_thu_thuat_router,
 )
 from clinicai.api.v1.routers.thu_ky import router as thu_ky_router
-from clinicai.api.v1.routers.tools import router as tools_router
 from clinicai.api.v1.routers.ultrasound import router as ultrasound_router
 from clinicai.api.v1.routers.vat_tu_kho import router as vat_tu_kho_router
 from clinicai.api.v1.routers.vat_tu_nhap_duyet import (
@@ -107,25 +101,19 @@ from clinicai.core.database import close_pool, create_pool, doc_pool_max_size_ap
 from clinicai.core.exceptions import ClinicAIBaseException
 from clinicai.core.logging import setup_logging
 from clinicai.core.quan_sat import gan_do_pool
-from clinicai.core.sentry import init_sentry
-from clinicai.llm.anthropic_client import AnthropicClient
-from clinicai.orchestrator.checkpointer import make_checkpointer
-from clinicai.orchestrator.service import OrchestratorService
 from clinicai.services import canh_gac_kho_tep, canh_gac_pool
 from clinicai.services.kho_loi import ghi_loi
 from clinicai.voice.transcribe import PhoWhisperTranscriber
 
 # Initialize structured JSON logging
 setup_logging()
-# Initialize Sentry APM (reads SENTRY_DSN; no-op if unset)
-init_sentry()
 
 logger = structlog.get_logger()
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
-    """Manage the asyncpg pool + LangGraph checkpointer over the app lifetime."""
+    """Manage the asyncpg pool + background watchers over the app lifetime."""
     # KÊU TO KHI QUYỀN ĐANG MỞ. Chế độ này nới quyền của mọi vai không phải bác
     # sĩ. Từ 27/09/2026 nó mặc định TẮT; ai bật nó lên thì thứ duy nhất giữ cho
     # nó không thành vĩnh viễn là dòng log này mỗi lần khởi động. Đừng hạ mức.
@@ -156,41 +144,13 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     if canh_gac_pool.bat():
         do_pool = asyncio.create_task(canh_gac_pool.chay_nen(app.state.db_pool))
     try:
-        async with AsyncExitStack() as stack:
-            checkpointer = await stack.enter_async_context(make_checkpointer())
+        # Voice transcriber (on-prem PhoWhisper). Construction nhẹ — model nạp
+        # lazy ở lần transcribe đầu, nên app boot được kể cả khi chưa cài model.
+        app.state.voice_transcriber = PhoWhisperTranscriber()
 
-            # AI ĐỨNG SAU CỜ (15/09/2026): có khoá mới dựng client. Không có
-            # khoá thì API vẫn khởi động; endpoint AI trả 503 AI_DISABLED và
-            # orchestrator chạy chế độ rule-based sẵn có (llm_client=None).
-            llm_client: AnthropicClient | None = None
-            if os.environ.get("ANTHROPIC_API_KEY"):
-                llm_client = AnthropicClient()
-                stack.push_async_callback(llm_client.close)
-            else:
-                logger.warning("ai_disabled_no_anthropic_key")
-            app.state.llm_client = llm_client
-
-            # Voice transcriber (on-prem PhoWhisper). Construction nhẹ — model nạp
-            # lazy ở lần transcribe đầu, nên app boot được kể cả khi chưa cài model.
-            app.state.voice_transcriber = PhoWhisperTranscriber()
-
-            default_location_id_env = os.environ.get("DEFAULT_LOCATION_ID")
-            scheduling_location_id: UUID | None = (
-                UUID(default_location_id_env) if default_location_id_env else None
-            )
-
-            app.state.orchestrator_service = OrchestratorService(
-                checkpointer=checkpointer,
-                llm_client=llm_client,
-                scheduling_pool=app.state.db_pool,
-                scheduling_location_id=scheduling_location_id,
-                lab_triage_pool=app.state.db_pool,
-                task_manager_pool=app.state.db_pool,
-            )
-
-            logger.info("app_startup_complete")
-            yield
-            logger.info("app_shutdown_starting")
+        logger.info("app_startup_complete")
+        yield
+        logger.info("app_shutdown_starting")
     finally:
         if do_kho is not None:
             do_kho.cancel()
@@ -238,17 +198,14 @@ app.add_middleware(RequestIdMiddleware)  # outermost: every response gets an id
 #
 # One list, in one file, because the thing it measures is per PERSON: scattering
 # `Depends(runaway_guard)` across endpoints would work, but the next endpoint
-# somebody adds would silently sit outside the count.
-_GUARDED = [Depends(runaway_guard)]
+# somebody adds would silently sit outside the count. The list (+ nhật ký xem hồ
+# sơ, 24/11/2026) lives in api/cua_noi_bo.py.
+_GUARDED = CUA_NOI_BO
 
 app.include_router(health_router)
-# ĐĂNG NHẬP: endpoint DUY NHẤT không đòi token, vì nó là nơi cấp token.
-# Cũng vì thế nó là endpoint duy nhất người lạ gọi được — chống dò mật khẩu
-# nằm trong auth_service (đếm lần sai + khoá tạm, lưu ở database).
-#
-# KHÔNG gắn _GUARDED: runaway_guard đếm theo NHÂN VIÊN, mà ở đây chưa biết
-# người gọi là ai — đó chính là việc endpoint này đang làm.
-app.include_router(auth_router, prefix="/api/v1", tags=["auth"])
+# ĐĂNG NHẬP chỉ có MỘT cửa: GoTrue `/auth/v1` (Caddy → bộ Supabase tự dựng).
+# Cửa thứ hai `/api/v1/auth/login` (kiểm mật khẩu ở bảng `app_credential`) đã
+# gỡ 24/11/2026 — test_duong_cu_da_xoa.py canh không cho mọc lại.
 app.include_router(
     identity_router,
     prefix="/api/v1",
@@ -401,8 +358,6 @@ app.include_router(
     tags=["don-du-lieu-thu"],
     dependencies=_GUARDED,
 )
-app.include_router(tools_router, prefix="/api/v1", dependencies=_GUARDED)
-app.include_router(orchestrator_router, prefix="/api/v1", dependencies=_GUARDED)
 app.include_router(catalog_router, prefix="/api/v1")
 app.include_router(ops_router, prefix="/api/v1", tags=["ops"], dependencies=_GUARDED)
 app.include_router(

@@ -15,13 +15,12 @@ from fastapi import APIRouter, Depends, Query, Request, Response
 from pydantic import BaseModel
 
 from clinicai.api.identity import StaffIdentity, get_current_identity
-from clinicai.core.clock import hom_nay_vn
+from clinicai.core.clock import doc_ngay, hom_nay_vn
 from clinicai.core.database import get_db_pool
 from clinicai.permissions.cua_quyen import cua_quyen
 from clinicai.services.xet_nghiem import anh_ck, ket_qua, mau, qua_trinh, thu_ho
 from clinicai.services.xet_nghiem.doi_tac import QUYEN_QUAN_LY
 from clinicai.services.xet_nghiem.lenh import chay, chay_khong_ngay
-from clinicai.services.xet_nghiem.mau import doc_ngay
 from clinicai.services.xet_nghiem.thu_ho import doc_doi_tac
 
 router = APIRouter()

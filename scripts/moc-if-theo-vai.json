@@ -1,0 +1,27 @@
+{
+  "_ghi_chu": "MỐC RATCHET — dòng so sánh vai trong TS/TSX: tệp → số dòng. CHỈ ĐƯỢC HẠ: sửa tốt thì chạy `python3 scripts/thuoc-do.py --ha-moc`. Nâng mốc để test xanh là vi phạm (thiet-ke-code.md, mục 'Khi một luật ở đây cản việc'). Cách đếm: đầu thuoc-do.py.",
+  "chi_tiet": {
+    "src/dashboard/app/(dashboard)/BottomNav.tsx": 1,
+    "src/dashboard/app/(dashboard)/QuyenContext.tsx": 1,
+    "src/dashboard/app/(dashboard)/appointments/BangBacSiTuan.tsx": 1,
+    "src/dashboard/app/(dashboard)/appointments/cho-xep-bac-si/page.tsx": 1,
+    "src/dashboard/app/(dashboard)/appointments/page.tsx": 1,
+    "src/dashboard/app/(dashboard)/customers/page.tsx": 1,
+    "src/dashboard/app/(dashboard)/home/WeeklyAppointmentsTable.tsx": 4,
+    "src/dashboard/app/(dashboard)/home/page.tsx": 4,
+    "src/dashboard/app/(dashboard)/layout.tsx": 4,
+    "src/dashboard/app/(dashboard)/nav-items.ts": 5,
+    "src/dashboard/app/(dashboard)/ops/PortalBoard.tsx": 1,
+    "src/dashboard/app/(dashboard)/ops/ToanCanh.tsx": 1,
+    "src/dashboard/app/(dashboard)/patient-list/page.tsx": 2,
+    "src/dashboard/app/(dashboard)/patients/new/NewPatientForm.tsx": 4,
+    "src/dashboard/app/(dashboard)/patients/new/page.tsx": 3,
+    "src/dashboard/app/(dashboard)/schedule/NgoaiLeCaTruc.tsx": 1,
+    "src/dashboard/app/(dashboard)/schedule/page.tsx": 4,
+    "src/dashboard/app/(dashboard)/settings/clinic-config/ClinicConfigBoard.tsx": 2,
+    "src/dashboard/app/(dashboard)/tasks/page.tsx": 6,
+    "src/dashboard/app/api/ops/summary/route.ts": 1,
+    "src/dashboard/lib/clinic-session.ts": 3,
+    "src/dashboard/lib/identity-authority.ts": 1
+  }
+}

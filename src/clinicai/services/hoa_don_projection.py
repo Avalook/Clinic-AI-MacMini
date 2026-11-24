@@ -4,7 +4,7 @@ from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import Any
 
-from clinicai.core.clock import CLINIC_TZ
+from clinicai.core.clock import CLINIC_TZ, iso
 from clinicai.services.phan_thu import (
     CHUYEN_KHOAN,
     TIEN_MAT,
@@ -16,10 +16,6 @@ from clinicai.services.phan_thu import (
 )
 from clinicai.services.quay_thu_service import ma_phieu
 from clinicai.services.tai_khoan_nhan_service import CHUA_PHAN_LOAI
-
-
-def _iso(value: Any) -> str | None:
-    return value.isoformat() if isinstance(value, datetime) else None
 
 
 def _sum(bills: list[dict[str, Any]]) -> dict[str, int]:
@@ -54,7 +50,7 @@ def _su_kien(
         moi = _TEN_HINH_THUC.get(str(d.get("method_moi") or ""), "Không rõ")
         ev.append(
             {
-                "luc": _iso(d.get("luc")),
+                "luc": iso(d.get("luc")),
                 "loai": "DOI_HINH_THUC",
                 "nguoi": d.get("nguoi"),
                 "mo_ta": f"{cu} → {moi}",
@@ -66,7 +62,7 @@ def _su_kien(
         if d.get("da_bo"):
             ev.append(
                 {
-                    "luc": _iso(d.get("bo_luc")),
+                    "luc": iso(d.get("bo_luc")),
                     "loai": "BO_DICH_VU",
                     "nguoi": None,
                     "mo_ta": str(d.get("ten") or ""),
@@ -94,7 +90,7 @@ def _su_kien(
             giay = int((row["closed_at"] - row["paid_at"]).total_seconds())
         ev.append(
             {
-                "luc": _iso(row.get("closed_at")),
+                "luc": iso(row.get("closed_at")),
                 "loai": "HUY_PHIEU",
                 "nguoi": row.get("nguoi_huy"),
                 "mo_ta": "",
@@ -106,7 +102,7 @@ def _su_kien(
     if row.get("status") == "CANCELLED":
         ev.append(
             {
-                "luc": _iso(row.get("closed_at")),
+                "luc": iso(row.get("closed_at")),
                 "loai": "HUY_CHO_CK",
                 "nguoi": row.get("nguoi_huy"),
                 "mo_ta": "Huỷ lần chờ chuyển khoản — chưa ghi thu",
@@ -181,7 +177,7 @@ def _discount(row: dict[str, Any]) -> dict[str, Any]:
         "gia_tri_giam": float(value) if value is not None else None,
         "ly_do_giam": row.get("discount_reason"),
         "nguoi_giam": row.get("nguoi_giam"),
-        "giam_luc": _iso(row.get("created_at")) if discount else None,
+        "giam_luc": iso(row.get("created_at")) if discount else None,
     }
 
 
@@ -191,11 +187,11 @@ def _refund(row: dict[str, Any], lines: list[dict[str, Any]]) -> dict[str, Any]:
         "ma": ma_phieu(row["id"], "hoan"),
         "so_tien": int(row["amount"]),
         "trang_thai": row["status"],
-        "lap_luc": _iso(row.get("created_at")),
-        "hoan_luc": _iso(row.get("completed_at")),
+        "lap_luc": iso(row.get("created_at")),
+        "hoan_luc": iso(row.get("completed_at")),
         "nguoi_lap": row.get("nguoi_lap"),
         "nguoi_hoan": row.get("nguoi_hoan"),
-        "huy_luc": _iso(row.get("closed_at")),
+        "huy_luc": iso(row.get("closed_at")),
         "nguoi_huy": row.get("nguoi_huy"),
         "ly_do_huy": row.get("closed_reason"),
         "ly_do": row.get("reason"),
@@ -251,9 +247,9 @@ def _bill(
         "chuyen_khoan": so_tien_chuyen_khoan(phan, row.get("method"), amount),
         "tai_khoan_id": row.get("tai_khoan_id"),
         "ten_tai_khoan": row.get("ten_tai_khoan"),
-        "lap_luc": _iso(row.get("created_at")),
-        "thu_luc": _iso(row.get("paid_at")),
-        "huy_luc": _iso(row.get("closed_at")),
+        "lap_luc": iso(row.get("created_at")),
+        "thu_luc": iso(row.get("paid_at")),
+        "huy_luc": iso(row.get("closed_at")),
         "nguoi_lap": row.get("nguoi_lap"),
         "nguoi_thu": row.get("nguoi_thu"),
         "nguoi_huy": row.get("nguoi_huy"),
@@ -834,7 +830,7 @@ def gom_viec_ton(
         row = {
             "loai": loai,
             "ten_loai": TEN_VIEC_TON[loai],
-            "luc": luc if isinstance(luc, str) or luc is None else _iso(luc),
+            "luc": iso(luc),
             "patient_id": khach.get("patient_id"),
             "ten": khach.get("ten"),
             "ma_bn": khach.get("ma_bn"),

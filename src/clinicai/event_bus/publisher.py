@@ -41,18 +41,3 @@ class MockEventPublisher(IEventPublisher):
     def count(self) -> int:
         """Return the total number of published events."""
         return len(self.published)
-
-
-class RabbitMQPublisher(IEventPublisher):
-    """Production RabbitMQ implementation.
-
-    Currently a stub raising NotImplementedError until RabbitMQ infra is unblocked.
-    """
-
-    async def publish(self, topic: str, event: InteractionEvent) -> None:
-        """Raise NotImplementedError to signal pending infrastructure."""
-        raise NotImplementedError("RabbitMQ infra pending")
-
-    async def close(self) -> None:
-        """Raise NotImplementedError."""
-        raise NotImplementedError("RabbitMQ infra pending")

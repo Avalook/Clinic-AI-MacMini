@@ -1,46 +1,23 @@
-"""AI đứng sau cờ; bác sĩ — không phải nhóm AI — quyết báo kết quả (15/09/2026).
+"""Bác sĩ — không phải nhóm AI — quyết báo kết quả xét nghiệm (15/09/2026).
 
-1. Thiếu ANTHROPIC_API_KEY thì API vẫn chạy; endpoint cần mô hình trả 503
-   AI_DISABLED. Trước đó `AnthropicClient()` ném lỗi ngay lúc khởi động.
-2. Kết quả xét nghiệm được báo khách khi BÁC SĨ đã duyệt và chốt, bất kể nhóm
-   AI tự phân. Bản cũ chỉ cho GROUP_A: không có AI hoặc AI xếp B/C thì kết quả
-   bác sĩ đã duyệt không bao giờ được báo (CONTEXT v1.0: bác sĩ cho phép gửi).
+Kết quả được báo khách khi BÁC SĨ đã duyệt và chốt, bất kể nhóm AI tự phân. Bản
+cũ chỉ cho GROUP_A: không có AI hoặc AI xếp B/C thì kết quả bác sĩ đã duyệt
+không bao giờ được báo (CONTEXT v1.0: bác sĩ cho phép gửi).
+
+(24/11/2026: hai cửa AI `/lab/triage` và `/tools/*` đã gỡ, nên bài "thiếu khoá
+AI thì 503" và client AI dùng chung trong `main.lifespan` cũng gỡ theo.)
 """
 
 from __future__ import annotations
 
 import asyncio
-import inspect
-from types import SimpleNamespace
 from typing import Any
 from uuid import uuid4
 
 import pytest
 
-from clinicai.api.exceptions import AIDisabledError
 from clinicai.api.identity import ClinicRole, StaffIdentity
-from clinicai.api.v1.routers import lab, tools
-
-
-def _request(client: Any) -> Any:
-    return SimpleNamespace(
-        app=SimpleNamespace(state=SimpleNamespace(llm_client=client))
-    )
-
-
-# `brief` (AI tóm tắt trước khám) đã gỡ 24/09/2026.
-@pytest.mark.parametrize("module", [lab, tools])
-def test_khong_co_client_ai_thi_503(module: Any) -> None:
-    with pytest.raises(AIDisabledError):
-        module.get_llm_client(_request(None))
-
-
-def test_main_chi_dung_client_khi_co_khoa() -> None:
-    import clinicai.main as m
-
-    ma = inspect.getsource(m.lifespan)
-    assert 'os.environ.get("ANTHROPIC_API_KEY")' in ma
-    assert ma.index("ANTHROPIC_API_KEY") < ma.index("AnthropicClient()")
+from clinicai.api.v1.routers import lab
 
 
 class _Pool:

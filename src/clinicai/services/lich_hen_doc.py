@@ -11,29 +11,17 @@ Ngày nhận từ người dùng: rác thì trả RỖNG, không ném (CLAUDE.md
 
 from __future__ import annotations
 
-from datetime import date, datetime, time, timedelta
+from datetime import datetime, time, timedelta
 from typing import Any
 
 import asyncpg
 
 from clinicai.api.identity import StaffIdentity
-from clinicai.core.clock import CLINIC_TZ, now_vn
+from clinicai.core.clock import CLINIC_TZ, doc_ngay, iso, iso_sau, now_vn
 from clinicai.core.tran import canh_bao_neu_day
 
 #: Trạng thái không còn là "lịch sắp tới" của khách.
 _LICH_CHET = ("CANCELLED", "NO_SHOW", "DOCTOR_DECLINED")
-
-
-def doc_ngay(chuoi: str | None) -> date | None:
-    """YYYY-MM-DD → ngày; rác / rỗng → None (không ném)."""
-    try:
-        return date.fromisoformat((chuoi or "").strip())
-    except ValueError:
-        return None
-
-
-def _iso(v: Any) -> Any:
-    return v.isoformat() if isinstance(v, datetime) else v
 
 
 async def lich_trong_ngay(
@@ -69,7 +57,7 @@ async def lich_trong_ngay(
     canh_bao_neu_day(
         "lich_hen.trong_ngay", len(rows), 500, clinic_id=identity.clinic_id
     )
-    return [{k: _iso(v) for k, v in dict(r).items()} for r in rows]
+    return [iso_sau(dict(r)) for r in rows]
 
 
 async def lich_sap_toi(
@@ -92,7 +80,7 @@ async def lich_sap_toi(
         list(_LICH_CHET),
     )
     canh_bao_neu_day("lich_hen.sap_toi", len(rows), 20, clinic_id=identity.clinic_id)
-    return [{k: _iso(v) for k, v in dict(r).items()} for r in rows]
+    return [iso_sau(dict(r)) for r in rows]
 
 
 async def lich_su_dich_vu(
@@ -128,7 +116,7 @@ async def lich_su_dich_vu(
     )
     return {
         "serviceVisitCount": int(so_lan or 0),
-        "liveEpisode": {k: _iso(v) for k, v in dict(dot).items()} if dot else None,
+        "liveEpisode": iso_sau(dict(dot)) if dot else None,
     }
 
 
@@ -158,7 +146,7 @@ async def lich_bac_si_tu_choi(
     return [
         {
             "id": r["id"],
-            "slot_start": _iso(r["slot_start"]),
+            "slot_start": iso(r["slot_start"]),
             "patient": {"full_name": r["patient_name"]} if r["patient_name"] else None,
             "doctor": {"full_name": r["doctor_name"]} if r["doctor_name"] else None,
         }
@@ -167,7 +155,6 @@ async def lich_bac_si_tu_choi(
 
 
 __all__ = [
-    "doc_ngay",
     "lich_bac_si_tu_choi",
     "lich_su_dich_vu",
     "lich_sap_toi",

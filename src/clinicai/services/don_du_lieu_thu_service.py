@@ -36,7 +36,7 @@ import structlog
 
 from clinicai.api.exceptions import ConflictError, ValidationError
 from clinicai.api.identity import StaffIdentity
-from clinicai.core.clock import hom_nay_vn
+from clinicai.core.clock import doc_ngay, hom_nay_vn
 from clinicai.core.kho_tep import KHO_CFS, KHO_VPS, chay_tren_kho
 from clinicai.permissions.can import doi_quyen
 from clinicai.services import media_service
@@ -57,7 +57,6 @@ CAU_MAT_KHACH = "Có khách không còn tồn tại (có thể vừa bị xoá) 
 _UUID_RE = re.compile(
     r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
 )
-_NGAY_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 
 #: Nhóm số dòng cho hộp xác nhận — người đọc hiểu "3 lượt khám", không hiểu
 #: "work_item_dependency 24". Bảng không nằm ở đây gộp vào "khác".
@@ -96,17 +95,6 @@ def che_sdt(sdt: str | None) -> str:
     if len(s) < 7:
         return s
     return f"{s[:-6]}***{s[-3:]}"
-
-
-def doc_ngay(chuoi: str | None) -> date | None:
-    """`YYYY-MM-DD` → date; rỗng / rác → None (không ném — luật ngày giờ)."""
-    s = (chuoi or "").strip()
-    if not _NGAY_RE.fullmatch(s):
-        return None
-    try:
-        return date.fromisoformat(s)
-    except ValueError:
-        return None
 
 
 def ngay_mac_dinh(hom_nay: date) -> date:

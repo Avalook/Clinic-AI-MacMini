@@ -30,7 +30,7 @@ import asyncpg
 
 from clinicai.api.exceptions import NotFoundError
 from clinicai.api.identity import StaffIdentity
-from clinicai.core.clock import CLINIC_TZ
+from clinicai.core.clock import CLINIC_TZ, iso
 from clinicai.core.tran import canh_bao_neu_day
 from clinicai.services.anh_chuyen_khoan_service import anh_cua_cac_lan_thu
 from clinicai.services.cashier_board_service import (
@@ -514,12 +514,6 @@ def doc_tim(v: Any) -> str:
 # ---------------------------------------------------------------------------
 
 
-def _iso(v: Any) -> str | None:
-    if isinstance(v, datetime):
-        return v.isoformat()
-    return str(v) if v else None
-
-
 def gom_theo_khach(
     lan_thu: Iterable[Mapping[str, Any]],
     hoan: Iterable[Mapping[str, Any]],
@@ -567,8 +561,8 @@ def gom_theo_khach(
             {
                 "id": str(c["id"]),
                 "ma": ma,
-                "luc": _iso(c.get("paid_at")),
-                "tao_luc": _iso(c.get("created_at")),
+                "luc": iso(c.get("paid_at")),
+                "tao_luc": iso(c.get("created_at")),
                 "trang_thai": c.get("status"),
                 "hinh_thuc": ht,
                 "phan": phan,
@@ -599,8 +593,8 @@ def gom_theo_khach(
             {
                 "loai": "thu",
                 "id": str(c["id"]),
-                "luc": _iso(c.get("paid_at")),
-                "tao_luc": _iso(c.get("created_at")),
+                "luc": iso(c.get("paid_at")),
+                "tao_luc": iso(c.get("created_at")),
                 "ma": ma,
                 "so_tien": so_tien,
                 "original_amount": _so(c.get("original_amount")),
@@ -628,7 +622,7 @@ def gom_theo_khach(
                 {
                     "loai": "huy",
                     "id": str(c["id"]),
-                    "luc": _iso(c.get("closed_at")),
+                    "luc": iso(c.get("closed_at")),
                     "ma": ma,
                     "so_tien": -so_tien,
                     "hinh_thuc": ht,
@@ -651,7 +645,7 @@ def gom_theo_khach(
             {
                 "loai": "hoan",
                 "id": str(r["refund_id"]),
-                "luc": _iso(r.get("created_at")),
+                "luc": iso(r.get("created_at")),
                 "ma": ma_phieu(r["refund_id"], "hoan"),
                 "so_tien": -so_tien,
                 "hinh_thuc": chuan_hinh_thuc(r.get("method")),
@@ -745,12 +739,12 @@ def loc_khach(
     return out
 
 
-def _gio(iso: str | None) -> str:
-    if not iso:
+def _gio(chu: str | None) -> str:
+    if not chu:
         return ""
     try:
         return (
-            datetime.fromisoformat(iso).astimezone(CLINIC_TZ).strftime("%d/%m/%Y %H:%M")
+            datetime.fromisoformat(chu).astimezone(CLINIC_TZ).strftime("%d/%m/%Y %H:%M")
         )
     except ValueError:
         return ""
@@ -1515,7 +1509,7 @@ class QuayThuService:
             "ma": "",
             "ma_phieu_goc": None,
             "kind": "dich_vu",
-            "luc": _iso(datetime.now(CLINIC_TZ)),
+            "luc": iso(datetime.now(CLINIC_TZ)),
             "trang_thai": None,
             "phong_kham": dau["phong_kham"],
             "co_so": dau["co_so"],
@@ -1666,7 +1660,7 @@ class QuayThuService:
             "ma": ma_phieu(goc["id"], "hoan" if la_hoan else "thu"),
             "ma_phieu_goc": ma_phieu(goc["cycle_id"]) if la_hoan else None,
             "kind": goc["kind"],
-            "luc": _iso(goc["luc"]),
+            "luc": iso(goc["luc"]),
             "trang_thai": goc["status"],
             "phong_kham": dau["phong_kham"] if dau else None,
             "co_so": dau["co_so"] if dau else None,

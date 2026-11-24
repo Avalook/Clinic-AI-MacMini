@@ -204,6 +204,10 @@ INSERT INTO _che_cot (bang, cot, cach) VALUES
     ('command_receipt', 'result', 'json'),
     ('du_lieu_da_xoa', 'du_lieu', 'json_manh'),
     ('lan_don_du_lieu_thu', 'khach', 'json_manh'),
+    -- Hàng chờ đơn thuốc quốc gia (24/11/2026): gói đơn chụp họ tên, ngày sinh,
+    -- CCCD, SĐT, địa chỉ, người giám hộ; lỗi hệ thống quốc gia trả về có thể chép lại.
+    ('dtqg_gui', 'goi', 'json_manh'),
+    ('dtqg_gui', 'loi_cuoi', 'xoa'),
     -- hoá đơn công ty (G5c): tên / địa chỉ / MST / email có thể là của hộ kinh doanh = một người
     ('khach_cong_ty', 'ten_cong_ty', 'xoa'),
     ('khach_cong_ty', 'dia_chi_cong_ty', 'xoa'),
@@ -393,7 +397,9 @@ DECLARE
         || '|guardian_name|nguoi_gioi_thieu|patient_info|patient_objection'
         || '|phone|phone_primary|phone_secondary|sdt|sdt_tim_kiem|so_dien_thoai'
         || '|channel_value|zalo_id|email|address|address_detail|dia_chi'
-        || '|national_id_number|cccd|cmnd';
+        || '|national_id_number|cccd|cmnd'
+        -- gói đơn thuốc quốc gia (dtqg_gui.goi → nguoi_benh)
+        || '|so_dinh_danh|dien_thoai|nguoi_giam_ho';
 BEGIN
     IF j IS NULL THEN
         RETURN NULL;

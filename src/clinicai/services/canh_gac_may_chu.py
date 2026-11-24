@@ -41,8 +41,10 @@ KHUNG_SAO_LUU = (time(7, 30), time(22, 30))
 TRAN_BYTE = 256 * 1024
 
 
-def _gio(v: Any) -> datetime | None:
-    """Mốc ISO của bộ đo → datetime có múi giờ; rác thì None, không ném."""
+def _doc_moc_iso(v: Any) -> datetime | None:
+    """Mốc ISO (CHUỖI) của bộ đo → datetime có múi giờ; rác thì None, không ném.
+
+    Khác `_gio` ở các service khác (nhận sẵn `datetime`, không đọc chuỗi)."""
     if not isinstance(v, str):
         return None
     try:
@@ -62,7 +64,7 @@ def danh_gia_may_chu(snap: dict[str, Any] | None, luc: datetime) -> list[KetQuaK
     """HÀM THUẦN. Bỏ một mã khỏi kết quả = giữ nguyên trạng thái mã ấy."""
     if snap is None:
         return []
-    chup = _gio(snap.get("generated_at"))
+    chup = _doc_moc_iso(snap.get("generated_at"))
     if chup is None or luc - chup > timedelta(minutes=BO_DO_CU_PHUT):
         return [
             KetQuaKiem(
@@ -98,7 +100,11 @@ def danh_gia_may_chu(snap: dict[str, Any] | None, luc: datetime) -> list[KetQuaK
     gio_vn = luc.astimezone(CLINIC_TZ).time()
     if KHUNG_SAO_LUU[0] <= gio_vn < KHUNG_SAO_LUU[1]:
         backup = snap.get("backup")
-        xong = _gio(backup.get("completed_at")) if isinstance(backup, dict) else None
+        xong = (
+            _doc_moc_iso(backup.get("completed_at"))
+            if isinstance(backup, dict)
+            else None
+        )
         tuoi = None if xong is None else (luc - xong) / timedelta(hours=1)
         ra.append(
             KetQuaKiem(
@@ -113,8 +119,11 @@ def danh_gia_may_chu(snap: dict[str, Any] | None, luc: datetime) -> list[KetQuaK
     return ra
 
 
-def doc_trang_thai() -> dict[str, Any] | None:
-    """Đọc `status.json`. Không có tệp → None; hỏng → {} để báo bộ đo chết."""
+def doc_status_may_chu() -> dict[str, Any] | None:
+    """Đọc `status.json` của bộ đo máy chủ.
+
+    Không có tệp → None; hỏng → {} để báo bộ đo chết. Không liên quan
+    `doi_dich_vu_kham.doc_trang_thai` (trạng thái đổi dịch vụ khám)."""
     duong = Path(os.environ.get("OPS_STATUS_FILE") or "/run/clinicai-ops/status.json")
     try:
         with duong.open("rb") as f:
@@ -134,4 +143,4 @@ def doc_trang_thai() -> dict[str, Any] | None:
 
 
 def kiem_may_chu(luc: datetime | None = None) -> list[KetQuaKiem]:
-    return danh_gia_may_chu(doc_trang_thai(), luc or datetime.now(UTC))
+    return danh_gia_may_chu(doc_status_may_chu(), luc or datetime.now(UTC))

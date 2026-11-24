@@ -1,11 +1,11 @@
-"""Worker entrypoint — two modes of operation.
+"""Worker entrypoint — mỗi container chạy MỘT chế độ, chọn bằng cờ dòng lệnh.
 
-Mode 1 (default): RabbitMQ consumer (opt-in — compose profile ``workers``).
-  Run:  python -m clinicai.worker
-  Env:  RABBITMQ_URL, WORKER_QUEUE
+Không cờ nào = lỗi (thoát mã 2). Chế độ mặc định cũ "RabbitMQ consumer" đã gỡ
+24/11/2026 cùng service `rabbitmq`/`worker` trong compose (prod chưa từng bật
+profile `workers`; đường bất đồng bộ thật là outbox Postgres — Mode 4).
 
 Mode 2 (relay): Notification outbox relay — polls ``event_log`` and delivers
-  notifications via Telegram/Zalo. Does NOT need RabbitMQ.
+  notifications via Telegram/Zalo.
   Run:  python -m clinicai.worker --relay
   Env:  DATABASE_URL, TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID,
         TELEGRAM_CLINIC_ID
@@ -76,7 +76,6 @@ def _beat() -> None:
         logger.warning("heartbeat_write_failed", path=str(HEARTBEAT_PATH))
 
 
-WORKER_HEARTBEAT_INTERVAL = 30  # consumer liveness tick
 RELAY_POLL_INTERVAL = 30  # seconds between polls
 # The POS is not on the critical path, so it can be told less often.
 POS_RELAY_POLL_INTERVAL = 60
@@ -190,11 +189,6 @@ async def _run_relay() -> None:
         logger.info("relay_stopped")
 
 
-# ---------------------------------------------------------------------------
-# RabbitMQ mode (default): consume from broker
-# ---------------------------------------------------------------------------
-
-
 async def _run_pos_relay() -> None:
     """Run the POS outbox relay loop (ADR-0010)."""
     from clinicai.core.database import close_pool, create_pool
@@ -283,8 +277,7 @@ async def _run_su_kien() -> None:
     lan_agent = 0.0
     # SỔ CHẠY BÓNG quyền (04/11/2026): dọn dòng > 45 ngày, mỗi giờ một lượt.
     lan_don_bong = 0.0
-    # Job dọn ổ tệp kết quả (V9) đã chuyển sang container `day-tep` (01/10/2026)
-    # — service này không gắn ổ nào.
+    from clinicai.adapters.don_thuoc_quoc_gia.lap_rap import nhip_worker as dtqg
 
     try:
         while not stop.is_set():
@@ -325,6 +318,7 @@ async def _run_su_kien() -> None:
                 if canh and time.monotonic() - lan_don_bong >= 3600:
                     lan_don_bong = time.monotonic()
                     await chay_bong.don_cu(pool)
+                await dtqg(pool, canh=canh)  # đơn thuốc quốc gia, DTQG_BAT mặc định tắt
                 _beat()
             except Exception:
                 # Một bên nhận hỏng không được làm chết vòng giao tin.
@@ -406,63 +400,6 @@ async def _run_day_tep() -> None:
         logger.info("day_tep_stopped")
 
 
-async def _run_rabbitmq() -> None:
-    """Run the RabbitMQ consumer (legacy mode)."""
-    from clinicai.event_bus.consumer import ConsumerConnectionError, RabbitMQConsumer
-    from clinicai.schemas.events import InteractionEvent
-
-    async def _log_handler(event: InteractionEvent) -> None:
-        logger.info(
-            "worker_event_received",
-            event_type=getattr(event, "event_type", None),
-        )
-
-    url = os.environ.get("RABBITMQ_URL")
-    if not url:
-        raise SystemExit("RABBITMQ_URL is not set — cannot start worker.")
-    queue = os.environ.get("WORKER_QUEUE", "clinicai.events")
-
-    consumer = RabbitMQConsumer(connection_url=url, queue=queue, handler=_log_handler)
-    stop = asyncio.Event()
-
-    loop = asyncio.get_running_loop()
-    for sig in (signal.SIGTERM, signal.SIGINT):
-        loop.add_signal_handler(sig, stop.set)
-
-    async def _heartbeat() -> None:
-        """Tick while the consumer is connected.
-
-        A consumer has no poll loop to hang a heartbeat off — it sits in
-        ``stop.wait()`` and reacts to deliveries. So liveness is "the broker
-        connection is still open", checked on a timer. Without this the worker
-        container had no healthcheck at all: a consumer whose channel had died
-        silently looked identical to an idle one with nothing to do.
-        """
-        while not stop.is_set():
-            if getattr(consumer, "is_connected", lambda: True)():
-                _beat()
-            try:
-                await asyncio.wait_for(stop.wait(), timeout=WORKER_HEARTBEAT_INTERVAL)
-                return
-            except asyncio.TimeoutError:
-                continue
-
-    try:
-        await consumer.start()
-        logger.info("worker_started", queue=queue)
-        _beat()
-        beat_task = asyncio.create_task(_heartbeat())
-        try:
-            await stop.wait()
-        finally:
-            beat_task.cancel()
-    except ConsumerConnectionError as exc:
-        logger.error("worker_broker_unavailable", error=str(exc))
-        raise SystemExit(1) from exc
-    finally:
-        await consumer.stop()
-
-
 # ---------------------------------------------------------------------------
 # Entrypoint
 # ---------------------------------------------------------------------------
@@ -482,7 +419,12 @@ def main() -> None:
     elif "--relay" in sys.argv:
         asyncio.run(_run_relay())
     else:
-        asyncio.run(_run_rabbitmq())
+        # Không im lặng chạy "chế độ mặc định": thiếu cờ là cấu hình sai.
+        print(
+            "Thiếu chế độ: --su-kien | --day-tep | --drive | --pos-relay | --relay",
+            file=sys.stderr,
+        )
+        raise SystemExit(2)
 
 
 if __name__ == "__main__":

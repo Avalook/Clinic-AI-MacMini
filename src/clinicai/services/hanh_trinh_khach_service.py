@@ -38,6 +38,7 @@ import asyncpg
 
 from clinicai.api.exceptions import NotFoundError
 from clinicai.api.identity import StaffIdentity
+from clinicai.core.clock import iso_sau
 from clinicai.core.exceptions import SafetyGateError
 from clinicai.phieu_kham.hanh_trinh import (
     BO,
@@ -1033,16 +1034,6 @@ def doan_bam_don(buoc: list[dict[str, Any]]) -> list[bool]:
     return ra
 
 
-def _iso(v: Any) -> Any:
-    if isinstance(v, datetime):
-        return v.isoformat()
-    if isinstance(v, dict):
-        return {k: _iso(x) for k, x in v.items()}
-    if isinstance(v, list):
-        return [_iso(x) for x in v]
-    return v
-
-
 # ── ĐỌC DB ──────────────────────────────────────────────────────────────────
 
 _SQL_LUOT = """
@@ -1252,7 +1243,7 @@ async def doc_hanh_trinh_khach(
     ra: dict[str, dict[str, Any]] = {}
     for x in luot:
         vid = x["visit_id"]
-        ra[vid] = _iso(
+        ra[vid] = iso_sau(
             dung_hanh_trinh_khach(
                 luot=x,
                 su_kien=su_kien.get(vid, []),
@@ -1312,7 +1303,7 @@ class HanhTrinhKhachService:
                 raise NotFoundError("Không tìm thấy lượt khám.")
             # Lịch sử xếp / đổi phòng từng chỉ định (Tuyền 29/09/2026) — theo mã
             # chỉ định, thẻ dịch vụ vẽ dưới thẻ của mình.
-            kq[ma[0]]["lich_su_phong"] = _iso(
+            kq[ma[0]]["lich_su_phong"] = iso_sau(
                 await lich_su_phong_cua_luot(
                     conn, clinic_id=identity.clinic_id, visit_id=ma[0]
                 )

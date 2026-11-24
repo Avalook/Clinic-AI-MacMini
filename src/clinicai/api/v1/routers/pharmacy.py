@@ -24,11 +24,10 @@ from clinicai.api.idempotency import (
     tra_khoa_neu_bi_tu_choi,
 )
 from clinicai.api.identity import StaffIdentity
-from clinicai.core.clock import hom_nay_vn
+from clinicai.core.clock import doc_ngay, hom_nay_vn
 from clinicai.core.database import get_db_pool
 from clinicai.permissions.can import can
 from clinicai.permissions.cua_quyen import cua_quyen
-from clinicai.phieu_kham.khung import doc_ngay
 from clinicai.services import (
     ban_theo_don_service,
     ban_thuoc_service,
@@ -1173,7 +1172,7 @@ class NhapLoRequest(BaseModel):
     @field_validator("expiry_date", mode="before")
     @classmethod
     def doc_han_dung(cls, value: Any) -> date | None:
-        return value if isinstance(value, date) else doc_ngay(value)
+        return doc_ngay(value, go_tay=True)
 
 
 @router.post("/pharmacy/receive", status_code=201)

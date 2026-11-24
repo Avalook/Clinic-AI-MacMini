@@ -6,6 +6,7 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
+from clinicai.core.clock import doc_ngay
 from clinicai.services import canh_gac, kho_loi
 from clinicai.services import nhat_ky_van_hanh as nk
 
@@ -101,4 +102,4 @@ def test_chi_so_luot_va_trung_vi() -> None:
 
 @pytest.mark.parametrize("rac", ["", "abc", "2026-02-31", None, "27/09/2026"])
 def test_ngay_rac_tra_rong(rac: str | None) -> None:
-    assert nk.doc_ngay(rac) is None
+    assert doc_ngay(rac) is None
