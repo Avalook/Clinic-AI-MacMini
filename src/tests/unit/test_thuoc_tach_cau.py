@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 from decimal import Decimal
+from fractions import Fraction
 
 import pytest
 
+from clinicai.services.thuoc.cach_dung import lieu_ngay
 from clinicai.services.thuoc.tach_cau import de_xuat_cach_dung
 
 
@@ -59,3 +61,24 @@ def test_khong_chac_thi_chi_chu(cau: str | None) -> None:
 
 def test_cach_ngay() -> None:
     assert de_xuat_cach_dung("Đặt cách ngày, buổi tối").kieu == "cach_ngay"
+
+
+@pytest.mark.parametrize(
+    ("cau", "lieu_moi_ngay"),
+    [
+        ("Ngày 2 viên, sáng 1, tối 1, sau ăn", Fraction(2)),
+        ("Ngày uống 2 lần, mỗi lần 1 viên. Đợt dùng 7 ngày.", Fraction(2)),
+        ("Cách ngày uống 1 viên", Fraction(1, 2)),
+        ("2 ngày uống 1 viên", Fraction(1, 2)),
+        ("3 ngày uống 1 lần, mỗi lần 1 viên", Fraction(1, 3)),
+        ("Tuần 03 viên, mỗi lần 01 viên - uống cách ngày sau ăn tối.", Fraction(3, 7)),
+        ("Mỗi tuần uống duy nhất 1 viên vào 1 ngày cố định.", Fraction(1, 7)),
+        ("Tháng uống 1 lần, mỗi lần 1 viên", Fraction(1, 30)),
+        ("Ngày uống 4 viên chia 2 lần (sáng - tối) sau ăn", Fraction(4)),
+    ],
+)
+def test_lieu_moi_ngay_theo_ngay_tuan_thang_moi_n_ngay(
+    cau: str, lieu_moi_ngay: Fraction
+) -> None:
+    """Tuyền 26/11: gõ chữ ở danh mục, máy tự hiểu ngày / N ngày / tuần / tháng."""
+    assert lieu_ngay(de_xuat_cach_dung(cau)) == lieu_moi_ngay

@@ -1,6 +1,6 @@
 # BẢN ĐỒ CODE — màn → API → router → service → test
 
-> Sinh bởi `scripts/ban-do-code.py` lúc 2026-11-26 15:24. **Đừng sửa tay** —
+> Sinh bởi `scripts/ban-do-code.py` lúc 2026-11-26 15:34. **Đừng sửa tay** —
 > chạy `python3 scripts/ban-do-code.py` để sinh lại; CI (`--kiem`, job backend
 > của `scripts/ci-may.sh`) đỏ khi tệp này lệch code.
 
@@ -318,10 +318,10 @@ Mục lục: 1. Màn · 2. API Next → backend · 3. Service → màn · 4. S�
 
 ### `/pharmacy/inventory` — Kho thuốc
 - page: `src/dashboard/app/(dashboard)/pharmacy/inventory/page.tsx` · quyền: lego `kho_thuoc` (Kho thuốc · mặc định: Dược sĩ (+ lễ tân))
-- thành phần: ChoGanLo.tsx, DanhMucKho.tsx, InventoryBoard.tsx, KhoThuoc.tsx, ThuocTraChoKiem.tsx, app/(dashboard)/ODonVi.tsx, app/(dashboard)/form-ui.ts, CachDungDanhMuc.tsx (+11)
+- thành phần: ChoGanLo.tsx, DanhMucKho.tsx, InventoryBoard.tsx, KhoThuoc.tsx, ThuocTraChoKiem.tsx, app/(dashboard)/ODonVi.tsx, app/(dashboard)/form-ui.ts, ChuyenKho.tsx (+11)
 - gọi API Next: `/api/pharmacy/kiem-ke-ca`, `/api/thuoc/[action]`, `/api/pharmacy/[action]`
 - gọi thẳng backend (server): `/api/v1/pharmacy/inventory`, `/api/v1/pharmacy/danh-muc`, `/api/v1/pharmacy/cho-gan-lo`, `/api/v1/pharmacy/thuoc-tra-cho-kiem`, `/api/v1/pharmacy/so-ngay-canh-bao`, `/api/v1/pharmacy/tach-kho-quay`
-- service: kiem_ke_ca_service.{nhac_thieu_kiem, danh_sach, mo_phieu} · khoi_phuc_thuoc.{danh_sach_da_xoa, khoi_phuc} · xoa_thuoc.{thuoc_xoa_duoc, xoa_thuoc} · cach_dung_db.{doc_mac_dinh, tinh_don, luu_mac_dinh} · lo_thuoc_service.{sua_lo, huy_lo, hoan_huy_lo, so_ngay_canh_bao, +1} · can (+10 service)
+- service: kiem_ke_ca_service.{nhac_thieu_kiem, danh_sach, mo_phieu} · khoi_phuc_thuoc.{danh_sach_da_xoa, khoi_phuc} · xoa_thuoc.{thuoc_xoa_duoc, xoa_thuoc} · cach_dung_db.{doc_mac_dinh, tinh_don, luu_mac_dinh} · don_vi_con.{doc, luu} · lo_thuoc_service.{sua_lo, huy_lo, hoan_huy_lo, so_ngay_canh_bao, +1} (+11 service)
 - test: test_theo_doi_thuoc_db.py, test_kho_quay_that_db.py, test_kho_quay_db.py, test_ma_vach_db.py, test_kho_kiotviet_db.py (+31)
 
 ### `/phong` — Phòng dịch vụ
@@ -1595,11 +1595,13 @@ Mỗi `app/api/**/route.ts`: đường `/api/v1` nó proxy → hàm router FastA
 - GET `/api/v1/thuoc/da-xoa` → `src/clinicai/api/v1/routers/thuoc.py:cua_thuoc_da_xoa` → khoi_phuc_thuoc.danh_sach_da_xoa
 - GET `/api/v1/thuoc/{thuoc_id}/xoa-duoc` → `src/clinicai/api/v1/routers/thuoc.py:cua_xoa_duoc` → xoa_thuoc.thuoc_xoa_duoc
 - GET `/api/v1/thuoc/{thuoc_id}/cach-dung` → `src/clinicai/api/v1/routers/thuoc.py:cua_doc_cach_dung` → cach_dung_db.doc_mac_dinh
+- GET `/api/v1/thuoc/{thuoc_id}/don-vi-con` → `src/clinicai/api/v1/routers/thuoc.py:cua_doc_don_vi_con` → don_vi_con.doc
 - POST `/api/v1/thuoc/{thuoc_id}/xoa` → `src/clinicai/api/v1/routers/thuoc.py:cua_xoa_thuoc` → xoa_thuoc.xoa_thuoc
 - POST `/api/v1/thuoc/da-xoa/{ban_luu_id}/khoi-phuc` → `src/clinicai/api/v1/routers/thuoc.py:cua_khoi_phuc_thuoc` → khoi_phuc_thuoc.khoi_phuc
 - POST `/api/v1/thuoc/cach-dung/tinh` → `src/clinicai/api/v1/routers/thuoc.py:cua_tinh_cach_dung` → cach_dung_db.tinh_don
 - PUT `/api/v1/thuoc/{thuoc_id}/cach-dung` → `src/clinicai/api/v1/routers/thuoc.py:cua_luu_cach_dung` → cach_dung_db.luu_mac_dinh
-- test: src/tests/services/test_thuoc_ton_va_xoa_db.py, src/tests/services/test_thuoc_cach_dung_db.py, src/tests/unit/test_thuoc_cach_dung.py (+1)
+- PUT `/api/v1/thuoc/{thuoc_id}/don-vi-con` → `src/clinicai/api/v1/routers/thuoc.py:cua_luu_don_vi_con` → don_vi_con.luu
+- test: src/tests/services/test_thuoc_don_vi_con_db.py, src/tests/services/test_thuoc_ton_va_xoa_db.py, src/tests/services/test_thuoc_cach_dung_db.py (+1)
 - màn dùng: /pharmacy/inventory
 
 #### `/api/ultrasound` · `src/dashboard/app/api/ultrasound/route.ts`
@@ -1709,7 +1711,7 @@ Mỗi `app/api/**/route.ts`: đường `/api/v1` nó proxy → hàm router FastA
 - test: src/tests/services/test_thue_gtgt_db.py, src/tests/services/test_xuat_hoa_don_db.py, src/tests/services/test_hoa_don_misa_db.py
 - màn dùng: /xuat-hoa-don
 
-## 3. Service → màn (203)
+## 3. Service → màn (204)
 
 | Service | Tệp | Màn dùng |
 |---|---|---|
@@ -1776,6 +1778,7 @@ Mỗi `app/api/**/route.ts`: đường `/api/v1` nó proxy → hàm router FastA
 | `DoiBacSiService` | `src/clinicai/services/doi_bac_si_service.py` | /ban-kham, /ban-kham/[phong], /doi-tac, /duyet-ket-qua, /hanh-trinh, /patient-list, /phong/[ma], /print/phieu-thu/[id] (+5) |
 | `DoiHinhThucService` | `src/clinicai/services/doi_hinh_thuc_service.py` | /pharmacy, /settings/tai-khoan-nhan, /thu-ngan/dich-vu, /thu-ngan/dich-vu/lich-su, /thu-ngan/thuoc, /thu-ngan/thuoc/lich-su |
 | `DoiTacService` | `src/clinicai/services/doi_tac_service.py` | /ban-kham, /ban-kham/[phong], /do-sinh-hieu, /doi-tac, /duyet-ket-qua, /pharmacy, /phong/[ma], /tu-van |
+| `don_vi_con` | `src/clinicai/services/thuoc/don_vi_con.py` | /pharmacy/inventory |
 | `don_vi_nhap` | `src/clinicai/services/thuoc/don_vi_nhap.py` | /pharmacy, /pharmacy/inventory, /print/tem-lo |
 | `DonDuLieuThuService` | `src/clinicai/services/don_du_lieu_thu_service.py` | /settings/don-du-lieu-thu |
 | `EpisodeService` | `src/clinicai/services/episode_service.py` | — (chỉ API/worker) |
@@ -1998,7 +2001,7 @@ Bảng còn sống (tạo bằng `CREATE TABLE`, chưa `DROP`). Đổi lược �
 | `drive_nhip` | `20261106100000_xet_nghiem_drive.sql` | 1 |
 | `drive_tep` | `20261106100000_xet_nghiem_drive.sql` | 3 |
 | `drug_batch` | `20260802000001_pharmacy_inventory.sql` | 6 |
-| `drug_catalog` | `20260714000001_baseline_schema.sql` | 6 |
+| `drug_catalog` | `20260714000001_baseline_schema.sql` | 7 |
 | `drug_catalog_da_xoa` | `20261126200100_drug_catalog_da_xoa.sql` | 0 |
 | `drug_ma_vach` | `20261014135000_ma_vach.sql` | 0 |
 | `drug_return` | `20260919000004_tien_thuoc_cp5_hoan_tra.sql` | 3 |
@@ -2084,7 +2087,7 @@ Bảng còn sống (tạo bằng `CREATE TABLE`, chưa `DROP`). Đổi lược �
 | `phu_thu_mau` | `20260928000099_phu_thu_kem_dich_vu.sql` | 0 |
 | `pos_outbox` | `20260730000007_pos_outbox.sql` | 0 |
 | `pregnancy` | `20260714000001_baseline_schema.sql` | 1 |
-| `prescription` | `20260714000001_baseline_schema.sql` | 12 |
+| `prescription` | `20260714000001_baseline_schema.sql` | 13 |
 | `prescription_allocation` | `20260919000003_tien_thuoc_cp3_phan_lo_ban.sql` | 1 |
 | `prescription_correction` | `20260920000002_tien_thuoc_cp6_dinh_chinh_don.sql` | 0 |
 | `province` | `20260714000001_baseline_schema.sql` | 0 |

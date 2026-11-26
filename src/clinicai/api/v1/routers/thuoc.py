@@ -17,7 +17,7 @@ from pydantic import BaseModel, Field
 from clinicai.api.identity import StaffIdentity, get_current_identity
 from clinicai.core.database import get_db_pool
 from clinicai.permissions.cua_quyen import cua_quyen
-from clinicai.services.thuoc import cach_dung_db, khoi_phuc_thuoc, xoa_thuoc
+from clinicai.services.thuoc import cach_dung_db, don_vi_con, khoi_phuc_thuoc, xoa_thuoc
 from clinicai.services.thuoc.cach_dung import CachDung
 
 router = APIRouter()
@@ -181,6 +181,53 @@ async def cua_luu_cach_dung(
         so_lieu=body.so_lieu_moi_don_vi_goc,
     )
     return CachDungMacDinh.model_validate(kq)
+
+
+class DonViCon(BaseModel):
+    id: str
+    don_vi_me: str
+    don_vi_con: str | None = None
+    so_con: Decimal | None = None
+    gia_me: int | None = None
+    gia_con: int | None = None
+    gia_con_tu_tinh: int | None = None
+    xem_truoc: str
+    goi_y: list[str]
+
+
+class LuuDonViCon(BaseModel):
+    don_vi_con: str | None = Field(default=None, max_length=20)
+    so_con: Decimal | None = Field(default=None, gt=0, le=100000)
+    gia_con: Decimal | None = Field(default=None, gt=0, le=1_000_000_000)
+
+
+@router.get("/thuoc/{thuoc_id}/don-vi-con", response_model=DonViCon)
+async def cua_doc_don_vi_con(
+    thuoc_id: UUID,
+    identity: StaffIdentity = Depends(_DOC),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> DonViCon:
+    """Khối "Đơn vị con và tính số ngày dùng hết thuốc" (Tuyền 26/11)."""
+    kq = await don_vi_con.doc(pool, identity=identity, thuoc_id=str(thuoc_id))
+    return DonViCon.model_validate(kq)
+
+
+@router.put("/thuoc/{thuoc_id}/don-vi-con", response_model=DonViCon)
+async def cua_luu_don_vi_con(
+    thuoc_id: UUID,
+    body: LuuDonViCon,
+    identity: StaffIdentity = Depends(_GHI),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> DonViCon:
+    kq = await don_vi_con.luu(
+        pool,
+        identity=identity,
+        thuoc_id=str(thuoc_id),
+        don_vi_con=body.don_vi_con,
+        so_con=body.so_con,
+        gia_con=body.gia_con,
+    )
+    return DonViCon.model_validate(kq)
 
 
 class DanhSachDaXoa(BaseModel):

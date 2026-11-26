@@ -2,7 +2,7 @@
 // tính (liều/ngày, số ngày, ngày hết, gợi ý số lượng, câu in) ở máy chủ:
 // `src/clinicai/services/thuoc/cach_dung.py`, cửa `POST /api/v1/thuoc/cach-dung/tinh`.
 
-export type KieuDung = "ngay" | "tuan" | "cach_ngay" | "chu_ky" | "chu";
+export type KieuDung = "ngay" | "tuan" | "thang" | "cach_ngay" | "chu_ky" | "chu";
 
 /** Cùng hình `CachDung` ở máy chủ. Số có thể về dạng chuỗi ("0.5") — đọc bằng `so`. */
 export interface CachDungCT {

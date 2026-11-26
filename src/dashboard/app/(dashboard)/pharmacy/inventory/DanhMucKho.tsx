@@ -9,9 +9,9 @@ import Button from "@/components/ui/Button";
 import Chip from "@/components/ui/Chip";
 import { INPUT, LABEL, TBL_DIV, TBL_HEAD, TBL_WRAP } from "../../form-ui";
 import ODonVi from "../../ODonVi";
-import CachDungDanhMuc from "./CachDungDanhMuc";
+import DonViCon from "./DonViCon";
 import { guiKho, soKho, tienVnd, tonTheoDonVi } from "./gui-kho";
-import SuaDonViBan, { type DongDonVi } from "./SuaDonViBan";
+import { type DongDonVi } from "./SuaDonViBan";
 import XoaThuoc from "./XoaThuoc";
 
 export interface ThuocKho {
@@ -251,23 +251,22 @@ export default function DanhMucKho({
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             {o("ten", "Tên thuốc")}
             {o("ma_hang", "Mã hàng (KiotViet)")}
-            {o("gia", "Giá bán 1 đơn vị gốc (đ)")}
+            {o("gia", `Giá bán 1 ${form.don_vi_ban.trim() || "đơn vị tính"} (đ)`)}
             <div className="block">
-              <span className={LABEL}>Đơn vị gốc — kho đếm theo (nên là con: viên, gói…)</span>
+              <span className={LABEL}>Đơn vị tính (đơn vị mẹ — kho đếm theo đơn vị này)</span>
               <ODonVi
                 value={form.don_vi_ban}
                 onChange={(v) => setForm({ ...form, don_vi_ban: v })}
-                ariaLabel="Đơn vị gốc"
+                ariaLabel="Đơn vị tính"
               />
             </div>
-            {o("ton_toi_thieu", "Tồn tối thiểu (để trống = không cảnh báo)")}
             {o("duong_dung", "Đường dùng")}
             {o("biet_duoc", "Biệt dược / hoạt chất")}
-            {o("cach_dung", "Cách dùng (điền sẵn vào đơn)", true)}
+            {o("cach_dung", "Cách dùng — gõ như nói: “ngày 2 lần, mỗi lần 1 viên”, “3 ngày 1 lần”, “tuần 2 viên”", true)}
             {o("luu_y", "Lưu ý", true)}
+            {o("ton_toi_thieu", "Tồn tối thiểu (để trống = không cảnh báo)")}
           </div>
-          <SuaDonViBan donViGoc={form.don_vi_ban} dong={donVi} onDoi={setDonVi} suaGiaDuoc={suaGiaDuoc} idThuoc={sua || null} />
-          {sua ? <CachDungDanhMuc thuocId={sua} ghiDuoc={ghiDuoc} /> : null}
+          {sua ? <DonViCon thuocId={sua} ghiDuoc={ghiDuoc} /> : <p className="text-meta text-ink-muted">Lưu thuốc trước, rồi mở lại để khai đơn vị con.</p>}
           <label className="flex min-h-10 items-center gap-2 text-body text-ink">
             <input
               type="checkbox"

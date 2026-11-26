@@ -27,7 +27,9 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_valida
 
 from clinicai.services.thai_ky_service import doc_ngay_tu_do
 
-Kieu = Literal["ngay", "tuan", "cach_ngay", "chu_ky", "chu"]
+Kieu = Literal["ngay", "tuan", "thang", "cach_ngay", "chu_ky", "chu"]
+#: Số ngày của một chu kỳ dùng: "tháng" tính 30 ngày (Tuyền 26/11: ngày / tuần / tháng).
+NGAY_MOI_KY = {"ngay": 1, "tuan": 7, "thang": 30}
 CHU_KY_MIN, CHU_KY_MAX = 15, 60
 SO_NGAY_TOI_DA = 3660
 
@@ -53,6 +55,8 @@ class CachDung(BaseModel):
     #: Chu kỳ kinh: từ ngày X đến ngày Y.
     tu_ngay: int | None = Field(default=None, ge=1, le=60)
     den_ngay: int | None = Field(default=None, ge=1, le=60)
+    #: Kiểu "cach_ngay": N ngày dùng 1 lần ("cách ngày" = 2, "3 ngày 1 lần" = 3).
+    moi_n_ngay: int | None = Field(default=None, ge=2, le=90)
     #: "trong N ngày" (tuỳ chọn) — dùng để gợi ý số lượng.
     trong_ngay: int | None = Field(default=None, ge=1, le=366)
     don_vi_lieu: str = Field(default="viên", min_length=1, max_length=20)
@@ -116,10 +120,12 @@ def cau_cach_dung(ct: CachDung | None, chu_cu: str = "") -> str:
         return chu_cu.strip()
     lan = _chon(ct.so_lan, ct.khoang_so_lan)
     moi = f"mỗi lần {_chon(ct.moi_lan, ct.khoang_lan)} {ct.don_vi_lieu}"
+    n = ct.moi_n_ngay or 2
     dau = {
         "ngay": f"Ngày {lan} lần",
         "tuan": f"Tuần {lan} lần",
-        "cach_ngay": "Cách ngày 1 lần",
+        "thang": f"Tháng {lan} lần",
+        "cach_ngay": "Cách ngày 1 lần" if n == 2 else f"{n} ngày 1 lần",
         "chu_ky": f"Ngày {lan} lần, từ ngày {ct.tu_ngay or '?'} đến ngày "
         f"{ct.den_ngay or '?'} chu kỳ kinh",
     }[ct.kieu]
@@ -131,17 +137,16 @@ def cau_cach_dung(ct: CachDung | None, chu_cu: str = "") -> str:
 
 
 def lieu_ngay(ct: CachDung) -> Fraction | None:
-    """Số đơn vị liều mỗi ngày (tuần chia 7, cách ngày chia 2). None = chưa đủ ô."""
+    """Số đơn vị liều mỗi ngày: mỗi lần × số lần ÷ số ngày của kỳ (ngày 1, tuần 7,
+    tháng 30, "N ngày 1 lần" = N). None = chưa đủ ô."""
     if ct.kieu == "chu" or ct.moi_lan is None or chua_chon_khoang(ct):
         return None
     m = Fraction(ct.moi_lan)
     if ct.kieu == "cach_ngay":
-        return m / 2
+        return m / (ct.moi_n_ngay or 2)
     if ct.so_lan is None:
         return None
-    if ct.kieu == "tuan":
-        return m * ct.so_lan / 7
-    return m * ct.so_lan
+    return m * ct.so_lan / NGAY_MOI_KY.get(ct.kieu, 1)
 
 
 def so_luong_so(chu: Any) -> Fraction | None:

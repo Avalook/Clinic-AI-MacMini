@@ -27,6 +27,9 @@ export async function GET(request: Request, { params }: { params: Promise<{ acti
   if (action === "cach-dung" && UUID_RE.test(id)) {
     return proxyJsonToBackend("GET", `/api/v1/thuoc/${id}/cach-dung`, undefined);
   }
+  if (action === "don-vi-con" && UUID_RE.test(id)) {
+    return proxyJsonToBackend("GET", `/api/v1/thuoc/${id}/don-vi-con`, undefined);
+  }
   return NextResponse.json({ error: `Không đọc được: ${action}` }, { status: 400 });
 }
 
@@ -51,6 +54,11 @@ export async function POST(request: Request, { params }: { params: Promise<{ act
   if (action === "luu-cach-dung" && UUID_RE.test(id)) {
     const { ct, so_lieu_moi_don_vi_goc } = body;
     return proxyJsonToBackend("PUT", `/api/v1/thuoc/${id}/cach-dung`, { ct, so_lieu_moi_don_vi_goc });
+  }
+  // Đơn vị con + số con / mẹ + giá con (Tuyền 26/11).
+  if (action === "luu-don-vi-con" && UUID_RE.test(id)) {
+    const { don_vi_con, so_con, gia_con } = body;
+    return proxyJsonToBackend("PUT", `/api/v1/thuoc/${id}/don-vi-con`, { don_vi_con, so_con, gia_con });
   }
   return NextResponse.json({ error: `Thao tác không hợp lệ: ${action}` }, { status: 400 });
 }
