@@ -28,7 +28,7 @@ import pytest
 
 from clinicai.api.exceptions import ConflictError, ValidationError
 from clinicai.services.checkout_service import CheckoutService
-from clinicai.services.cong_no_service import ghi_no_trong, no_khi_ve
+from clinicai.services.cong_no_service import no_khi_ve
 from clinicai.services.payment_service import PaymentService
 from clinicai.services.pharmacy_service import PharmacyService
 from clinicai.services.quay_thuoc_service import QuayThuocService
@@ -126,14 +126,6 @@ async def _khong_lay(q: Quay, rx: str, mua: bool = False) -> None:
     await QuayThuocService(q.pool).chon(
         prescription_id=rx, mua=mua, identity=q.thu_ngan
     )
-
-
-async def ghi_no_de_ve(q: Quay, ly_do: str = "Quay lại mua thuốc sau") -> None:
-    """Quầy bấm Ghi nợ (kèm lý do) để khách về khi còn thuốc kê chưa thu."""
-    async with q.pool.acquire() as conn, conn.transaction():
-        assert await ghi_no_trong(
-            conn, identity=q.thu_ngan, visit_id=q.visit_id, ly_do=ly_do
-        )
 
 
 async def _no(q: Quay) -> Any:
@@ -269,13 +261,30 @@ async def test_i4_khong_giao_dong_ke_them_sau_khi_thu(q: Quay) -> None:
 # ── I5: khách về còn dòng kê chưa thu ──────────────────────────────────────
 
 
-async def test_i5_dong_so_mua_trong_chua_thu_la_no_chan_check_out(q: Quay) -> None:
-    a, b, c, _ = await _ba_dong(q)
+async def _quay_ghi_mua(q: Quay, *rxs: str) -> None:
+    """Quầy ghi số khách mua = số kê (khách lấy thật)."""
+    for rx in rxs:
+        await q.pool.execute(
+            "UPDATE prescription SET purchased_qty = quantity_num WHERE id = $1::uuid",
+            rx,
+        )
+
+
+async def test_i5_dong_ke_quay_chua_ghi_mua_khong_la_no_khong_chan(q: Quay) -> None:
+    # Tuyền 26/11: bác sĩ kê ≠ khách mua — dòng quầy chưa ghi khách lấy không là
+    # nợ, khách về được (luật T5 "số mua trống = nợ" đã bỏ: prod 1.200 dòng nợ ảo).
+    await _ba_dong(q)
     no = await _no(q)
-    # Số mua để trống = mua đủ (memory purchased-qty-null): ba dòng đều là nợ;
-    # dòng rác chưa có giá vẫn là nợ, số tiền chưa rõ.
-    assert {d.source_id for d in no.dong} == {a, b, c}
-    assert no.tong == 2 * 10_000 + 3 * 20_000
+    assert no.dong == []
+    assert not no.chan
+
+
+async def test_i5_quay_ghi_khach_lay_chua_thu_la_no_chan_check_out(q: Quay) -> None:
+    a, _b, c, _ = await _ba_dong(q)
+    await _quay_ghi_mua(q, a, c)
+    no = await _no(q)
+    # Dòng rác chưa có giá mà khách đã lấy vẫn là nợ, số tiền chưa rõ.
+    assert {d.source_id for d in no.dong} == {a, c}
     assert [d.so_tien for d in no.dong if d.source_id == c] == [None]
     assert no.chan
     with pytest.raises((ConflictError, ValidationError)):
@@ -285,14 +294,15 @@ async def test_i5_dong_so_mua_trong_chua_thu_la_no_chan_check_out(q: Quay) -> No
 
 
 async def test_i5_khach_khong_lay_va_da_thu_thi_khong_no(q: Quay) -> None:
-    _a, _b, c, _ = await _ba_dong(q)
+    a, b, c, _ = await _ba_dong(q)
+    await _quay_ghi_mua(q, a, b)
     await _khong_lay(q, c)
-    assert {d.source_id for d in (await _no(q)).dong} == {_a, _b}
+    assert {d.source_id for d in (await _no(q)).dong} == {a, b}
     await _thu(q)
     assert (await _no(q)).dong == []
 
 
-async def test_i5_dong_chua_so_luong_khong_gia_van_la_no(q: Quay) -> None:
+async def test_i5_dong_chua_so_luong_khong_gia_khong_la_no(q: Quay) -> None:
     rx = await _don(q, 1, ten=f"Trống số {q.duoi}")
     await q.pool.execute(
         "UPDATE prescription SET quantity = NULL, quantity_num = NULL"
@@ -300,8 +310,8 @@ async def test_i5_dong_chua_so_luong_khong_gia_van_la_no(q: Quay) -> None:
         rx,
     )
     no = await _no(q)
-    assert [(d.source_id, d.so_tien) for d in no.dong] == [(rx, None)]
-    assert no.chan
+    assert no.dong == []
+    assert not no.chan
 
 
 async def test_i5_nha_thuoc_ghi_khach_khong_lay_khong_la_no(q: Quay) -> None:
