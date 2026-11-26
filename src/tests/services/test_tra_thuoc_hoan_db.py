@@ -1,7 +1,5 @@
 """G4d · R3 + T2 (Tuyền chốt E / T2, 14/10/2026) — trả thuốc ↔ tiền.
 
-    scripts/test-nhanh.sh src/tests/services/test_tra_thuoc_hoan_db.py
-
 Trước G4d (đã chạy thật — bài dò 14/10): khách trả 4 viên sau khi về → không
 khoản hoàn, sổ "phòng khám nợ khách" = 0; thu 10 viên chưa giao mà khách về →
 sổ = 0. Nay:
@@ -35,6 +33,7 @@ from clinicai.services.hoan_tien_service import HoanTienService
 from clinicai.services.pharmacy_service import PharmacyService
 from clinicai.services.so_no_service import THUOC, so_du_hien_tai
 from tests.chay_nguoi_dua_tin import chay_ben_nhan
+from tests.services.test_gia_lap_thu_tung_dong_db import ghi_no_de_ve
 from tests.services.test_luot_kham_service_db import CLINIC
 from tests.services.test_tien_thuoc_cp1_db import Quay, q  # noqa: F401
 from tests.services.test_tien_thuoc_cp3_db import _giao, _san_sang, _thu, _xac_minh
@@ -342,6 +341,7 @@ async def test_dong_luot_truoc_roi_thu_thuoc_cung_ngay_khong_bao_dong_qua_dem_mo
     """Check-out trước, khách quay lại quầy mua thuốc: cùng ngày = đang đứng chờ
     giao (không báo); qua nửa đêm mà vẫn chưa giao → nợ khách thật."""
     rx, _, lo = await _san_sang(q, 10, 100)
+    await ghi_no_de_ve(q)  # T5: thuốc kê chưa thu là nợ khi về (số mua trống = đủ)
     await _ve(q)
     await _thu(q)
     await chay_ben_nhan(q.pool, CONG_NO, SO_NO)

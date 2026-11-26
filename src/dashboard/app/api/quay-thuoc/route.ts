@@ -1,6 +1,8 @@
 // Quầy thuốc chỉnh ĐƠN BÁN trước khi thu (Tuyền 24/09/2026) — proxy mỏng.
 //
 //   GET  ?visit_id=…                       → /api/v1/quay-thuoc/luot/{visit}
+//   GET  ?visit_id=…&xem=dong-lech         → …/luot/{visit}/dong-lech
+//   POST { thao_tac: "gan-thuoc" | "bo-gan-thuoc" | "dien-gia", du_lieu }
 //   POST { thao_tac: "chon",     du_lieu: { prescription_id, mua } }
 //   POST { thao_tac: "so-luong", du_lieu: { prescription_id, so_luong } }
 //   POST { thao_tac: "don-vi",   du_lieu: { prescription_id, don_vi } }
@@ -25,11 +27,13 @@ async function coPhien(): Promise<boolean> {
 
 export async function GET(request: Request) {
   if (!(await coPhien())) return NextResponse.json({ error: "Unauthorised" }, { status: 401 });
-  const visit = new URL(request.url).searchParams.get("visit_id") ?? "";
+  const tham = new URL(request.url).searchParams;
+  const visit = tham.get("visit_id") ?? "";
   if (!UUID_RE.test(visit)) {
     return NextResponse.json({ error: "Mã lượt khám không hợp lệ" }, { status: 400 });
   }
-  return proxyJsonToBackend("GET", `/api/v1/quay-thuoc/luot/${visit}`, undefined);
+  const duoi = tham.get("xem") === "dong-lech" ? "/dong-lech" : "";
+  return proxyJsonToBackend("GET", `/api/v1/quay-thuoc/luot/${visit}${duoi}`, undefined);
 }
 
 export async function POST(request: Request) {
@@ -49,6 +53,14 @@ export async function POST(request: Request) {
   }
   if (than.thao_tac === "don-vi") {
     return proxyJsonToBackend("POST", "/api/v1/quay-thuoc/don-vi", duLieu);
+  }
+  // Gỡ dòng thuốc lệch (T3, 26/11) — quyền và luật ở FastAPI.
+  if (
+    than.thao_tac === "gan-thuoc" ||
+    than.thao_tac === "bo-gan-thuoc" ||
+    than.thao_tac === "dien-gia"
+  ) {
+    return proxyJsonToBackend("POST", `/api/v1/quay-thuoc/${than.thao_tac}`, duLieu);
   }
   if (than.thao_tac === "them") {
     const id = typeof than.id === "string" ? than.id : "";

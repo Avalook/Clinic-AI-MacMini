@@ -76,6 +76,7 @@ from clinicai.services.phan_lo_service import chua_giao_cua_dong, khoa_lo, so
 from clinicai.services.thuoc import don_vi_ke
 from clinicai.services.thuoc.don_vi_nhap import xet_quy_doi
 from clinicai.services.thuoc.gia_dong import don_vi_ke_mac_dinh, don_vi_me
+from clinicai.services.thuoc.giao_da_thu import lan_thu_cua_dong
 from clinicai.services.vat_tu_trung_ma import thuoc_la_vat_tu
 
 logger = structlog.get_logger()
@@ -903,20 +904,10 @@ class PharmacyService:
         luong = await _so_giao_theo_don_vi_ban(
             conn, identity, don, prescription_id, luong, don_vi_giao
         )
-        lan = await conn.fetchrow(
-            """
-            SELECT payment_cycle_id::text, legacy FROM public.payment_cycle
-             WHERE clinic_id = $1::uuid AND visit_id = $2::uuid
-               AND kind = 'thuoc' AND status = 'PAID'
-            """,
-            identity.clinic_id,
-            don["visit_id"],
+        # Chỉ dòng ĐÃ nằm trong lần thu PAID mới giao được (thuoc/giao_da_thu.py).
+        lan = await lan_thu_cua_dong(
+            conn, identity.clinic_id, don["visit_id"], prescription_id
         )
-        if lan is None:
-            raise ConflictError(
-                "Tiền thuốc của lượt này chưa thu — thu tiền thuốc trước "
-                "rồi mới giao thuốc."
-            )
         # Lần thu KHÔNG gắn lô nào (công tắc CLINICAI_DRUG_PAYMENT_REQUIRES_INVENTORY
         # tắt, Tuyền chốt 20/09/2026) giao thẳng từ lô như lần thu cũ. Quyết theo DỮ
         # LIỆU, không đọc công tắc: lần thu đã bán lô thì vẫn giao đúng lô ấy.

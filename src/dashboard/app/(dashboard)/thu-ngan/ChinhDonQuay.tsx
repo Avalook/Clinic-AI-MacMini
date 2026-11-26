@@ -1,23 +1,12 @@
 "use client";
 
-// Quầy thu tiền thuốc CHỈNH ĐƠN BÁN trước khi thu (Tuyền 24/09/2026).
-//
-// "Cho thêm ô lấy thêm thuốc, có cả số lượng, hướng dẫn sử dụng… như ở phiếu
-// khám của bác sĩ để thu ngân thuốc chỉnh được, bỏ tick thuốc được nếu bệnh
-// nhân không muốn, lưu hết lịch sử, có event đã bỏ thuốc này ở bản cuối."
-//
-// Mọi luật ở máy chủ (`quay_thuoc_service`): thuốc bác sĩ kê tích / bỏ tick /
-// đặt số lượng TUỲ Ý (tăng hay giảm — C19, bỏ "trần số kê") — cách dùng là quyết định chuyên môn nên chỉ xem; thuốc
-// quầy thêm sửa được số lượng, cách dùng, lưu ý. Không xoá dòng nào — "bỏ" là
-// bỏ tick, dòng còn đó và tích lại được. Phần "Lấy thêm thuốc" dùng lại ĐÚNG ô
-// kê đơn của bác sĩ (`DonThuocPhieu`).
-//
-// C14 (Tuyền 01/10/2026): bác sĩ / điều dưỡng hay vội và QUÊN số lượng. Dòng thiếu
-// số lượng được TÔ NỔI "Bác sĩ chưa nhập số lượng — nhập tại quầy": quầy gõ số là
-// xong (máy chủ ghi người + lúc, màn kê đơn của bác sĩ hiện "SL do thu ngân điền")
-// — không chờ bác sĩ, không bị chặn. Tổng tiền tính lại ở máy chủ.
-// C19 (Tuyền 02/10/2026): bác sĩ đã ghi số thì quầy vẫn gõ số khác được — chip
-// "SL do thu ngân sửa (bác sĩ kê X)"; máy chủ ghi số cũ → mới.
+// Quầy thu tiền thuốc CHỈNH ĐƠN BÁN trước khi thu. Mọi luật ở máy chủ
+// (`quay_thuoc_service`): thuốc bác sĩ kê tích / bỏ tick / đặt số lượng tuỳ ý — cách
+// dùng là quyết định chuyên môn nên chỉ xem; thuốc quầy thêm sửa được số lượng, cách
+// dùng, lưu ý. Không xoá dòng nào — "bỏ" là bỏ tick, tích lại được. "Lấy thêm thuốc"
+// dùng lại ĐÚNG ô kê đơn của bác sĩ (`DonThuocPhieu`). Bác sĩ quên số lượng thì dòng
+// TÔ NỔI, quầy gõ số là xong — không chờ bác sĩ. Dòng chặn thu (chưa giá, chưa gắn
+// thuốc kho) gỡ ở `GoDongLech`.
 
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 
@@ -30,6 +19,8 @@ import { khoNhapLayThem, NHAP_RONG } from "@/lib/nhap-lay-them";
 import DonThuocPhieu from "../_lam-viec/phieu-kham/DonThuocPhieu";
 import { INPUT } from "../form-ui";
 import ODonVi from "../ODonVi";
+
+import GoDongLech from "./GoDongLech";
 
 interface DongBan {
   id: string;
@@ -164,11 +155,9 @@ export default function ChinhDonQuay({
     };
   }, [motLuot, visitId]);
 
-  // Lỗi hiện NGAY CẠNH nút vừa bấm: câu của màn cha nằm trên đầu trang, có khi
-  // cao hơn nút cả màn hình (đo 17/10: 895px trên điện thoại) nên bấm xong tưởng
-  // không có gì xảy ra.
-  // Lỗi có sẵn lúc khung vừa gắn lại (lời từ chối giữ trong kho) thì KHÔNG cuộn:
-  // gắn lại xảy ra mỗi lần trang làm mới, cuộn ở đó là màn tự nhảy giữa lúc gõ.
+  // Lỗi hiện NGAY CẠNH nút vừa bấm: câu của màn cha có khi cao hơn nút cả màn hình
+  // (895px trên điện thoại) nên bấm xong tưởng không có gì. Lỗi có sẵn lúc khung vừa
+  // gắn lại thì KHÔNG cuộn: gắn lại xảy ra mỗi lần làm mới, cuộn là màn nhảy lúc gõ.
   const loiRef = useRef<HTMLParagraphElement>(null);
   const vuaGan = useRef(true);
   useEffect(() => {
@@ -286,6 +275,17 @@ export default function ChinhDonQuay({
           ))}
         </ul>
       ) : null}
+      <GoDongLech
+        visitId={visitId}
+        ten={Object.fromEntries(dong.map((d) => [d.id, d.ten]))}
+        lan={dong}
+        mauThuoc={mauThuoc}
+        onKhongLay={async (id) => {
+          const d = dong.find((x) => x.id === id);
+          if (d) await chon(d, false);
+        }}
+        onXong={xong}
+      />
       <ul className="space-y-2">
         {dong.map((d) => {
           const td = d.drug_catalog_id ? theoDon?.[d.drug_catalog_id] : undefined;

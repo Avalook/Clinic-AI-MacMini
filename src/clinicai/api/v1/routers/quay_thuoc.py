@@ -20,6 +20,7 @@ from clinicai.services.payment_access_service import (
     authorize_payment,
 )
 from clinicai.services.quay_thuoc_service import QuayThuocService
+from clinicai.services.thuoc import go_dong_lech
 
 router = APIRouter()
 
@@ -133,4 +134,100 @@ async def luu_dong_them(
             for d in body.dong
         ],
         identity=identity,
+    )
+
+
+# ── Gỡ dòng thuốc lệch ở quầy (T3, 26/11): gán thuốc đúng / điền giá ────────
+
+
+class DongLech(BaseModel):
+    prescription_id: str
+    van_de: str | None
+    drug_catalog_id: str | None
+    dien_gia_duoc: bool
+    ly_do_khong_dien_gia: str | None
+    thuoc_chua_gia: bool
+    bo_gan_duoc: bool
+
+
+class DongLechOut(BaseModel):
+    visit_id: str
+    dong: list[DongLech]
+
+
+class GanThuocBody(BaseModel):
+    prescription_id: UUID
+    drug_catalog_id: UUID
+
+
+class BoGanBody(BaseModel):
+    prescription_id: UUID
+
+
+class DienGiaBody(BaseModel):
+    drug_catalog_id: UUID
+    # Any: luật đọc số nằm ở service (`gia_quay`), trả câu tiếng Việt.
+    gia: Any = None
+
+
+class KetQuaGo(BaseModel):
+    ok: bool
+    prescription_id: str | None = None
+    id: str | None = None
+    nhac: str | None = None
+
+
+@router.get("/quay-thuoc/luot/{visit_id}/dong-lech", response_model=DongLechOut)
+async def xem_dong_lech(
+    visit_id: UUID,
+    identity: StaffIdentity = Depends(get_current_identity),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Dòng đang chặn thu tiền thuốc + quầy làm được gì với từng dòng."""
+    identity = await authorize_payment(
+        pool, identity, visit_id=str(visit_id), kind="thuoc"
+    )
+    return await go_dong_lech.doc_dong_lech(
+        pool, identity=identity, visit_id=str(visit_id)
+    )
+
+
+@router.post("/quay-thuoc/gan-thuoc", response_model=KetQuaGo)
+async def gan_thuoc(
+    body: GanThuocBody,
+    identity: StaffIdentity = Depends(get_current_identity),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Gán dòng sang thuốc đúng trong danh mục (đổi thuốc kho; tên bác sĩ giữ)."""
+    identity = await authorize_drug_line(pool, identity, str(body.prescription_id))
+    return await go_dong_lech.gan_thuoc_dung(
+        pool,
+        identity=identity,
+        prescription_id=str(body.prescription_id),
+        drug_catalog_id=str(body.drug_catalog_id),
+    )
+
+
+@router.post("/quay-thuoc/bo-gan-thuoc", response_model=KetQuaGo)
+async def bo_gan_thuoc(
+    body: BoGanBody,
+    identity: StaffIdentity = Depends(get_current_identity),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Hoàn tác lần gán thuốc gần nhất của dòng."""
+    identity = await authorize_drug_line(pool, identity, str(body.prescription_id))
+    return await go_dong_lech.hoan_tac_gan(
+        pool, identity=identity, prescription_id=str(body.prescription_id)
+    )
+
+
+@router.post("/quay-thuoc/dien-gia", response_model=KetQuaGo)
+async def dien_gia(
+    body: DienGiaBody,
+    identity: StaffIdentity = Depends(get_current_identity),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, Any]:
+    """Điền giá cho thuốc chưa có giá — cần quyền Sửa giá thuốc (máy chủ chốt)."""
+    return await go_dong_lech.dien_gia_thuoc(
+        pool, identity=identity, drug_catalog_id=str(body.drug_catalog_id), gia=body.gia
     )
