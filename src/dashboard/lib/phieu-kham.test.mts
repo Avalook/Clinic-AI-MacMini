@@ -33,7 +33,6 @@ import {
   NHOM_THU_THUAT_MAC_DINH,
   soLuongTuChu,
   tachDanhMucKhac,
-  thanhTienDong,
   gopCanhBao,
   ghepSoLuongDonVi,
   type ChiDinhVaKetQua,
@@ -43,6 +42,7 @@ import {
   type NhomCls,
   type ThuThuatNguon,
 } from "./phieu-kham.ts";
+import { boTienCu, gopTuMayChu } from "./tien-dong-thuoc.ts";
 
 const tep = (id: string, loai_tep: string, xac: string | null, luc: string): KetQuaMotChiDinh => ({
   loai: "TEP",
@@ -208,14 +208,14 @@ test("số lượng đọc như máy chủ: số / thập phân phẩy; phân s�
   assert.equal(soLuongTuChu(""), null);
 });
 
-test("thành tiền chỉ khi có giá, đọc được số lượng và ĐVT khớp kho", () => {
-  const d = { ...dongTuMau(mau({})), so_luong: "10" };
-  assert.equal(thanhTienDong(d), 120000);
-  assert.equal(thanhTienDong({ ...d, so_luong: "1,5", don_gia: 1001 }), 1502, "làm tròn đồng");
-  assert.equal(thanhTienDong({ ...d, so_luong: "1/2" }), null);
-  assert.equal(thanhTienDong({ ...d, don_vi: "Hộp" }), null, "2 hộp × giá một viên là sai");
-  assert.equal(thanhTienDong({ ...d, don_vi: " Viên " }), 120000, "không phân biệt hoa/thường");
-  assert.equal(thanhTienDong({ ...dongNgoaiDanhMuc(), so_luong: "3" }), null);
+test("thành tiền do máy chủ trả: sửa số / ĐVT thì bỏ số cũ, nạp lại khớp bản lưu thì lấy số mới", () => {
+  const luu = { ...dongTuMau(mau({})), id: "p1", so_luong: "10", don_gia: 9167, thanh_tien: 91667 };
+  for (const ma of ["so_luong", "don_vi"] as const) assert.equal(boTienCu(luu, ma).thanh_tien, null);
+  assert.equal(boTienCu({ ...luu, cach_dung: "x" }, "cach_dung").thanh_tien, 91667);
+  const dangGo = { ...luu, so_luong: "60", thanh_tien: null };
+  assert.equal(gopTuMayChu([dangGo], [{ ...luu, thanh_tien: 91667 }]), null, "đang gõ khác bản lưu: không đè");
+  assert.equal(gopTuMayChu([dangGo], [{ ...luu, so_luong: "60", thanh_tien: 550000 }])?.[0].thanh_tien, 550000);
+  assert.equal(gopTuMayChu([luu], [luu]), null, "không đổi gì");
 });
 
 test("đọc đơn đã lưu: giữ ĐVT đã ghi; đơn cũ chưa ghi ĐVT thì lấy ĐVT kho", () => {

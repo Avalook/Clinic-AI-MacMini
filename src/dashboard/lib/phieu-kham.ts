@@ -632,8 +632,11 @@ export interface DongThuoc {
   /** Đơn giá KHO (máy chủ, `drug_catalog.unit_price`) — chỉ để HIỂN THỊ; tiền
    *  thật do quầy thu tính. null = ngoài danh mục kho / kho chưa có giá. */
   don_gia?: number | null;
-  /** ĐVT của kho (`don_vi_ban`) — có thì ĐVT là CHỮ, không phải ô gõ. */
+  /** ĐVT kê mặc định của kho (đơn vị mẹ, chưa khai mẹ thì `don_vi_ban`) — có thì ĐVT
+   *  là CHỮ, không phải ô gõ. */
   dvt_kho?: string | null;
+  /** Thành tiền do máy chủ tính cho dòng ĐÃ LƯU (null = chưa có / vừa sửa). */
+  thanh_tien?: number | null;
   /** C14: số lượng do QUẦY THU THUỐC điền (bác sĩ để trống) — máy chủ trả; chỉ
    *  để hiện nhãn "SL do thu ngân điền", không gửi ngược lên. */
   so_luong_do_thu_ngan?: boolean;
@@ -687,19 +690,6 @@ export function soLuongTuChu(s: string): number | null {
   return n > 0 ? n : null;
 }
 
-/**
- * Thành tiền dự tính của một dòng — CHỈ để bác sĩ nhìn, quầy thu mới là nơi
- * tính tiền. null khi thiếu giá, số lượng không đọc được, hoặc ĐVT gõ khác ĐVT
- * kho (giá kho tính theo ĐVT kho — "2 hộp" nhân giá một viên là sai).
- */
-export function thanhTienDong(d: DongThuoc): number | null {
-  if (d.don_gia == null) return null;
-  const sl = soLuongTuChu(d.so_luong);
-  if (sl == null) return null;
-  const bo = (x: string) => x.trim().toLowerCase();
-  if (d.dvt_kho && d.don_vi.trim() && bo(d.don_vi) !== bo(d.dvt_kho)) return null;
-  return Math.round(d.don_gia * sl);
-}
 
 // Đơn thuốc ↔ bảng `prescription`. Bảng không có cột đường dùng / đơn vị
 // (IP-5): ghép vào `dosage_instructions` ("Uống — …") và `quantity` ("10 hộp"),
@@ -714,6 +704,7 @@ export interface DongDonMayChu {
   /** Đơn giá + ĐVT của kho (27/09/2026) — máy chủ cũ chưa trả thì thiếu. */
   don_gia?: number | null;
   dvt_kho?: string | null;
+  thanh_tien?: number | null;
   /** C14: quầy thu thuốc điền số lượng bác sĩ để trống. */
   so_luong_do_thu_ngan?: boolean;
   /** C19: số bác sĩ kê gốc khi quầy đã sửa. */
@@ -761,7 +752,7 @@ export function dongTuDon(r: DongDonMayChu): DongThuoc {
     // Không bắt đầu bằng số (vd lần tự lưu đầu khi mới chọn thuốc: "hộp") →
     // cả chuỗi là ĐƠN VỊ. Bấm thật 23/09: nhét vào số lượng thì gõ "2" thành "hộp2".
     so_luong: m ? m[1] : "",
-    // Đơn cũ chưa ghi đơn vị mà kho có → lấy ĐVT kho (ô ĐVT giờ là chữ của kho).
+    // Đơn cũ chưa ghi đơn vị mà kho có → lấy ĐVT kê mặc định (đơn vị mẹ) của kho.
     // Đơn đã ghi đơn vị thì GIỮ chữ đã ghi — không lặng lẽ đổi "2 hộp" thành
     // "2 viên" ở lần tự lưu sau.
     don_vi: (m ? m[2] : sl) || (r.dvt_kho ?? ""),
@@ -770,6 +761,7 @@ export function dongTuDon(r: DongDonMayChu): DongThuoc {
     mau_ma: null,
     don_gia: r.don_gia ?? null,
     dvt_kho: r.dvt_kho ?? null,
+    thanh_tien: r.thanh_tien ?? null,
     so_luong_do_thu_ngan: r.so_luong_do_thu_ngan ?? false,
     so_luong_ke_goc: r.so_luong_ke_goc ?? null,
   };

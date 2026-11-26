@@ -70,6 +70,7 @@ from clinicai.services.danh_muc_dich_vu_service import (
 )
 from clinicai.services.don_vi_thuoc import BangDonVi, doc_bang
 from clinicai.services.thai_ky_service import dong_bo_tu_phieu, thai_ky_cua_luot
+from clinicai.services.thuoc import gia_dong as gd
 
 logger = structlog.get_logger()
 
@@ -747,9 +748,10 @@ class PhieuKhamService:
                 "type": r["duong_dung"] or m.get("type") or "",
                 "dosage": r["cach_dung"] or m.get("dosage") or "",
                 "note": r["luu_y"] or m.get("note") or "",
-                "unit": r["don_vi_ban"] or m.get("unit") or "",
+                # Dòng mới điền sẵn đơn vị MẸ + giá mẹ (chưa khai mẹ: gốc như cũ).
+                "unit": gd.don_vi_ke_cua(bang_dv, str(r["id"])) or m.get("unit") or "",
                 "drug_catalog_id": str(r["id"]),
-                "gia": int(r["unit_price"]) if r["unit_price"] is not None else None,
+                "gia": gd.gia_don_vi_ke(bang_dv, str(r["id"]), r["unit_price"]),
                 "cac_don_vi": bang_dv.get(str(r["id"]), BangDonVi()).lua_chon(),
             }
 
@@ -787,8 +789,9 @@ class PhieuKhamService:
             # giá quầy thu dùng (`quay_thuoc_service`); dòng ngoài danh mục → null.
             rows = await conn.fetch(
                 "SELECT p.id::text, p.drug_catalog_id::text, p.drug_name_raw,"
-                "       p.quantity, p.unit, p.dosage_instructions, p.caution,"
-                "       c.unit_price AS don_gia, c.don_vi_ban AS dvt_kho,"
+                "       p.quantity, p.quantity_num, p.unit, p.dosage_instructions,"
+                "       p.caution, c.unit_price AS gia_danh_muc, c.name_base,"
+                "       c.name_raw,"
                 "       p.so_luong_dien_luc, p.so_luong_ke_goc,"
                 "       sd.full_name AS so_luong_dien_boi,"
                 "       p.created_by::text AS nguoi_ke_id, sk.full_name AS nguoi_ke"
@@ -811,23 +814,18 @@ class PhieuKhamService:
             bang_dv = await doc_bang(
                 conn, identity.clinic_id, [r["drug_catalog_id"] for r in rows]
             )
-
-        def gia_dong(r: asyncpg.Record) -> int | None:
-            """Đơn giá theo ĐƠN VỊ của dòng, cùng luật quầy thu — chỉ để hiện."""
-            b = bang_dv.get(r["drug_catalog_id"] or "", BangDonVi())
-            d = b.gia_dong(r["unit"])
-            if d.gia is not None:
-                return int(d.gia)
-            if d.he_so is not None or r["don_gia"] is None:
-                return None
-            return int(r["don_gia"])
+            # Đơn giá + thành tiền: MỘT hàm với quầy thu và hoá đơn (`thuoc.gia_dong`).
+            gia = await gd.gia_cac_dong(conn, identity.clinic_id, rows)
+        bo = {"quantity_num", "gia_danh_muc", "name_base", "name_raw"}  # chỉ để tính
 
         return [
             {
-                **dict(r),
+                **{k: v for k, v in dict(r).items() if k not in bo},
                 "nguoi_ke_la_bac_si": r["nguoi_ke_id"] in la_bac_si,
-                "don_gia": gia_dong(r),
-                "dvt_kho": (r["dvt_kho"] or "").strip() or None,
+                "don_gia": gd.dong_chan(g.don_gia),
+                "thanh_tien": gd.dong_chan(g.thanh_tien(r["quantity_num"])),
+                # Ô đơn vị trống = đơn vị MẸ (chưa khai mẹ thì gốc như cũ).
+                "dvt_kho": gd.don_vi_ke_cua(bang_dv, r["drug_catalog_id"]),
                 # C14: quầy thu thuốc điền số lượng bác sĩ để trống — màn kê đơn
                 # hiện "SL do thu ngân điền" (người + lúc).
                 "so_luong_do_thu_ngan": r["so_luong_dien_luc"] is not None,
@@ -835,7 +833,7 @@ class PhieuKhamService:
                 if r["so_luong_dien_luc"]
                 else None,
             }
-            for r in rows
+            for r, g in zip(rows, gia, strict=True)
         ]
 
     async def luu_don_thuoc(

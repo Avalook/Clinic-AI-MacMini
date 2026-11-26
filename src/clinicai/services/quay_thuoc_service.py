@@ -48,6 +48,7 @@ from clinicai.services.audit import record_event
 from clinicai.services.don_vi_thuoc import BangDonVi, chuan, doc_bang
 from clinicai.services.payment_access_service import head_money_grant
 from clinicai.services.pharmacy_service import PharmacyService
+from clinicai.services.thuoc.gia_dong import don_vi_ke_mac_dinh, dong_chan, gia_cac_dong
 
 QUYEN = "payment.medicine.collect"
 BAC_SI = "BAC_SI"
@@ -92,8 +93,8 @@ class QuayThuocService:
                        r.drug_catalog_id::text AS drug_catalog_id, r.quantity,
                        r.quantity_num, r.unit, r.purchased_qty, r.dispensed_qty,
                        r.dosage_instructions, r.caution, r.refusal_reason,
-                       r.closed_at IS NOT NULL AS da_chot, c.unit_price AS gia,
-                       c.don_vi_ban AS dvt_kho,
+                       r.closed_at IS NOT NULL AS da_chot,
+                       c.unit_price AS gia_danh_muc, c.name_base, c.name_raw,
                        r.so_luong_dien_luc, r.so_luong_ke_goc,
                        sd.full_name AS nguoi_dien
                   FROM prescription r
@@ -111,17 +112,13 @@ class QuayThuocService:
             bang = await doc_bang(
                 conn, identity.clinic_id, [r["drug_catalog_id"] for r in rows]
             )
+            # Cùng MỘT hàm giá với hoá đơn (`thuoc.gia_dong`, `hoa_don_thuoc_lo`).
+            gia_dong = await gia_cac_dong(conn, identity.clinic_id, rows)
         dong = []
-        for r in rows:
+        for r, theo_dv in zip(rows, gia_dong, strict=True):
             mua = r["purchased_qty"]
             b = bang.get(r["drug_catalog_id"] or "", BangDonVi())
-            theo_dv = b.gia_dong(r["unit"])
-            # Cùng luật giá với hoá đơn (`bill_service.hoa_don_thuoc_lo`).
-            gia = (
-                theo_dv.gia
-                if theo_dv.gia is not None
-                else (None if theo_dv.he_so is not None else r["gia"])
-            )
+            gia = theo_dv.don_gia
             dong.append(
                 {
                     "id": r["id"],
@@ -140,7 +137,12 @@ class QuayThuocService:
                     "mua": r["refusal_reason"] is None and (mua is None or mua > 0),
                     "da_chot": bool(r["da_chot"]),
                     "da_giao": _chuoi_so(r["dispensed_qty"] or Decimal(0)),
-                    "gia": int(gia) if gia is not None else None,
+                    "gia": dong_chan(gia),
+                    # Thành tiền do máy chủ tính, cùng phép với hoá đơn; màn chỉ vẽ.
+                    "thanh_tien": dong_chan(
+                        theo_dv.thanh_tien(r["quantity_num"] if mua is None else mua)
+                    ),
+                    "gia_goi_y_con": theo_dv.gia_goi_y_con,
                     # Đơn vị chọn được của thuốc (gốc trước) + vì sao đơn vị đang
                     # chọn chưa ổn. Máy chủ quyết, màn chỉ vẽ.
                     "don_vi_chon": b.lua_chon(),
@@ -154,7 +156,8 @@ class QuayThuocService:
                     "dien_luc": r["so_luong_dien_luc"].isoformat()
                     if r["so_luong_dien_luc"]
                     else None,
-                    "don_vi_goi_y": (r["dvt_kho"] or "").strip() or None,
+                    # Ô đơn vị trống = đơn vị mẹ (chưa khai mẹ thì gốc như cũ).
+                    "don_vi_goi_y": b.don_vi_ke or None,
                 }
             )
         return {"visit_id": visit_id, "da_thu": da_thu, "dong": dong}
@@ -401,7 +404,7 @@ class QuayThuocService:
                     "đơn vị khác."
                 )
             so_cu = Decimal(str(so))
-            cu = (don["unit"] or "").strip()
+            cu = b.don_vi_dong(don["unit"])
             so_dec = so_cu
             hs_cu, hs_moi = b.he_so(cu), b.he_so(moi)
             if hs_cu and hs_moi and hs_moi > hs_cu:
@@ -451,22 +454,14 @@ class QuayThuocService:
     ) -> None:
         """Quầy điền (hoặc sửa phần mình điền) số lượng của dòng bác sĩ kê.
 
-        Đơn vị: giữ đơn vị bác sĩ đã gõ; trống thì lấy ĐVT bán của danh mục kho
-        (kho cần đơn vị để chọn lô). Số mua về NULL (= mua đủ số vừa điền).
+        Đơn vị: giữ đơn vị bác sĩ đã gõ; trống thì lấy đơn vị MẸ (chưa khai mẹ thì
+        đơn vị gốc) — kho cần đơn vị để chọn lô. Số mua về NULL (= mua đủ số vừa điền).
         """
         if so < Decimal(str(don["dispensed_qty"] or 0)):
             raise ValidationError("Số lượng không nhỏ hơn số kho đã giao.")
-        don_vi = (don["unit"] or "").strip()
-        if not don_vi and don["drug_catalog_id"]:
-            don_vi = (
-                await conn.fetchval(
-                    "SELECT btrim(coalesce(don_vi_ban, '')) FROM drug_catalog"
-                    " WHERE id = $1::uuid AND clinic_id = $2::uuid",
-                    str(don["drug_catalog_id"]),
-                    identity.clinic_id,
-                )
-                or ""
-            )
+        don_vi = (don["unit"] or "").strip() or await don_vi_ke_mac_dinh(
+            conn, identity.clinic_id, don["drug_catalog_id"]
+        )
         chu = f"{_chuoi_so(so)} {don_vi}".strip()
         await conn.execute(
             "UPDATE prescription SET quantity = $3, quantity_num = $4,"

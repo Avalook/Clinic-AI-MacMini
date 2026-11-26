@@ -33,7 +33,6 @@ import {
   donTuDong,
   docKhoi1,
   dongTuDon,
-  gopSoLuongQuayDien,
   nhomThuThuat,
   phanChiDinh,
   phanThayDoi,
@@ -50,6 +49,7 @@ import {
   type NhomCls,
   type ONhap,
 } from "@/lib/phieu-kham";
+import { gopTuMayChu } from "@/lib/tien-dong-thuoc";
 import { guiThaoTac } from "../api";
 import ChiDinhCuChuaLam from "./ChiDinhCuChuaLam";
 import DanhMucChiDinh from "./DanhMucChiDinh";
@@ -252,13 +252,13 @@ export default function PhieuKhamLuot({
 
   // SỐ LƯỢNG DO QUẦY THU THUỐC ĐIỀN (C14, 01/10/2026): bác sĩ vội để trống, quầy
   // điền lúc thu — màn kê đơn đang mở tự hiện số ấy + nhãn "SL do thu ngân điền".
-  // Chỉ gộp dòng bác sĩ còn để trống (`gopSoLuongQuayDien`) — không đè chữ đang gõ.
+  // Chỉ gộp dòng bác sĩ còn để trống, + thành tiền máy chủ (`gopTuMayChu`) — không đè chữ đang gõ.
   // Nghe qua `useNgheBang` (gộp nhịp + lệch ngẫu nhiên + một lượt một lúc + tab ẩn
   // không tải) thay cho bản tự hẹn giờ 400ms — 14/10/2026.
   useNgheBang(["prescription"], async () => {
     const may = await napDon();
     if (!may) return;
-    const gop = gopSoLuongQuayDien(donRef.current, may);
+    const gop = gopTuMayChu(donRef.current, may);
     if (gop) datDon(gop);
   });
 

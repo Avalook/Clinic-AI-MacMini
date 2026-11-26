@@ -37,7 +37,7 @@ from typing import Any
 import asyncpg
 
 from clinicai.services.cashier_board_service import clean_name, norm_name
-from clinicai.services.don_vi_thuoc import BangDonVi, GiaDonVi, doc_bang
+from clinicai.services.thuoc.gia_dong import gia_cac_dong
 
 CLINIC = "CLINIC"
 EXTERNAL = "EXTERNAL_PARTNER"
@@ -1325,48 +1325,23 @@ async def hoa_don_thuoc_lo(
         clinic_id,
         vids,
     )
-    gia_thuoc = await conn.fetch(
-        """
-        SELECT name, unit_price FROM public.service_price
-         WHERE clinic_id = $1::uuid AND active AND "group" = 'thuoc'
-           AND unit_price IS NOT NULL
-        """,
-        clinic_id,
-    )
-    theo_ten: dict[str, list[Any]] = {}
-    for g in gia_thuoc:
-        theo_ten.setdefault(norm_name(g["name"]), []).append(g["unit_price"])
-    bang = await doc_bang(conn, clinic_id, [d["drug_catalog_id"] for d in don])
     dong: dict[str, list[dict[str, Any]]] = {v: [] for v in vids}
-    for d in don:
-        gia: list[Any] = []
-        theo_dv = GiaDonVi()
-        if d["drug_catalog_id"]:
-            theo_dv = bang.get(d["drug_catalog_id"], BangDonVi()).gia_dong(d["unit"])
-        if theo_dv.gia is not None:
-            # Đơn vị khai thêm có giá RIÊNG; hai nguồn giá thuốc bên dưới là giá
-            # của đơn vị gốc, không đem so.
-            gia.append(theo_dv.gia)
-        elif d["drug_catalog_id"] and theo_dv.he_so is None:
-            if d["gia_danh_muc"] is not None:
-                gia.append(d["gia_danh_muc"])
-            # Tên CHUẨN của chính thuốc trong danh mục — không phải tên bác sĩ gõ.
-            for ten in {norm_name(d["name_base"]), norm_name(d["name_raw"])}:
-                if ten:
-                    gia.extend(theo_ten.get(ten, []))
+    # Giá + đơn vị của dòng: MỘT hàm chung với màn quầy và màn kê (`thuoc.gia_dong`).
+    for d, gd in zip(don, await gia_cac_dong(conn, clinic_id, don), strict=True):
         dong[d["visit_id"]].append(
             {
                 "id": d["id"],
                 "ten": d["drug_name_raw"],
                 "quantity_num": d["quantity_num"],
                 "purchased_qty": d["purchased_qty"],
-                "unit": d["unit"],
+                # Trống = đơn vị mẹ (chưa khai mẹ thì vẫn trống như cũ).
+                "unit": d["unit"] or gd.don_vi or d["unit"],
                 "refusal_reason": d["refusal_reason"],
                 "drug_catalog_id": d["drug_catalog_id"],
-                "gia": gia,
-                "he_so": theo_dv.he_so,
-                "van_de_don_vi": theo_dv.van_de,
-                "canh_bao_don_vi": theo_dv.canh_bao,
+                "gia": list(gd.gia),
+                "he_so": gd.he_so,
+                "van_de_don_vi": gd.van_de,
+                "canh_bao_don_vi": gd.canh_bao,
             }
         )
     return {v: ghep_thuoc(v, dong[v]) for v in vids}
@@ -1388,7 +1363,10 @@ DONG_KHONG_GIAM = frozenset({"lieu_trinh"})
 
 def _giam_duoc(d: DongHoaDon) -> int:
     """Số đồng của dòng có thể bị giảm (0 = dòng không dính giảm giá)."""
-    if d.ben_thu != CLINIC or d.source_type in DONG_KHONG_GIAM or d.van_de:
+    # Đơn giá lẻ đồng (thuốc con tự chia từ giá mẹ, `thuoc.gia_dong`): ảnh chụp chỉ
+    # giữ đồng chẵn nên CHECK `payment_bill_line_giam_khop` không khớp — không giảm.
+    le = d.don_gia is not None and d.don_gia != d.don_gia.to_integral_value()
+    if d.ben_thu != CLINIC or d.source_type in DONG_KHONG_GIAM or d.van_de or le:
         return 0
     return max(0, int(d.thanh_tien or 0))
 
