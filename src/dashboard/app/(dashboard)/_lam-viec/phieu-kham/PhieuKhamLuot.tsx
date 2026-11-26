@@ -741,7 +741,7 @@ export default function PhieuKhamLuot({
         tepChuaGan={tepChuaGan}
         onLuu={onLuu}
         thamChieuNgoai={tc}
-        donThuoc={{ dong: don, onDoi: choGhi ? doiDon : undefined }}
+        donThuoc={{ dong: don, onDoi: choGhi ? doiDon : undefined, visitId }}
         oChiDinhCls={
           <DanhMucChiDinh
             nhom={tc?.chi_dinh_cls ?? []}

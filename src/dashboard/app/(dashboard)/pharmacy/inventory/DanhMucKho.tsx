@@ -1,7 +1,6 @@
 "use client";
 
-// Danh mục thuốc kho — MỘT nguồn tên, giá bán, đơn vị, hướng dẫn sử dụng. Dược sĩ
-// thêm / sửa / tắt / xoá (chưa từng dùng) ở đây; màn kê đơn và quầy thu đọc thẳng.
+// Danh mục thuốc kho — MỘT nguồn tên, giá, đơn vị, cách dùng; màn kê đơn / quầy đọc thẳng.
 
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
@@ -10,6 +9,7 @@ import Button from "@/components/ui/Button";
 import Chip from "@/components/ui/Chip";
 import { INPUT, LABEL, TBL_DIV, TBL_HEAD, TBL_WRAP } from "../../form-ui";
 import ODonVi from "../../ODonVi";
+import CachDungDanhMuc from "./CachDungDanhMuc";
 import { guiKho, soKho, tienVnd, tonTheoDonVi } from "./gui-kho";
 import SuaDonViBan, { type DongDonVi } from "./SuaDonViBan";
 import XoaThuoc from "./XoaThuoc";
@@ -267,6 +267,7 @@ export default function DanhMucKho({
             {o("luu_y", "Lưu ý", true)}
           </div>
           <SuaDonViBan donViGoc={form.don_vi_ban} dong={donVi} onDoi={setDonVi} suaGiaDuoc={suaGiaDuoc} />
+          {sua ? <CachDungDanhMuc thuocId={sua} ghiDuoc={ghiDuoc} /> : null}
           <label className="flex min-h-10 items-center gap-2 text-body text-ink">
             <input
               type="checkbox"

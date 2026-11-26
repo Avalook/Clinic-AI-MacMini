@@ -14,6 +14,7 @@
 // đem đi so khớp.
 
 import { giaKemDonVi } from "./phieu-ket-qua.ts";
+import type { CachDungCT } from "./cach-dung.ts";
 
 export type KieuO ="text" | "so" | "ngay" | "doan_van" | "chon" | "nhieu_chon";
 
@@ -565,6 +566,7 @@ export interface MauThuoc {
   gia?: number | null; ton_chu?: string | null; con_hang?: boolean;
   /** Đơn vị bán của thuốc, gốc trước — máy chủ trả (31/10/2026). */
   cac_don_vi?: { don_vi: string; he_so: string; gia: number | null; goc: boolean }[];
+  cach_dung_ct?: CachDungCT | null; // mặc định có cấu trúc của danh mục (PR E)
 }
 
 export interface ThuThuatNguon {
@@ -629,16 +631,16 @@ export interface DongThuoc {
   luu_y: string;
   /** Mẫu cách dùng đã điền sẵn dòng này (nếu có) — để còn biết chữ từ đâu ra. */
   mau_ma: string | null;
-  /** Đơn giá KHO (máy chủ, `drug_catalog.unit_price`) — chỉ để HIỂN THỊ; tiền
-   *  thật do quầy thu tính. null = ngoài danh mục kho / kho chưa có giá. */
+  /** Đơn giá KHO (máy chủ) — chỉ HIỂN THỊ; null = ngoài danh mục / chưa có giá. */
   don_gia?: number | null;
   /** ĐVT của kho (`don_vi_ban`) — có thì ĐVT là CHỮ, không phải ô gõ. */
   dvt_kho?: string | null;
-  /** C14: số lượng do QUẦY THU THUỐC điền (bác sĩ để trống) — máy chủ trả; chỉ
-   *  để hiện nhãn "SL do thu ngân điền", không gửi ngược lên. */
+  /** C14: số lượng do QUẦY THU THUỐC điền — chỉ để hiện nhãn, không gửi lên. */
   so_luong_do_thu_ngan?: boolean;
   /** C19: số bác sĩ kê GỐC khi quầy đã đặt số khác (null = bác sĩ để trống). */
   so_luong_ke_goc?: string | null;
+  /** Cách dùng có cấu trúc (PR E) — có thì câu in do máy chủ sinh. */
+  cach_dung_ct?: CachDungCT | null;
 }
 
 /** Chọn một thuốc từ danh mục gợi ý → dòng đơn điền sẵn, bác sĩ sửa được. */
@@ -655,6 +657,7 @@ export function dongTuMau(m: MauThuoc): DongThuoc {
     mau_ma: m.ma,
     don_gia: m.drug_catalog_id ? (m.gia ?? null) : null,
     dvt_kho: dvtKho,
+    cach_dung_ct: m.drug_catalog_id ? (m.cach_dung_ct ?? null) : null,
   };
 }
 
@@ -675,11 +678,8 @@ export function dongNgoaiDanhMuc(): DongThuoc {
   };
 }
 
-/**
- * Số lượng đọc được từ chữ bác sĩ gõ — CÙNG luật với máy chủ
- * (`public.so_luong_tu_van_ban`): "30", "1,5", "2 viên" → số; "1/2", "uống đến
- * hết", "0" → null (không đoán).
- */
+/** Số lượng đọc từ chữ — CÙNG luật máy chủ (`public.so_luong_tu_van_ban`): "30",
+ *  "1,5", "2 viên" → số; "1/2", "uống đến hết", "0" → null (không đoán). */
 export function soLuongTuChu(s: string): number | null {
   const t = s.trim();
   if (!/^[0-9]+(?:[.,][0-9]+)?\s*(?:$|[^0-9/.,].*$)/.test(t)) return null;
@@ -687,11 +687,8 @@ export function soLuongTuChu(s: string): number | null {
   return n > 0 ? n : null;
 }
 
-/**
- * Thành tiền dự tính của một dòng — CHỈ để bác sĩ nhìn, quầy thu mới là nơi
- * tính tiền. null khi thiếu giá, số lượng không đọc được, hoặc ĐVT gõ khác ĐVT
- * kho (giá kho tính theo ĐVT kho — "2 hộp" nhân giá một viên là sai).
- */
+/** Thành tiền dự tính — CHỈ để nhìn (quầy thu mới tính). null khi thiếu giá, số
+ *  lượng không đọc được, hoặc ĐVT gõ khác ĐVT kho ("2 hộp" × giá một viên là sai). */
 export function thanhTienDong(d: DongThuoc): number | null {
   if (d.don_gia == null) return null;
   const sl = soLuongTuChu(d.so_luong);
@@ -721,6 +718,7 @@ export interface DongDonMayChu {
   /** Người ghi dòng này (13/10/2026) + họ có phải bác sĩ — phiếu in chọn chân ký. */
   nguoi_ke?: string | null;
   nguoi_ke_la_bac_si?: boolean;
+  cach_dung_ct?: CachDungCT | null;
 }
 
 /** Ai kê đơn của lượt, theo ĐÚNG người ghi từng dòng (13/10/2026): bác sĩ chính
@@ -761,9 +759,8 @@ export function dongTuDon(r: DongDonMayChu): DongThuoc {
     // Không bắt đầu bằng số (vd lần tự lưu đầu khi mới chọn thuốc: "hộp") →
     // cả chuỗi là ĐƠN VỊ. Bấm thật 23/09: nhét vào số lượng thì gõ "2" thành "hộp2".
     so_luong: m ? m[1] : "",
-    // Đơn cũ chưa ghi đơn vị mà kho có → lấy ĐVT kho (ô ĐVT giờ là chữ của kho).
-    // Đơn đã ghi đơn vị thì GIỮ chữ đã ghi — không lặng lẽ đổi "2 hộp" thành
-    // "2 viên" ở lần tự lưu sau.
+    // Đơn cũ chưa ghi đơn vị → lấy ĐVT kho. Đơn đã ghi đơn vị thì GIỮ chữ đã ghi —
+    // không lặng lẽ đổi "2 hộp" thành "2 viên" ở lần tự lưu sau.
     don_vi: (m ? m[2] : sl) || (r.dvt_kho ?? ""),
     cach_dung: i > 0 ? cd.slice(i + NOI.length) : cd,
     luu_y: r.caution ?? "",
@@ -772,6 +769,7 @@ export function dongTuDon(r: DongDonMayChu): DongThuoc {
     dvt_kho: r.dvt_kho ?? null,
     so_luong_do_thu_ngan: r.so_luong_do_thu_ngan ?? false,
     so_luong_ke_goc: r.so_luong_ke_goc ?? null,
+    cach_dung_ct: r.cach_dung_ct ?? null,
   };
 }
 
@@ -828,6 +826,8 @@ export function donTuDong(d: DongThuoc) {
     quantity: ghepSoLuongDonVi(d.so_luong, d.don_vi),
     dosage: [d.duong_dung.trim(), d.cach_dung.trim()].filter(Boolean).join(NOI),
     caution: d.luu_y.trim(),
+    // Có cấu trúc: máy chủ sinh chữ cách dùng từ `duong_dung` + cấu trúc (PR E).
+    ...(d.cach_dung_ct && d.drug_catalog_id ? { cach_dung_ct: d.cach_dung_ct, duong_dung: d.duong_dung.trim() } : {}),
   };
 }
 

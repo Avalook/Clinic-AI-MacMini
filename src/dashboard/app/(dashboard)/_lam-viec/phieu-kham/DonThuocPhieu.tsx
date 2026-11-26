@@ -23,6 +23,9 @@ import Button from "@/components/ui/Button";
 import Chip from "@/components/ui/Chip";
 import { INPUT } from "../../form-ui";
 import ODonVi from "../../ODonVi";
+import CachDungDong, { KinhCuoiCung } from "./CachDungDong";
+import { useTinhCachDung } from "./useTinhCachDung";
+import type { CachDungCT } from "@/lib/cach-dung";
 import {
   dongNgoaiDanhMuc,
   dongTuMau,
@@ -79,7 +82,10 @@ export default function DonThuocPhieu({
   onDoi,
   ngoaiDanhMuc = true,
   tuKhoaDau,
+  visitId,
 }: {
+  /** Có = màn bác sĩ: hiện cách dùng có cấu trúc + số ngày / ngày hết (PR E). */
+  visitId?: string;
   dong: DongThuoc[];
   mauThuoc: MauThuoc[];
   /** Không truyền = chỉ đọc (hồ sơ đã chốt, hoặc chưa nối đường ghi đơn). */
@@ -95,8 +101,13 @@ export default function DonThuocPhieu({
   const loc = useMemo(() => locMauThuoc(mauThuoc, tu), [mauThuoc, tu]);
   const chiDoc = !onDoi;
 
-  const sua = (i: number, ma: keyof DongThuoc, v: string) =>
+  const sua = (i: number, ma: keyof DongThuoc, v: string | CachDungCT | null) =>
     onDoi?.(dong.map((d, j) => (j === i ? { ...d, [ma]: v } : d)));
+  // Cách dùng có cấu trúc (PR E): máy chủ tính, màn chỉ hiện. Lệch số dòng = chờ lượt hỏi sau.
+  const [kinh, setKinh] = useState({ kinh_lan_cuoi: "", chu_ky: "" });
+  const tinh = useTinhCachDung(visitId, dong, kinh);
+  const kqDong = tinh && tinh.dong.length === dong.length ? tinh.dong : null;
+  const coCt = (d: DongThuoc) => !!visitId && !!d.drug_catalog_id && !!d.cach_dung_ct && d.cach_dung_ct.kieu !== "chu";
 
   const oNhap = (i: number, d: DongThuoc, ma: keyof DongThuoc, ten: string, lop: string, dai = false) => (
     <label key={ma} className={`${NHAN} ${lop}`}>
@@ -186,6 +197,9 @@ export default function DonThuocPhieu({
 
       {dong.length === 0 ? (
         <p className="text-body text-ink-faint">Chưa chọn thuốc.</p>
+      ) : null}
+      {visitId && !chiDoc && dong.some((d) => d.cach_dung_ct?.kieu === "chu_ky") ? (
+        <KinhCuoiCung kinh={kinh} tuPhieu={tinh?.kinh ?? null} onDoi={setKinh} />
       ) : null}
       {dong.length > 0 ? (
         <ol className="space-y-2">
@@ -315,8 +329,14 @@ export default function DonThuocPhieu({
                       )}
                     </p>
                   </div>
-                  {oNhap(i, d, "cach_dung", "Cách dùng", "sm:col-span-8", true)}
-                  {oNhap(i, d, "luu_y", "Lưu ý", "sm:col-span-4", true)}
+                  {/* Có cấu trúc: câu in do máy chủ sinh (hiện trong CachDungDong), không gõ tay. */}
+                  {coCt(d) ? null : oNhap(i, d, "cach_dung", "Cách dùng", "sm:col-span-8", true)}
+                  {oNhap(i, d, "luu_y", "Lưu ý", coCt(d) ? "sm:col-span-12" : "sm:col-span-4", true)}
+                  {visitId && coKho ? (
+                    <CachDungDong ct={d.cach_dung_ct ?? null} kq={kqDong?.[i] ?? null} donVi={d.don_vi}
+                      soLuong={d.so_luong} chiDoc={chiDoc} onCt={(ct) => sua(i, "cach_dung_ct", ct)}
+                      onSoLuong={(s) => sua(i, "so_luong", s)} />
+                  ) : null}
                 </div>
               </li>
             );
