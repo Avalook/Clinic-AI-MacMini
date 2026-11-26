@@ -91,7 +91,7 @@ def _tu_chia(bang: BangDonVi, don_vi: str, he_so: Decimal) -> GiaDong | None:
     goi_y = (don_gia / 100).to_integral_value(rounding=ROUND_CEILING) * 100
     return GiaDong(
         don_vi=don_vi,
-        gia=(don_gia,),
+        gia=tuple([don_gia]),
         he_so=None if he_so == 1 else he_so,
         tu_chia=True,
         gia_goi_y_con=int(goi_y),
@@ -111,7 +111,7 @@ def tinh_gia_dong(
     dv = bang.don_vi_dong(don_vi)
     if not co_thuoc:
         return GiaDong(don_vi=dv)
-    goc = tuple(g for g in (gia_danh_muc,) if g is not None) + tuple(gia_ten)
+    goc = tuple([] if gia_danh_muc is None else [gia_danh_muc]) + tuple(gia_ten)
     if not chuan(dv) or not bang.co_goc or bang.la_goc(dv):
         if goc:
             return GiaDong(don_vi=dv, gia=goc)
@@ -128,7 +128,7 @@ def tinh_gia_dong(
         )
     # Tắt bán chỉ bỏ đơn vị khỏi ô chọn: dòng đang chờ thu giữ giá đã lưu, không hỏng.
     if d.gia is not None:
-        return GiaDong(don_vi=dv, gia=(d.gia,), he_so=d.he_so)
+        return GiaDong(don_vi=dv, gia=tuple([d.gia]), he_so=d.he_so)
     return _tu_chia(bang, dv, d.he_so) or GiaDong(
         don_vi=dv,
         he_so=d.he_so,
