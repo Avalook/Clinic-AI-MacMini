@@ -633,13 +633,11 @@ export interface DongThuoc {
   mau_ma: string | null;
   /** Đơn giá KHO (máy chủ) — chỉ HIỂN THỊ; null = ngoài danh mục / chưa có giá. */
   don_gia?: number | null;
-  /** ĐVT kê mặc định của kho (đơn vị mẹ, chưa khai mẹ thì `don_vi_ban`) — có thì ĐVT
-   *  là CHỮ, không phải ô gõ. */
+  /** ĐVT kê mặc định, có thì chỉ hiển thị (đơn vị mẹ, nếu thiếu dùng `don_vi_ban`). */
   dvt_kho?: string | null;
   /** Thành tiền do máy chủ tính cho dòng ĐÃ LƯU (null = chưa có / vừa sửa). */
   thanh_tien?: number | null;
-  /** C14: số lượng do QUẦY THU THUỐC điền (bác sĩ để trống) — máy chủ trả; chỉ
-   *  để hiện nhãn "SL do thu ngân điền", không gửi ngược lên. */
+  /** Số lượng do quầy thu thuốc điền, chỉ dùng để hiện nhãn, không gửi lên. */
   so_luong_do_thu_ngan?: boolean;
   /** C19: số bác sĩ kê GỐC khi quầy đã đặt số khác (null = bác sĩ để trống). */
   so_luong_ke_goc?: string | null;
@@ -690,7 +688,6 @@ export function soLuongTuChu(s: string): number | null {
   const n = Number(/^[0-9]+(?:[.,][0-9]+)?/.exec(t)![0].replace(",", "."));
   return n > 0 ? n : null;
 }
-
 
 // Đơn thuốc ↔ bảng `prescription`. Bảng không có cột đường dùng / đơn vị
 // (IP-5): ghép vào `dosage_instructions` ("Uống — …") và `quantity` ("10 hộp"),
@@ -754,9 +751,8 @@ export function dongTuDon(r: DongDonMayChu): DongThuoc {
     // Không bắt đầu bằng số (vd lần tự lưu đầu khi mới chọn thuốc: "hộp") →
     // cả chuỗi là ĐƠN VỊ. Bấm thật 23/09: nhét vào số lượng thì gõ "2" thành "hộp2".
     so_luong: m ? m[1] : "",
-    // Đơn cũ chưa ghi đơn vị mà kho có → lấy ĐVT kê mặc định (đơn vị mẹ) của kho.
-    // Đơn đã ghi đơn vị thì GIỮ chữ đã ghi — không lặng lẽ đổi "2 hộp" thành
-    // "2 viên" ở lần tự lưu sau.
+    // Đơn cũ chưa ghi đơn vị → lấy ĐVT kê mặc định (đơn vị mẹ) của kho.
+    // Giữ nguyên đơn vị đã ghi, để lần tự lưu không biến "2 hộp" thành "2 viên".
     don_vi: (m ? m[2] : sl) || (r.dvt_kho ?? ""),
     cach_dung: i > 0 ? cd.slice(i + NOI.length) : cd,
     luu_y: r.caution ?? "",
@@ -823,7 +819,6 @@ export function donTuDong(d: DongThuoc) {
     quantity: ghepSoLuongDonVi(d.so_luong, d.don_vi),
     dosage: [d.duong_dung.trim(), d.cach_dung.trim()].filter(Boolean).join(NOI),
     caution: d.luu_y.trim(),
-    // Có cấu trúc: máy chủ sinh chữ cách dùng từ `duong_dung` + cấu trúc (PR E).
     ...(d.cach_dung_ct && d.drug_catalog_id ? { cach_dung_ct: d.cach_dung_ct, duong_dung: d.duong_dung.trim() } : {}),
   };
 }

@@ -45,12 +45,7 @@ export default function CachDungDong({
   const doi = (p: Partial<CachDungCT>) => onCt({ ...(ct ?? { kieu: "ngay" }), ...p });
   const chonKieu = (k: KieuDung) => {
     if (k === "chu") return onCt(ct ? { ...ct, kieu: "chu" } : null);
-    doi({
-      kieu: k,
-      moi_lan: ct?.moi_lan ?? (ct?.khoang_lan ? null : 1),
-      so_lan: ct?.so_lan ?? (ct?.khoang_so_lan ? null : 1),
-      ...(k === "chu_ky" ? { tu_ngay: ct?.tu_ngay ?? 5, den_ngay: ct?.den_ngay ?? 25 } : {}),
-    });
+    doi({ kieu: k });
   };
   const lieu = ct?.don_vi_lieu || "viên";
   const goiY = kq?.goi_y_so_luong;

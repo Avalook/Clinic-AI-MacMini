@@ -14,7 +14,7 @@ export function useTinhCachDung(
   dong: DongThuoc[],
   kinh: { kinh_lan_cuoi: string; chu_ky: string },
 ): KetQuaTinh | null {
-  const [kq, setKq] = useState<KetQuaTinh | null>(null);
+  const [traLoi, setTraLoi] = useState<{ goi: string; kq: KetQuaTinh } | null>(null);
   const goi = useMemo(
     () =>
       JSON.stringify({
@@ -41,9 +41,11 @@ export function useTinhCachDung(
           headers: { "Content-Type": "application/json" },
           body: goi,
         });
-        if (!bo && r.ok) setKq((await r.json()) as KetQuaTinh);
+        if (bo || !r.ok) return;
+        const kq = (await r.json()) as KetQuaTinh;
+        if (!bo) setTraLoi({ goi, kq });
       } catch {
-        // Mất mạng: giữ kết quả cũ, lần gõ sau hỏi lại.
+        // Mất mạng: không hiện đề xuất cho gói chưa tính. Lần gõ sau hỏi lại.
       }
     }, 400);
     return () => {
@@ -51,5 +53,5 @@ export function useTinhCachDung(
       clearTimeout(t);
     };
   }, [goi, visitId, dong.length]);
-  return visitId && dong.length ? kq : null;
+  return traLoi?.goi === goi ? traLoi.kq : null;
 }
