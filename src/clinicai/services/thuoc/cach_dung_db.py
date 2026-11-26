@@ -34,6 +34,7 @@ from clinicai.services.thuoc.cach_dung import (
     moc_chu_ky,
     tinh_dong,
 )
+from clinicai.services.thuoc.tach_cau import de_xuat_cach_dung
 
 #: Cặp ô (kinh lần cuối, chu kỳ) của các phiếu có hỏi kinh nguyệt.
 O_KINH = (
@@ -130,10 +131,11 @@ async def tinh_don(
         )
         ids = [str(d["drug_catalog_id"]) for d in dong if d.get("drug_catalog_id")]
         bang = await doc_bang(conn, cid, ids)
-        so_lieu = {
-            r["id"]: r["so_lieu_moi_don_vi_goc"]
+        danh_muc = {
+            r["id"]: r
             for r in await conn.fetch(
-                "SELECT id::text, so_lieu_moi_don_vi_goc FROM public.drug_catalog"
+                "SELECT id::text, so_lieu_moi_don_vi_goc, cach_dung_ct"
+                " FROM public.drug_catalog"
                 " WHERE clinic_id = $1::uuid AND id = ANY($2::uuid[])",
                 cid,
                 sorted(set(ids)),
@@ -149,9 +151,14 @@ async def tinh_don(
 
     ra = []
     for d in dong:
-        ct: CachDung | None = d.get("ct")
         ma = str(d.get("drug_catalog_id") or "")
-        cau = cau_cach_dung(ct, str(d.get("chu") or ""))
+        chu = str(d.get("chu") or "")
+        # Bác sĩ không khai cấu trúc (Tuyền 26/11): đọc chữ cách dùng của dòng (mặc định
+        # = chữ danh mục); đọc không ra thì lấy cấu trúc kho khai ở Danh mục.
+        ct: CachDung | None = de_xuat_cach_dung(chu)
+        if ct.kieu == "chu" and ma in danh_muc:
+            ct = doc_ct(danh_muc[ma]["cach_dung_ct"]) or ct
+        cau = chu
         if not ma or ma not in bang:
             kq = tinh_dong(
                 None,
@@ -168,8 +175,10 @@ async def tinh_don(
             ct,
             so_luong=d.get("so_luong"),
             he_so=he_so_dong(b, d.get("don_vi")),
-            lieu_moi_kho=lieu_moi_don_vi_kho(ct, b.goc, so_lieu.get(ma))
-            if ct
+            lieu_moi_kho=lieu_moi_don_vi_kho(
+                ct, b.goc, danh_muc[ma]["so_lieu_moi_don_vi_goc"]
+            )
+            if ct and ma in danh_muc
             else None,
             don_vi_kho=b.goc,
             ngay_ke=ngay_ke,

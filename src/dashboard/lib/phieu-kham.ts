@@ -659,7 +659,7 @@ export function dongTuMau(m: MauThuoc): DongThuoc {
     mau_ma: m.ma,
     don_gia: m.drug_catalog_id ? (m.gia ?? null) : null,
     dvt_kho: dvtKho,
-    cach_dung_ct: m.drug_catalog_id ? (m.cach_dung_ct ?? null) : null,
+    cach_dung_ct: null, // cách dùng cố định ở Danh mục; máy chủ tự đọc khi tính
   };
 }
 
@@ -819,7 +819,6 @@ export function donTuDong(d: DongThuoc) {
     quantity: ghepSoLuongDonVi(d.so_luong, d.don_vi),
     dosage: [d.duong_dung.trim(), d.cach_dung.trim()].filter(Boolean).join(NOI),
     caution: d.luu_y.trim(),
-    ...(d.cach_dung_ct && d.drug_catalog_id ? { cach_dung_ct: d.cach_dung_ct, duong_dung: d.duong_dung.trim() } : {}),
   };
 }
 

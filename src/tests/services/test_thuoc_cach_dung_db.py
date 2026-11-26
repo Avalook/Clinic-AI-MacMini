@@ -76,14 +76,13 @@ async def _phieu(conn: asyncpg.Connection, visit: str, lmp: str, ck: str) -> Non
     )
 
 
-def _dong(thuoc: str | None, sl: str, dv: str, ct: dict[str, Any] | None) -> Any:
-    return {
-        "drug_catalog_id": thuoc,
-        "so_luong": sl,
-        "don_vi": dv,
-        "ct": CachDung.model_validate(ct) if ct else None,
-        "chu": "",
-    }
+#: Màn bàn khám chỉ gửi CHỮ cách dùng (mặc định = chữ danh mục); máy chủ tự đọc.
+CHU_HAI_LAN = "Ngày uống 2 lần, mỗi lần 1 viên. Sau ăn."
+CHU_CHU_KY = "Từ ngày 5 đến ngày 25 của chu kỳ kinh, ngày uống 1 viên"
+
+
+def _dong(thuoc: str | None, sl: str, dv: str, chu: str = "") -> Any:
+    return {"drug_catalog_id": thuoc, "so_luong": sl, "don_vi": dv, "chu": chu}
 
 
 async def test_ecanix_tinh_o_may_chu_va_luu_ban_chup(pool: asyncpg.Pool) -> None:  # noqa: F811
@@ -99,10 +98,10 @@ async def test_ecanix_tinh_o_may_chu_va_luu_ban_chup(pool: asyncpg.Pool) -> None
         identity=bs,
         visit_id=luot["visit"],
         dong=[
-            _dong(t, "1", "hộp", HAI_LAN),
-            _dong(t, "10", "viên", HAI_LAN),
-            _dong(t, "", "hộp", {**HAI_LAN, "trong_ngay": 31}),
-            _dong(None, "1", "", None),
+            _dong(t, "1", "hộp", CHU_HAI_LAN),
+            _dong(t, "10", "viên", CHU_HAI_LAN),
+            _dong(t, "", "hộp", CHU_HAI_LAN + " Trong 31 ngày."),
+            _dong(None, "1", ""),
         ],
         kinh_lan_cuoi=None,
         chu_ky=None,
@@ -110,7 +109,7 @@ async def test_ecanix_tinh_o_may_chu_va_luu_ban_chup(pool: asyncpg.Pool) -> None
     assert kq["ngay_ke"] == date(2026, 11, 26)
     hop, vien, goi_y, ngoai = kq["dong"]
     assert (hop["so_ngay"], hop["ngay_het"]) == (30, date(2026, 12, 25))
-    assert hop["cau"] == "Ngày 2 lần, mỗi lần 1 viên. Sau ăn."
+    assert hop["cau"] == CHU_HAI_LAN
     assert (vien["so_ngay"], vien["ngay_het"]) == (5, date(2026, 11, 30))
     assert goi_y["goi_y_so_luong"] == 2 and not goi_y["tinh_duoc"]
     assert "ngoài danh mục" in ngoai["ly_do"]
@@ -180,7 +179,7 @@ async def test_cach_dung_don_vi_trong_theo_mac_dinh_ke(
         pool,
         identity=bs,
         visit_id=None,
-        dong=[_dong(t, "2", " ", HAI_LAN), _dong(t, "2", "viên", HAI_LAN)],
+        dong=[_dong(t, "2", " ", CHU_HAI_LAN), _dong(t, "2", "viên", CHU_HAI_LAN)],
         kinh_lan_cuoi=None,
         chu_ky=None,
     )
@@ -280,7 +279,7 @@ async def test_chu_ky_uoc_tinh_tu_phieu_kham(pool: asyncpg.Pool) -> None:  # noq
         pool,
         identity=bs,
         visit_id=luot["visit"],
-        dong=[_dong(t, "1", "hộp", CHU_KY)],
+        dong=[_dong(t, "1", "hộp", CHU_CHU_KY)],
         kinh_lan_cuoi=None,
         chu_ky=None,
     )
@@ -306,7 +305,7 @@ async def test_lmp_rac_khong_uoc_tinh_khong_500(pool: asyncpg.Pool, rac: str) ->
             pool,
             identity=bs,
             visit_id=luot["visit"],
-            dong=[_dong(t, "1", "hộp", CHU_KY)],
+            dong=[_dong(t, "1", "hộp", CHU_CHU_KY)],
             kinh_lan_cuoi=go_tay,
             chu_ky="28" if go_tay else None,
         )
@@ -320,7 +319,7 @@ async def test_thieu_so_vien_moi_hop_roi_khai_o_danh_muc(pool: asyncpg.Pool) -> 
         ds = await _nguoi(conn, "PHARMACIST")
         luot = await _luot(conn, bs)
         t = await _thuoc(conn, "Thuốc hộp thử E", "hộp", 300000)
-    hoi = [_dong(t, "1", "hộp", HAI_LAN)]
+    hoi = [_dong(t, "1", "hộp", CHU_HAI_LAN)]
     kq = await cach_dung_db.tinh_don(
         pool, identity=bs, visit_id=luot["visit"], dong=hoi, kinh_lan_cuoi=None,
         chu_ky=None,
@@ -351,3 +350,27 @@ async def test_thieu_so_vien_moi_hop_roi_khai_o_danh_muc(pool: asyncpg.Pool) -> 
     assert mau[0]["cach_dung_ct"]["khoang_lan"] == ["1", "2"]
     assert mau[1]["cach_dung_ct"] is None
     assert nk == 1, "đổi mặc định phải có nhật ký"
+
+
+async def test_chu_la_thi_lay_cach_dung_danh_muc(pool: asyncpg.Pool) -> None:  # noqa: F811
+    """Bác sĩ không khai gì: chữ dòng đọc không ra → cấu trúc kho khai ở Danh mục."""
+    async with pool.acquire() as conn:
+        bs = await _nguoi(conn, "DOCTOR")
+        ds = await _nguoi(conn, "PHARMACIST")
+        t = await _ecanix(conn)
+    await cach_dung_db.luu_mac_dinh(
+        pool,
+        identity=ds,
+        thuoc_id=t,
+        ct=CachDung.model_validate(HAI_LAN),
+        so_lieu=None,
+    )
+    kq = await cach_dung_db.tinh_don(
+        pool,
+        identity=bs,
+        visit_id=None,
+        dong=[_dong(t, "1", "hộp", "Uống theo hướng dẫn"), _dong(t, "1", "hộp", "")],
+        kinh_lan_cuoi=None,
+        chu_ky=None,
+    )
+    assert [d["so_ngay"] for d in kq["dong"]] == [30, 30]
