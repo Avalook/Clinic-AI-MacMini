@@ -152,15 +152,14 @@ export default function PhieuKham({
    *  lượt Điều trị (phiếu cảm nhận + liệu trình + làm tại bàn khám), lượt Thủ
    *  thuật (chọn thủ thuật đã làm). */
   oKhoi1?: ReactNode;
-  /** Loại khối 1 máy chủ trả (`khoi1`) — lượt Điều trị ẩn mục A/B (`mucAnKhoi1`,
-   *  dữ liệu cũ giữ nguyên); chỉ định `ban_kham` không rơi vào khối 3. */
+  /** Loại khối 1 máy chủ trả (`khoi1`) — lượt Điều trị ẩn mục A/B (`mucAnKhoi1`). */
   khoi1?: Khoi1;
   /** Giao diện riêng của phiếu trên màn Bàn khám. */
   giaoDienBanKham?: boolean;
   /** Lỗi lưu đơn thuốc (kèm ô lý do) — vẽ NGAY trong mục E (góp ý B8). */
   baoLoiDon?: ReactNode;
-  /** Mục E: đơn thuốc thật của lượt. */
-  donThuoc?: { dong: DongThuoc[]; onDoi?: (d: DongThuoc[]) => void };
+  /** Mục E: đơn thuốc thật của lượt (`visitId` → cách dùng có cấu trúc, PR E). */
+  donThuoc?: { dong: DongThuoc[]; onDoi?: (d: DongThuoc[]) => void; visitId?: string };
   /** Mục F: thủ thuật đang có chỉ định + lệnh tạo chỉ định. */
   thuThuat?: { daChon: string[]; onChon?: (t: ThuThuatNguon, chon: boolean) => void };
   /** Mục C: màn ra chỉ định CLS thật. Kết quả theo chỉ định luôn hiện dưới nó. */
@@ -445,6 +444,7 @@ export default function PhieuKham({
             dong={donThuoc?.dong ?? []}
             mauThuoc={tc?.mau_thuoc ?? []}
             onDoi={ghi ? donThuoc?.onDoi : undefined}
+            visitId={donThuoc?.visitId}
           />
         ) : null}
         {m.lien_ket?.loai === "chi_dinh_thu_thuat" && oThuThuat ? oThuThuat : null}

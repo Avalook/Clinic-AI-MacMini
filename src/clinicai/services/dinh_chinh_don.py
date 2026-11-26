@@ -19,14 +19,12 @@ với lý do "Bác sĩ đính chính đơn"; phân lô đã gắn lần thu, ti�
 cũ giữ nguyên — đối soát riêng (CP5). Bác sĩ KHÔNG phải huỷ phiếu hay hoàn tiền
 trước.
 
-Ai được đính chính (review 4 Q4, 20/09/2026): bác sĩ có quyền trên bệnh án
-chính của lượt — vai Bác sĩ, và là bác sĩ chính của lượt (hoặc lượt chưa có).
-Vai bác sĩ siêu âm đơn thuần không đủ. Đính chính chéo bác sĩ: HOLD Dr4Women,
-mặc định từ chối. Thư ký chỉ nhập nháp; bác sĩ duyệt nháp mà đụng dòng có dấu
-vết thì cũng phải ghi lý do.
+Ai được đính chính: vai Bác sĩ, là bác sĩ chính của lượt (hoặc lượt chưa có);
+bác sĩ siêu âm đơn thuần không đủ; chéo bác sĩ mặc định từ chối. Thư ký chỉ nhập
+nháp; bác sĩ duyệt nháp mà đụng dòng có dấu vết thì cũng phải ghi lý do.
 
-Hồ sơ ĐÃ KÝ không đi đường này (`_writable_visit` từ chối; DB chặn) — đường
-đính chính hồ sơ là bước 4c.
+Hồ sơ ĐÃ KÝ không đi đường này (`_writable_visit` từ chối; DB chặn) — bước 4c.
+Cách dùng có cấu trúc (PR E): bản chụp `cach_dung_ct` đi cùng chữ cách dùng.
 """
 
 from __future__ import annotations
@@ -50,6 +48,7 @@ from clinicai.services.clinical_prescription_service import (
     _validated_prescription_items,
 )
 from clinicai.services.thu_ky_bac_si import bac_si_cua_thu_ky, kiem_thu_ky_duoc_lam
+from clinicai.services.thuoc.cach_dung_db import ct_json
 
 LY_DO_NHA_PHAN_LO = "Bác sĩ đính chính đơn"
 LY_DO_TOI_THIEU = 5
@@ -468,9 +467,10 @@ async def ap_dung_don_da_ky(
         )
 
     for old, item in kh.sua_huong_dan:
-        await conn.execute(
+        await conn.execute(  # đường đã ký không gửi cấu trúc: bỏ bản chụp PR E cũ
             "UPDATE prescription SET dosage_instructions = $3, caution = $4,"
-            " updated_at = now() WHERE id = $1::uuid AND clinic_id = $2::uuid",
+            " cach_dung_ct = NULL, updated_at = now()"
+            " WHERE id = $1::uuid AND clinic_id = $2::uuid",
             old["id"],
             clinic_id,
             _chu(item.get("dosage")),
@@ -496,7 +496,7 @@ async def ap_dung_don_da_ky(
                        CASE WHEN $7::uuid IS NULL THEN NULL ELSE $8::uuid END,
                    drug_mapped_at =
                        CASE WHEN $7::uuid IS NULL THEN NULL ELSE now() END,
-                   purchased_qty = NULL, updated_at = now()
+                   purchased_qty = NULL, updated_at = now(), cach_dung_ct = NULL
              WHERE id = $1::uuid AND clinic_id = $2::uuid
             """,
             old["id"],
@@ -708,15 +708,16 @@ async def luu_don_chua_ky(
     for r, m in kh.sua_huong_dan:
         await conn.execute(
             "UPDATE prescription SET dosage_instructions = $3, caution = $4,"
+            " cach_dung_ct = $5::jsonb,"
             " updated_at = now() WHERE id = $1::uuid AND clinic_id = $2::uuid",
             r["id"],
             clinic_id,
             _chu(m.get("dosage")),
             _chu(m.get("caution")),
+            ct_json(m),
         )
     for r, m in kh.sua_thuoc:
-        # Mức A: nhà thuốc chưa làm gì ngoài (có thể) xác định thuốc kho — đổi
-        # thuốc thì xác định lại từ đầu.
+        # Mức A: chưa ai làm gì ngoài xác định thuốc kho — đổi thuốc thì làm lại.
         catalog_id = await _ma_kho(conn, clinic_id=clinic_id, item=m)
         catalog_name = await _ten_thuoc_catalog(
             conn,
@@ -730,15 +731,14 @@ async def luu_don_chua_ky(
                SET drug_name_raw = $3, quantity = $4,
                    quantity_num = public.so_luong_tu_van_ban($4),
                    unit = public.don_vi_tu_van_ban($4),
-                   dosage_instructions = $5, caution = $6,
+                   dosage_instructions = $5, caution = $6, cach_dung_ct = $9::jsonb,
                    drug_catalog_id = $7::uuid,
                    drug_mapped_by =
                        CASE WHEN $7::uuid IS NULL THEN NULL ELSE $8::uuid END,
                    drug_mapped_at =
                        CASE WHEN $7::uuid IS NULL THEN NULL ELSE now() END,
                    purchased_qty = NULL, updated_at = now(),
-                   -- Bác sĩ tự sửa số lượng: số ấy là của bác sĩ, bỏ dấu "do quầy
-                   -- điền" (C14). Vế SET đọc giá trị CŨ của cột.
+                   -- Bác sĩ tự sửa số lượng: bỏ dấu "do quầy điền" (C14; SET đọc CŨ).
                    so_luong_dien_boi = CASE WHEN quantity IS DISTINCT FROM $4
                        THEN NULL ELSE so_luong_dien_boi END,
                    so_luong_dien_luc = CASE WHEN quantity IS DISTINCT FROM $4
@@ -755,6 +755,7 @@ async def luu_don_chua_ky(
             _chu(m.get("caution")),
             catalog_id,
             created_by,
+            ct_json(m),
         )
     if kh.xoa:
         await conn.execute(
@@ -920,11 +921,9 @@ async def _chen(
     lan: str | None,
     row_id: str | None = None,
 ) -> Any:
-    # Dòng THAY THẾ của lần đính chính phải bắt đầu trống (trigger
-    # prescription_dinh_chinh_guard: "không thuốc kho") — nhà thuốc xác định lại
-    # thuốc kho cho dòng mới. KHÔNG chép `drug_catalog_id` của form: màn luôn gửi
-    # mã kho của thuốc đang chọn, nên sửa số lượng một thuốc kho đã thu tiền từng
-    # nổ 500 (13/10/2026, bấm thật ở Bàn tư vấn). Chỉ tự gắn thuốc kho cho dòng thường.
+    # Dòng THAY THẾ của lần đính chính bắt đầu không thuốc kho (trigger
+    # prescription_dinh_chinh_guard) — KHÔNG chép `drug_catalog_id` của form (từng
+    # nổ 500 khi sửa số lượng thuốc đã thu). Chỉ tự gắn thuốc kho cho dòng thường.
     catalog_id = (
         await _ma_kho(conn, clinic_id=clinic_id, item=item) if lan is None else None
     )
@@ -941,14 +940,14 @@ async def _chen(
             id, source_ref, clinic_patient_id, visit_id, drug_name_raw,
             quantity, dosage_instructions, caution, clinic_id,
             quantity_num, unit, created_by, created_in_correction_id,
-            drug_catalog_id, drug_mapped_by, drug_mapped_at
+            drug_catalog_id, drug_mapped_by, drug_mapped_at, cach_dung_ct
         )
         VALUES ($1::uuid, $2, $3::uuid, $4::uuid, $5, $6, $7, $8, $9::uuid,
                 public.so_luong_tu_van_ban($6),
                 public.don_vi_tu_van_ban($6), $10::uuid, $11::uuid,
                 $12::uuid,
                 CASE WHEN $12::uuid IS NULL THEN NULL ELSE $10::uuid END,
-                CASE WHEN $12::uuid IS NULL THEN NULL ELSE now() END)
+                CASE WHEN $12::uuid IS NULL THEN NULL ELSE now() END, $13::jsonb)
         RETURNING id
         """,
         row_id or str(uuid.uuid4()),
@@ -964,6 +963,7 @@ async def _chen(
         created_by,
         lan,
         catalog_id,
+        ct_json(item),
     )
 
 
