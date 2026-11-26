@@ -70,8 +70,7 @@ EVENT_LABELS: dict[str, str] = {
     "config.wiring_changed": "Đổi dây nối nghiệp vụ",
     "appointment.checkin_undone": "Huỷ tiếp nhận",
     "appointment.completed": "Khám xong",
-    # Giữ chỗ tồn tại trong lúc CSKH đang chọn khung giờ, để hai người không
-    # chọn trùng nhau. Nói rõ "khi đang chọn" vì nó KHÔNG phải một lịch hẹn.
+    # Giữ chỗ lúc CSKH đang chọn khung giờ — KHÔNG phải một lịch hẹn.
     "slot_hold.created": "Giữ chỗ khi đang chọn",
     "slot_hold.released": "Thả chỗ đang giữ",
     "interaction.walkin": "Khách đến trực tiếp",
@@ -149,6 +148,7 @@ EVENT_LABELS: dict[str, str] = {
     "pharmacy.price_changed": "Đổi giá bán thuốc",
     "pharmacy.drug_deleted": "Xoá thuốc chưa từng dùng khỏi danh mục",
     "pharmacy.drug_restored": "Khôi phục thuốc đã xoá khỏi danh mục",
+    "pharmacy.drug_usage_set": "Đổi cách dùng mặc định / số viên mỗi đơn vị thuốc",
     "pharmacy.kiem_ke_ca_sua_so_dem": "Sửa số đếm kiểm kê ca (giữ bản đã chốt)",
     "pharmacy.kiem_ke_ca_mo": "Mở phiếu kiểm kê ca ở quầy thuốc",
     "pharmacy.kiem_ke_ca_chot": "Chốt phiếu kiểm kê ca ở quầy thuốc",

@@ -70,6 +70,7 @@ from clinicai.services.danh_muc_dich_vu_service import (
 )
 from clinicai.services.don_vi_thuoc import BangDonVi, doc_bang
 from clinicai.services.thai_ky_service import dong_bo_tu_phieu, thai_ky_cua_luot
+from clinicai.services.thuoc.cach_dung_db import ct_ra
 from clinicai.services.thuoc.ke_don import gan_ton_ke_don
 
 logger = structlog.get_logger()
@@ -782,15 +783,14 @@ class PhieuKhamService:
     ) -> list[dict[str, Any]]:
         async with self._pool.acquire() as conn:
             await self._kiem_quyen(conn, identity, "doc_phieu")
-            # Đơn giá + ĐVT của KHO (27/09/2026, bản giao diện mẫu: cột "Đơn
-            # giá", ĐVT là chữ khi danh mục có). Đọc từ `drug_catalog` — cùng
-            # giá quầy thu dùng (`quay_thuoc_service`); dòng ngoài danh mục → null.
+            # Đơn giá + ĐVT của KHO đọc từ `drug_catalog` — cùng giá quầy thu
+            # dùng (`quay_thuoc_service`); dòng ngoài danh mục → null.
             rows = await conn.fetch(
                 "SELECT p.id::text, p.drug_catalog_id::text, p.drug_name_raw,"
                 "       p.quantity, p.unit, p.dosage_instructions, p.caution,"
                 "       c.unit_price AS don_gia, c.don_vi_ban AS dvt_kho,"
                 "       p.so_luong_dien_luc, p.so_luong_ke_goc,"
-                "       sd.full_name AS so_luong_dien_boi,"
+                "       sd.full_name AS so_luong_dien_boi, p.cach_dung_ct,"
                 "       p.created_by::text AS nguoi_ke_id, sk.full_name AS nguoi_ke"
                 "  FROM prescription p"
                 "  LEFT JOIN drug_catalog c"
@@ -803,8 +803,7 @@ class PhieuKhamService:
                 identity.clinic_id,
                 visit_id,
             )
-            # Người kê là BÁC SĨ thật hay người nhập hộ (TKYK/ĐD): phiếu in cần
-            # để chọn chân ký (13/10/2026). Một lần hỏi cho cả đơn.
+            # Người kê là BÁC SĨ hay người nhập hộ: phiếu in chọn chân ký.
             la_bac_si = await bac_si_trong(
                 conn, identity.clinic_id, [r["nguoi_ke_id"] for r in rows]
             )
@@ -825,6 +824,7 @@ class PhieuKhamService:
         return [
             {
                 **dict(r),
+                "cach_dung_ct": ct_ra(r["cach_dung_ct"]),
                 "nguoi_ke_la_bac_si": r["nguoi_ke_id"] in la_bac_si,
                 "don_gia": gia_dong(r),
                 "dvt_kho": (r["dvt_kho"] or "").strip() or None,

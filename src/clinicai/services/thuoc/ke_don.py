@@ -20,6 +20,7 @@ import asyncpg
 from clinicai.api.identity import StaffIdentity
 from clinicai.services.don_vi_thuoc import BangDonVi, so_dep
 from clinicai.services.pharmacy_service import PharmacyService
+from clinicai.services.thuoc.cach_dung_db import gan_mac_dinh_ke_don
 
 
 def chu_ton_ke_don(bang: BangDonVi, ton_theo_don_vi: list[dict[str, Any]]) -> str:
@@ -66,6 +67,8 @@ async def gan_ton_ke_don(
     """Một dòng gọi từ `phieu_kham_service.tham_chieu_that`."""
     dm = await PharmacyService(pool).danh_muc(identity=identity)
     ton = {str(r["id"]): list(r.get("ton_theo_don_vi") or []) for r in dm}
+    async with pool.acquire() as conn:  # cách dùng mặc định có cấu trúc (PR E)
+        await gan_mac_dinh_ke_don(conn, identity.clinic_id, mau)
     return sap_xep_ke_don(mau, ton, bang)
 
 

@@ -33,6 +33,8 @@ from clinicai.services.phieu_kham_service import (
     PhieuKhamService,
     kiem_quyen_core,
 )
+from clinicai.services.thuoc.cach_dung import CachDung
+from clinicai.services.thuoc.cach_dung_db import chuan_hoa_dong
 
 router = APIRouter()
 
@@ -49,6 +51,10 @@ class DongDon(BaseModel):
     quantity: str = Field(default="", max_length=100)
     dosage: str = Field(default="", max_length=2000)
     caution: str = Field(default="", max_length=2000)
+    #: Cách dùng có cấu trúc (PR E, 26/11/2026): có thì chữ cách dùng do MÁY sinh
+    #: (`thuoc.cach_dung_db.chuan_hoa_dong`), `duong_dung` ghép phía trước như cũ.
+    duong_dung: str | None = Field(default=None, max_length=300)
+    cach_dung_ct: CachDung | None = None
 
 
 class LuuDon(BaseModel):
@@ -232,7 +238,7 @@ async def luu_don_thuoc(
     """Đơn thuốc mục E — đi thẳng tới nhà thuốc như đơn bệnh án cũ."""
     return await PhieuKhamService(pool, kiem_quyen=kiem_quyen).luu_don_thuoc(
         visit_id=str(visit_id),
-        dong=[d.model_dump() for d in body.dong],
+        dong=[chuan_hoa_dong(d.model_dump()) for d in body.dong],
         ly_do=body.ly_do,
         identity=identity,
     )
