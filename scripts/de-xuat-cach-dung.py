@@ -22,7 +22,7 @@ import sys
 import asyncpg
 
 from clinicai.services.thuoc.cach_dung import cau_cach_dung, doc_ct
-from clinicai.services.thuoc.tach_cau import de_xuat
+from clinicai.services.thuoc.tach_cau import de_xuat_cach_dung
 
 COT = ["thuoc", "don_vi_kho", "cau_goc", "kieu", "moi_lan", "so_lan", "khoang_lan",
        "khoang_so_lan", "chu_ky", "trong_ngay", "cau_may_sinh", "da_khai"]  # fmt: skip
@@ -40,7 +40,7 @@ async def chay(dsn: str) -> list[dict[str, str]]:
         await conn.close()
     ra = []
     for r in rows:
-        ct = de_xuat(r["cach_dung"])
+        ct = de_xuat_cach_dung(r["cach_dung"])
         ra.append(
             {
                 "thuoc": r["name_raw"],

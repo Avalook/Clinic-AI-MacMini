@@ -8,6 +8,7 @@ from __future__ import annotations
 from datetime import date
 from decimal import Decimal
 from fractions import Fraction
+from typing import Any
 
 import pytest
 from pydantic import ValidationError
@@ -27,15 +28,21 @@ KE = date(2026, 11, 26)
 ECANIX = CachDung(kieu="ngay", moi_lan=Decimal(1), so_lan=2, thoi_diem="sau ăn sáng")
 
 
-def _tinh(ct: CachDung, sl: str, he_so: int | None = 60, **kw: object) -> dict:
+def _tinh(
+    ct: CachDung,
+    sl: str,
+    he_so: int | None = 60,
+    lieu_moi_kho: Fraction | None = Fraction(1),
+    kinh: tuple[date, int] | None = None,
+) -> dict[str, Any]:
     return tinh_dong(
         ct,
         so_luong=sl,
         he_so=Fraction(he_so) if he_so is not None else None,
-        lieu_moi_kho=kw.pop("lieu_moi_kho", Fraction(1)),  # type: ignore[arg-type]
+        lieu_moi_kho=lieu_moi_kho,
         don_vi_kho="viên",
         ngay_ke=KE,
-        **kw,  # type: ignore[arg-type]
+        kinh=kinh,
     )
 
 
@@ -115,7 +122,9 @@ def test_khoang_chua_chon_khong_tinh() -> None:
 
 def test_khoang_chon_ngoai_khoang_bi_tu_choi() -> None:
     with pytest.raises(ValidationError):
-        CachDung(kieu="ngay", moi_lan=Decimal(3), khoang_lan=(1, 2), so_lan=1)
+        CachDung.model_validate(
+            {"kieu": "ngay", "moi_lan": 3, "khoang_lan": [1, 2], "so_lan": 1}
+        )
 
 
 def test_thieu_so_vien_moi_hop_tra_ly_do() -> None:

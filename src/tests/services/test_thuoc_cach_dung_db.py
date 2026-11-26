@@ -134,7 +134,9 @@ async def test_ecanix_tinh_o_may_chu_va_luu_ban_chup(pool: asyncpg.Pool) -> None
         ly_do=None,
         identity=bs,
     )
-    d1, d2 = await svc.doc_don_thuoc(visit_id=luot["visit"], identity=bs)
+    theo = {d["drug_catalog_id"]: d for d in await svc.doc_don_thuoc(
+        visit_id=luot["visit"], identity=bs)}  # fmt: skip
+    d1, d2 = theo[t], theo[t2]
     assert d1["dosage_instructions"] == "Uống — Ngày 2 lần, mỗi lần 1 viên. Sau ăn."
     assert d1["cach_dung_ct"]["kieu"] == "ngay"
     assert d1["cach_dung_ct"]["so_lan"] == 2
@@ -148,7 +150,11 @@ async def test_ecanix_tinh_o_may_chu_va_luu_ban_chup(pool: asyncpg.Pool) -> None
         ly_do=None,
         identity=bs,
     )
-    d1, _ = await svc.doc_don_thuoc(visit_id=luot["visit"], identity=bs)
+    d1 = next(
+        d
+        for d in await svc.doc_don_thuoc(visit_id=luot["visit"], identity=bs)
+        if d["drug_catalog_id"] == t
+    )
     assert d1["dosage_instructions"].startswith("Uống — Ngày 3 lần")
     assert d1["cach_dung_ct"]["so_lan"] == 3
 

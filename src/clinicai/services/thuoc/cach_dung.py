@@ -68,9 +68,8 @@ class CachDung(BaseModel):
             if kh[0] <= 0 or kh[0] > kh[1]:
                 raise ValueError(f"{ten}: khoảng không hợp lệ.")
             if gt is not None and not kh[0] <= gt <= kh[1]:
-                raise ValueError(
-                    f"{ten} phải chọn trong khoảng {_so(kh[0])}–{_so(kh[1])}."
-                )
+                khoang = f"{_so_lieu_chu(kh[0])}–{_so_lieu_chu(kh[1])}"
+                raise ValueError(f"{ten} phải chọn trong khoảng {khoang}.")
         return self
 
 
@@ -86,7 +85,7 @@ def doc_ct(v: Any) -> CachDung | None:
         return None
 
 
-def _so(x: Decimal | Fraction | int | float) -> str:
+def _so_lieu_chu(x: Decimal | Fraction | int | float) -> str:
     """1 → "1", 0.5 → "0,5", 1.25 → "1,25" (kiểu Việt)."""
     d = (
         Decimal(x.numerator) / Decimal(x.denominator)
@@ -99,8 +98,8 @@ def _so(x: Decimal | Fraction | int | float) -> str:
 
 def _chon(gt: Any, kh: Any) -> str:
     if gt is not None:
-        return _so(gt)
-    return f"{_so(kh[0])}–{_so(kh[1])}" if kh else "?"
+        return _so_lieu_chu(gt)
+    return f"{_so_lieu_chu(kh[0])}–{_so_lieu_chu(kh[1])}" if kh else "?"
 
 
 def chua_chon_khoang(ct: CachDung) -> bool:
@@ -222,13 +221,13 @@ def tinh_dong(
     lieu = lieu_ngay(ct)
     if lieu is None or lieu <= 0:
         return {**kq, "ly_do": LY_DO_THIEU_LIEU}
-    kq["lieu_ngay"] = _so(lieu)
+    kq["lieu_ngay"] = _so_lieu_chu(lieu)
     du_quy_doi = he_so is not None and lieu_moi_kho is not None
     if ct.kieu == "chu_ky":
         if not ct.tu_ngay or not ct.den_ngay or ct.tu_ngay > ct.den_ngay:
             return {**kq, "ly_do": "Nhập từ ngày → đến ngày của chu kỳ kinh."}
         so = ct.den_ngay - ct.tu_ngay + 1
-        kq.update(tinh_duoc=True, so_ngay=so, so_lieu_can=_so(lieu * so))
+        kq.update(tinh_duoc=True, so_ngay=so, so_lieu_can=_so_lieu_chu(lieu * so))
         if du_quy_doi:
             assert he_so is not None and lieu_moi_kho is not None
             kq["goi_y_so_luong"] = goi_y_so_luong(lieu, so, lieu_moi_kho, he_so)
@@ -260,7 +259,7 @@ def tinh_dong(
     kq.update(
         tinh_duoc=True,
         so_ngay=so,
-        so_lieu_can=_so(so_lieu),
+        so_lieu_can=_so_lieu_chu(so_lieu),
         ngay_het=ngay_ke + timedelta(days=so - 1),
     )
     return kq

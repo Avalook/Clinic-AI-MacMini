@@ -41,7 +41,7 @@ O_KINH = (
 NOI = " — "
 
 
-def _gia_tri(o: Any) -> Any:
+def _gia_tri_o_phieu(o: Any) -> Any:
     """Ô phiếu lưu dạng {gia_tri, nguon}; bản cũ có thể là giá trị trần."""
     return o.get("gia_tri") if isinstance(o, dict) else o
 
@@ -76,9 +76,9 @@ async def _kinh_cua_luot(
         dl = r["du_lieu"]
         dl = json.loads(dl) if isinstance(dl, str) else (dl or {})
         for o_lmp, o_ck in O_KINH:
-            lmp = _gia_tri(dl.get(o_lmp))
+            lmp = _gia_tri_o_phieu(dl.get(o_lmp))
             if lmp not in (None, ""):
-                ck = _gia_tri(dl.get(o_ck))
+                ck = _gia_tri_o_phieu(dl.get(o_ck))
                 return {
                     "kinh_lan_cuoi": str(lmp),
                     "chu_ky": None if ck is None else str(ck),
