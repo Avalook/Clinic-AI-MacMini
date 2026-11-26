@@ -31,11 +31,11 @@ async def test_khai_don_vi_con_xem_truoc_va_tinh_ngay(pool: asyncpg.Pool) -> Non
         bs = await _nguoi(conn, "DOCTOR")
         t = await _hop_30(conn)
 
-    truoc = await don_vi_con.doc(pool, identity=ql, thuoc_id=t)
+    truoc = await don_vi_con.doc_don_vi_con(pool, identity=ql, thuoc_id=t)
     assert truoc["don_vi_con"] is None and truoc["so_con"] is None
     assert "Khai “1 hộp có bao nhiêu viên”" in truoc["xem_truoc"]
 
-    sau = await don_vi_con.luu(
+    sau = await don_vi_con.luu_don_vi_con(
         pool,
         identity=ql,
         thuoc_id=t,
@@ -72,7 +72,7 @@ async def test_tu_choi_khai_thieu_hoac_ten_co_so(
         ql = await _nguoi(conn, "PHARMACIST")
         t = await _hop_30(conn)
     with pytest.raises(ValidationError):
-        await don_vi_con.luu(
+        await don_vi_con.luu_don_vi_con(
             pool, identity=ql, thuoc_id=t, don_vi_con=con, so_con=so, gia_con=None
         )
     assert CLINIC

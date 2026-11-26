@@ -208,7 +208,9 @@ async def cua_doc_don_vi_con(
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> DonViCon:
     """Khối "Đơn vị con và tính số ngày dùng hết thuốc" (Tuyền 26/11)."""
-    kq = await don_vi_con.doc(pool, identity=identity, thuoc_id=str(thuoc_id))
+    kq = await don_vi_con.doc_don_vi_con(
+        pool, identity=identity, thuoc_id=str(thuoc_id)
+    )
     return DonViCon.model_validate(kq)
 
 
@@ -219,7 +221,7 @@ async def cua_luu_don_vi_con(
     identity: StaffIdentity = Depends(_GHI),
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> DonViCon:
-    kq = await don_vi_con.luu(
+    kq = await don_vi_con.luu_don_vi_con(
         pool,
         identity=identity,
         thuoc_id=str(thuoc_id),

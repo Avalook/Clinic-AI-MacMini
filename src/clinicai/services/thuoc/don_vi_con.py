@@ -35,7 +35,7 @@ def gia_con_tu_tinh(gia_me: Any, so_con: Any) -> int | None:
     return int((Decimal(gia_me) / Decimal(so_con)).quantize(Decimal(1), ROUND_HALF_UP))
 
 
-def xem_truoc(cach_dung: str, me: str, con: str, so_con: Any) -> str:
+def xem_truoc_ngay_dung(cach_dung: str, me: str, con: str, so_con: Any) -> str:
     """Một dòng cho kho đọc: máy hiểu câu cách dùng thế nào, 1 mẹ dùng được mấy ngày."""
     ct = de_xuat_cach_dung(cach_dung)
     lieu = lieu_ngay(ct)
@@ -64,7 +64,7 @@ def xem_truoc(cach_dung: str, me: str, con: str, so_con: Any) -> str:
     )
 
 
-async def doc(
+async def doc_don_vi_con(
     pool: asyncpg.Pool, *, identity: StaffIdentity, thuoc_id: str
 ) -> dict[str, Any]:
     async with pool.acquire() as conn:
@@ -87,12 +87,12 @@ async def doc(
         "gia_me": int(r["unit_price"]) if r["unit_price"] is not None else None,
         "gia_con": int(r["gia_con"]) if r["gia_con"] is not None else None,
         "gia_con_tu_tinh": gia_con_tu_tinh(r["unit_price"], r["so_con"]),
-        "xem_truoc": xem_truoc(r["cach_dung"] or "", me, con, r["so_con"]),
+        "xem_truoc": xem_truoc_ngay_dung(r["cach_dung"] or "", me, con, r["so_con"]),
         "goi_y": list(DON_VI_CON_GOI_Y),
     }
 
 
-async def luu(
+async def luu_don_vi_con(
     pool: asyncpg.Pool,
     *,
     identity: StaffIdentity,
@@ -142,7 +142,7 @@ async def luu(
         await ghi_nhat_ky(
             conn,
             identity=identity,
-            event_type="pharmacy.drug_child_unit_set",
+            event_type="pharmacy.drug_usage_set",
             aggregate_type="drug_catalog",
             aggregate_id=thuoc_id,
             payload={
@@ -150,7 +150,13 @@ async def luu(
                 "sau": _anh(con, so_con, gia_con),
             },
         )
-    return await doc(pool, identity=identity, thuoc_id=thuoc_id)
+    return await doc_don_vi_con(pool, identity=identity, thuoc_id=thuoc_id)
 
 
-__all__ = ["DON_VI_CON_GOI_Y", "doc", "gia_con_tu_tinh", "luu", "xem_truoc"]
+__all__ = [
+    "DON_VI_CON_GOI_Y",
+    "doc_don_vi_con",
+    "gia_con_tu_tinh",
+    "luu_don_vi_con",
+    "xem_truoc_ngay_dung",
+]
