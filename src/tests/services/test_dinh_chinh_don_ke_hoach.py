@@ -50,6 +50,30 @@ def test_ke_hoach_bo_dong(muc: int, viec: str) -> None:
     assert getattr(kh, viec) and kh.can_dinh_chinh == (viec == "bo")
 
 
+@pytest.mark.parametrize(
+    ("them", "doi"),
+    [
+        ({}, False),
+        ({"cach_dung_ct": None}, False),
+        (
+            {"cach_dung_ct": {"kieu": "ngay", "moi_lan": "1", "so_lan": 2}},
+            False,
+        ),
+        ({"cach_dung_ct": {"kieu": "chu"}}, True),
+    ],
+)
+def test_doi_cach_dung_giu_nguyen_chu(them: dict[str, Any], doi: bool) -> None:
+    cu = {
+        **_cu("r", 0),
+        "cach_dung_ct": '{"kieu":"ngay","moi_lan":"1.0","so_lan":2}',
+    }
+    moi = {**_i("r", "A", "10 viên", "S1"), **them}
+
+    kh = lap_ke_hoach([cu], [moi])
+
+    assert kh.sua_huong_dan == ([(cu, moi)] if doi else [])
+
+
 def test_thao_tac_dong_lich_su_chi_con_huy_chua_giao() -> None:
     chung: dict[str, Any] = {
         "gd": bt.SAN_SANG,

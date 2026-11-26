@@ -159,6 +159,103 @@ async def test_ecanix_tinh_o_may_chu_va_luu_ban_chup(pool: asyncpg.Pool) -> None
     assert d1["cach_dung_ct"]["so_lan"] == 3
 
 
+@pytest.mark.parametrize(("mac_dinh_ke", "so_ngay"), [(True, 60), (False, 1)])
+async def test_cach_dung_don_vi_trong_theo_mac_dinh_ke(
+    pool: asyncpg.Pool,  # noqa: F811
+    mac_dinh_ke: bool,
+    so_ngay: int,
+) -> None:
+    async with pool.acquire() as conn:
+        bs = await _nguoi(conn, "DOCTOR")
+        t = await _ecanix(conn)
+        await conn.execute(
+            "UPDATE thuoc_quy_doi SET mac_dinh_ke = $1"
+            " WHERE clinic_id = $2::uuid AND drug_catalog_id = $3::uuid",
+            mac_dinh_ke,
+            CLINIC,
+            t,
+        )
+
+    kq = await cach_dung_db.tinh_don(
+        pool,
+        identity=bs,
+        visit_id=None,
+        dong=[_dong(t, "2", " ", HAI_LAN), _dong(t, "2", "viên", HAI_LAN)],
+        kinh_lan_cuoi=None,
+        chu_ky=None,
+    )
+    trong, vien = kq["dong"]
+    assert trong["so_ngay"] == so_ngay
+    assert vien["so_ngay"] == 1
+
+
+@pytest.mark.parametrize(
+    ("ct", "loi"),
+    [
+        ({**HAI_LAN, "moi_lan": None, "khoang_lan": [1, 2]}, "chọn"),
+        ({**HAI_LAN, "so_lan": None, "khoang_so_lan": [1, 2]}, "chọn"),
+        ({**HAI_LAN, "moi_lan": None}, "liều"),
+        ({**HAI_LAN, "so_lan": None}, "số lần"),
+        ({**HAI_LAN, "don_vi_lieu": " "}, "đơn vị liều"),
+        ({**CHU_KY, "tu_ngay": None}, "chu kỳ kinh"),
+        ({**CHU_KY, "den_ngay": None}, "chu kỳ kinh"),
+        ({**CHU_KY, "tu_ngay": 26}, "chu kỳ kinh"),
+    ],
+)
+async def test_khong_luu_cach_dung_chua_du(
+    pool: asyncpg.Pool,  # noqa: F811
+    ct: dict[str, Any],
+    loi: str,
+) -> None:
+    async with pool.acquire() as conn:
+        bs = await _nguoi(conn, "DOCTOR")
+        luot = await _luot(conn, bs)
+        thuoc = await _ecanix(conn)
+    svc = PhieuKhamService(pool, kiem_quyen=kiem_quyen_core)
+    don = {
+        "drug_catalog_id": thuoc,
+        "drug_name": "Thử",
+        "quantity": "1",
+        "dosage": "Chữ cũ",
+    }
+    await svc.luu_don_thuoc(visit_id=luot["visit"], identity=bs, ly_do=None, dong=[don])
+    truoc = await svc.doc_don_thuoc(visit_id=luot["visit"], identity=bs)
+    sua = {**don, "id": truoc[0]["id"], "dosage": "Chữ chưa đủ", "cach_dung_ct": ct}
+    with pytest.raises(ValidationError, match=loi):
+        await svc.luu_don_thuoc(
+            visit_id=luot["visit"], identity=bs, ly_do=None, dong=[sua]
+        )
+    assert await svc.doc_don_thuoc(visit_id=luot["visit"], identity=bs) == truoc
+
+
+async def test_luu_khoang_da_chon_tao_cau_du_khong_gui_duong_dung(
+    pool: asyncpg.Pool,  # noqa: F811
+) -> None:
+    async with pool.acquire() as conn:
+        bs = await _nguoi(conn, "DOCTOR")
+        luot = await _luot(conn, bs)
+        thuoc = await _ecanix(conn)
+    svc = PhieuKhamService(pool, kiem_quyen=kiem_quyen_core)
+    ct = {**HAI_LAN, "khoang_lan": [1, 2], "khoang_so_lan": [1, 2]}
+    await svc.luu_don_thuoc(
+        visit_id=luot["visit"],
+        identity=bs,
+        ly_do=None,
+        dong=[
+            {
+                "drug_catalog_id": thuoc,
+                "drug_name": "Thử",
+                "quantity": "1",
+                "dosage": "Chữ cũ sẽ được thay",
+                "cach_dung_ct": ct,
+            }
+        ],
+    )
+    [dong] = await svc.doc_don_thuoc(visit_id=luot["visit"], identity=bs)
+    assert dong["dosage_instructions"] == "Ngày 2 lần, mỗi lần 1 viên. Sau ăn."
+    assert dong["cach_dung_ct"]["khoang_lan"] == ["1", "2"]
+
+
 async def test_ngoai_danh_muc_co_cau_truc_bi_tu_choi() -> None:
     with pytest.raises(ValidationError):
         cach_dung_db.chuan_hoa_dong(

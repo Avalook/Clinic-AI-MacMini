@@ -48,6 +48,7 @@ from clinicai.services.clinical_prescription_service import (
     _validated_prescription_items,
 )
 from clinicai.services.thu_ky_bac_si import bac_si_cua_thu_ky, kiem_thu_ky_duoc_lam
+from clinicai.services.thuoc.cach_dung import doc_ct
 from clinicai.services.thuoc.cach_dung_db import ct_json
 
 LY_DO_NHA_PHAN_LO = "Bác sĩ đính chính đơn"
@@ -196,9 +197,12 @@ def _doi_thuoc(cu: dict[str, Any], moi: dict[str, Any]) -> bool:
 
 
 def _doi_huong_dan(cu: dict[str, Any], moi: dict[str, Any]) -> bool:
-    return _chu(cu["dosage_instructions"]) != _chu(moi.get("dosage")) or _chu(
-        cu["caution"]
-    ) != _chu(moi.get("caution"))
+    ct = moi.get("cach_dung_ct")
+    return (
+        _chu(cu["dosage_instructions"]) != _chu(moi.get("dosage"))
+        or _chu(cu["caution"]) != _chu(moi.get("caution"))
+        or (ct is not None and doc_ct(cu.get("cach_dung_ct")) != doc_ct(ct))
+    )
 
 
 def ghep_dong(
@@ -589,12 +593,9 @@ async def luu_don_chua_ky(
     identity: StaffIdentity | None,
     ly_do: str | None,
 ) -> dict[str, Any]:
-    """Người gọi ĐÃ khoá `visit` (thứ tự khoá: visit → prescription →
-    prescription_allocation). Trả tóm tắt việc đã làm.
+    """Lưu và ghi sổ sửa thuốc từ đơn trước/sau, kèm lý do nếu phải đính chính.
 
-    Sổ sửa chỉ định (Khối 2, 06/10/2026): so đơn TRƯỚC / SAU lần lưu này rồi
-    ghi nhóm THUỐC (dòng thêm, dòng bỏ, đổi liều) — kể cả đơn đã giao quầy
-    (đi đường đính chính bên dưới, lý do ghi kèm)."""
+    Người gọi đã khoá lượt. Thứ tự: visit → prescription → prescription_allocation."""
     from clinicai.services.so_sua_chi_dinh_service import (
         chan_ho_so_cu,
         doc_don_de_so,
@@ -608,9 +609,8 @@ async def luu_don_chua_ky(
         for r in await conn.fetch(
             """
             SELECT r.id, r.drug_catalog_id, r.drug_name_raw, r.quantity,
-                   r.dosage_instructions, r.caution,
-                   -- Mức do DB tính; cột của chính dòng (đã cấp / chốt /
-                   -- khách không lấy) tính lại tại chỗ cho chắc.
+                   r.dosage_instructions, r.caution, r.cach_dung_ct,
+                   -- DB tính mức dấu vết, kể cả đã cấp, chốt hoặc khách từ chối.
                    greatest(public.prescription_muc_dau_vet(r.id, r.clinic_id),
                             CASE WHEN r.dispensed_qty > 0 OR r.closed_at IS NOT NULL
                                    OR r.refusal_reason IS NOT NULL

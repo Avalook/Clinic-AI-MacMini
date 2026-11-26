@@ -23,12 +23,18 @@ from clinicai.api.identity import StaffIdentity
 from clinicai.core.clock import hom_nay_vn
 from clinicai.services.don_vi_thuoc import BangDonVi, chuan, doc_bang
 from clinicai.services.thuoc.cach_dung import (
+    LY_DO_KHOANG,
     LY_DO_NGOAI_DANH_MUC,
+    LY_DO_THIEU_LIEU,
+    LY_DO_THIEU_MOC_CHU_KY,
     CachDung,
     cau_cach_dung,
+    chua_chon_khoang,
     doc_chu_ky,
     doc_ct,
     doc_ngay_kinh,
+    lieu_ngay,
+    moc_chu_ky,
     tinh_dong,
 )
 
@@ -55,10 +61,11 @@ def lieu_moi_don_vi_kho(ct: CachDung, goc: str, so_lieu: Any) -> Fraction | None
 
 
 def he_so_dong(bang: BangDonVi, don_vi: str | None) -> Fraction | None:
-    """1 [đơn vị dòng] = bao nhiêu [đơn vị kho]. Ô trống = đơn vị kho."""
-    if not chuan(don_vi):
+    """Đổi đơn vị dòng về gốc, dùng mặc định kê khi dòng để trống."""
+    dv = bang.don_vi_dong(don_vi)
+    if not dv:
         return Fraction(1)
-    h = bang.he_so(don_vi)
+    h = bang.he_so(dv)
     return Fraction(h) if h is not None else None
 
 
@@ -195,12 +202,21 @@ def chuan_hoa_dong(d: dict[str, Any]) -> dict[str, Any]:
         ct = CachDung.model_validate(ct)
     if not isinstance(ct, CachDung):
         return {**d, "cach_dung_ct": None}
-    if not d.get("drug_catalog_id") and ct.kieu != "chu":
-        raise ValidationError(LY_DO_NGOAI_DANH_MUC)
     out = {**d, "cach_dung_ct": ct.model_dump(mode="json")}
-    if ct.kieu != "chu" and d.get("duong_dung") is not None:
-        duong = str(d["duong_dung"]).strip()
-        out["dosage"] = NOI.join(x for x in (duong, cau_cach_dung(ct)) if x)
+    if ct.kieu == "chu":
+        return out
+    if not d.get("drug_catalog_id"):
+        raise ValidationError(LY_DO_NGOAI_DANH_MUC)
+    if chua_chon_khoang(ct):
+        raise ValidationError(LY_DO_KHOANG)
+    if lieu_ngay(ct) is None:
+        raise ValidationError(LY_DO_THIEU_LIEU)
+    if ct.kieu == "chu_ky" and moc_chu_ky(ct) is None:
+        raise ValidationError(LY_DO_THIEU_MOC_CHU_KY)
+    if not ct.don_vi_lieu.strip():
+        raise ValidationError("Nhập đơn vị liều cho mỗi lần dùng.")
+    duong = str(d.get("duong_dung") or "").strip()
+    out["dosage"] = NOI.join(x for x in (duong, cau_cach_dung(ct)) if x)
     return out
 
 

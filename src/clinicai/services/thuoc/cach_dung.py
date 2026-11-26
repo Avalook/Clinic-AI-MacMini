@@ -34,6 +34,7 @@ SO_NGAY_TOI_DA = 3660
 LY_DO_CHU = "Chỉ ghi chữ — không tính ngày."
 LY_DO_KHOANG = "Cách dùng có khoảng — chọn một số để máy tính ngày."
 LY_DO_THIEU_LIEU = "Thiếu liều mỗi lần / số lần."
+LY_DO_THIEU_MOC_CHU_KY = "Nhập từ ngày → đến ngày của chu kỳ kinh."
 LY_DO_NGOAI_DANH_MUC = "Thuốc ngoài danh mục — chỉ ghi chữ, không tính ngày."
 
 
@@ -191,6 +192,14 @@ def uoc_tinh_chu_ky(
     }
 
 
+def moc_chu_ky(ct: CachDung) -> tuple[int, int] | None:
+    """Trả hai mốc chu kỳ kinh khi nhập đủ và đúng thứ tự."""
+    tu_ngay, den_ngay = ct.tu_ngay, ct.den_ngay
+    if tu_ngay is None or den_ngay is None or tu_ngay > den_ngay:
+        return None
+    return tu_ngay, den_ngay
+
+
 def tinh_dong(
     ct: CachDung | None,
     *,
@@ -225,16 +234,18 @@ def tinh_dong(
     kq["lieu_ngay"] = _so_lieu_chu(lieu)
     du_quy_doi = he_so is not None and lieu_moi_kho is not None
     if ct.kieu == "chu_ky":
-        if not ct.tu_ngay or not ct.den_ngay or ct.tu_ngay > ct.den_ngay:
-            return {**kq, "ly_do": "Nhập từ ngày → đến ngày của chu kỳ kinh."}
-        so = ct.den_ngay - ct.tu_ngay + 1
+        moc = moc_chu_ky(ct)
+        if moc is None:
+            return {**kq, "ly_do": LY_DO_THIEU_MOC_CHU_KY}
+        tu_ngay, den_ngay = moc
+        so = den_ngay - tu_ngay + 1
         kq.update(tinh_duoc=True, so_ngay=so, so_lieu_can=_so_lieu_chu(lieu * so))
         if du_quy_doi:
             assert he_so is not None and lieu_moi_kho is not None
             kq["goi_y_so_luong"] = goi_y_so_luong(lieu, so, lieu_moi_kho, he_so)
         if kinh is not None:
             kq["uoc_tinh"] = uoc_tinh_chu_ky(
-                kinh[0], kinh[1], ct.tu_ngay, ct.den_ngay, ngay_ke
+                kinh[0], kinh[1], tu_ngay, den_ngay, ngay_ke
             )
         return kq
     if lieu_moi_kho is None:
