@@ -46,6 +46,7 @@ from tests.services.test_kho_quay_db import (  # noqa: F401
 from tests.services.test_mo_phong_kho_day_du_db import kiem_tat_ca, quay_con_han
 from tests.services.test_tien_thuoc_cp1_db import Quay, q  # noqa: F401
 from tests.services.test_tien_thuoc_cp3_db import _thu
+from tests.services.thuoc_khai_don_vi import dat_goc_va_khai
 
 pytest_plugins = ["tests.services.test_luot_kham_service_db"]
 pytestmark = [pytest.mark.db, pytest.mark.asyncio]
@@ -216,14 +217,12 @@ async def test_nhap_quy_doi_va_xu_ly_thuoc_tra_bam_ngau_nhien(
     await _bat(co)
     rx, drug0 = await _don(co, 14)
     thuoc = [drug0, await _thuoc_moi(co.q)]
-    for d in thuoc:  # đơn vị bán rõ ràng cho cả hai thuốc
-        await pool.execute(
-            "UPDATE drug_catalog SET don_vi_ban = 'viên' WHERE id = $1::uuid", d
-        )
+    for d in thuoc:  # gốc viên; nhập chỉ theo đơn vị đã khai (PR C) → khai hộp, vỉ
+        await dat_goc_va_khai(pool, d, "viên", {"hộp": 10, "vỉ": 10})
     await _thu(co.q)
     kho_dau = [await _nhap_kho(co, d, 30) for d in thuoc]
     await _chuyen(co, kho_dau[0], 14)
-    nho: dict[tuple[str, str], D] = {}
+    nho = {(d, dv): D(10) for d in thuoc for dv in ("hộp", "vỉ")}
     ghi: Counter[str] = Counter()
     tu_choi: Counter[str] = Counter()
     quyet: Counter[str] = Counter()

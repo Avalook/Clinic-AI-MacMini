@@ -21,6 +21,7 @@ from clinicai.api.exceptions import ConflictError, ValidationError
 from clinicai.core.clock import hom_nay_vn
 from clinicai.services import kho_thuoc_service
 from clinicai.services.pharmacy_service import PharmacyService
+from clinicai.services.thuoc.don_vi_nhap import xem_truoc_quy_doi
 from tests.services.test_kho_quay_db import Co, _don, co  # noqa: F401
 from tests.services.test_tien_thuoc_cp1_db import q  # noqa: F401
 from tests.services.test_tien_thuoc_cp3_db import _thu
@@ -43,12 +44,33 @@ def _thu_khong_cho_kho(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("CLINICAI_DRUG_PAYMENT_REQUIRES_INVENTORY", "0")
 
 
+async def _khai_hop(co: Co, drug: str, he_so: int = 10) -> None:
+    """Từ 26/11 (PR C) chỉ nhập theo đơn vị ĐÃ KHAI ở Danh mục: khai "hộp" chỉ để
+    nhập (tắt bán, chưa giá) như người kho làm trên màn."""
+    await co.q.pool.execute(
+        "INSERT INTO thuoc_quy_doi (clinic_id, drug_catalog_id, don_vi, he_so,"
+        " dang_ban) SELECT clinic_id, id, 'hộp', $2, false FROM drug_catalog"
+        " WHERE id = $1::uuid",
+        drug,
+        he_so,
+    )
+
+
+async def _he_so_hop(co: Co, drug: str) -> Any:
+    return await co.q.pool.fetchval(
+        "SELECT he_so FROM thuoc_quy_doi WHERE drug_catalog_id = $1::uuid"
+        " AND don_vi = 'hộp'",
+        drug,
+    )
+
+
 async def _thuoc_ban_vien(co: Co) -> str:
-    """Thuốc bán theo VIÊN (đơn vị bán rõ ràng, không phụ thuộc dữ liệu mẫu)."""
+    """Thuốc bán theo VIÊN, đã khai 1 hộp có 10 viên."""
     _rx, drug = await _don(co, 3)
     await co.q.pool.execute(
         "UPDATE drug_catalog SET don_vi_ban = 'viên' WHERE id = $1::uuid", drug
     )
+    await _khai_hop(co, drug)
     return drug
 
 
@@ -128,27 +150,33 @@ async def test_he_so_duoc_nho_lan_sau_khong_phai_go_lai(co: Co) -> None:
     assert [(r["don_vi"], r["he_so"]) for r in nho] == [("hộp", D(10))]
 
 
-async def test_lan_dau_thieu_he_so_thi_hoi_va_khong_tao_lo(co: Co) -> None:
+async def test_don_vi_chua_khai_thi_tu_choi_va_khong_tao_lo(co: Co) -> None:
+    """Trước 26/11: hỏi "1 lọ = ? viên" rồi tự nhớ. Nay phải khai ở Danh mục trước."""
     drug = await _thuoc_ban_vien(co)
-    with pytest.raises(ValidationError, match=r"1 hộp = \? viên"):
-        await _nhap(co, drug, 6, "hộp", cost_price=450000)
+    with pytest.raises(ValidationError, match="chưa khai đơn vị “lọ”"):
+        await _nhap(co, drug, 6, "lọ", cost_price=450000, he_so="10")
     assert await _so_lo_cua_thuoc(co, drug) == 0
+    assert (
+        await co.q.pool.fetchval(
+            "SELECT count(*) FROM thuoc_quy_doi WHERE drug_catalog_id = $1::uuid"
+            " AND don_vi = 'lọ'",
+            drug,
+        )
+        == 0
+    )
 
 
 @pytest.mark.parametrize(
-    "rac", ["0", "-3", "abc", "", "nan", "inf", "1e12", "10001", "0.0001", [], {}]
+    # "" không còn là rác: ô trống = dùng hệ số đã khai.
+    "rac",
+    ["0", "-3", "abc", "nan", "inf", "1e12", "10001", "0.0001", [], {}],
 )
 async def test_he_so_rac_thanh_cau_tieng_viet_khong_500(co: Co, rac: Any) -> None:
     drug = await _thuoc_ban_vien(co)
     with pytest.raises(ValidationError):
         await _nhap(co, drug, 6, "hộp", he_so=rac)
     assert await _so_lo_cua_thuoc(co, drug) == 0
-    assert (
-        await co.q.pool.fetchval(
-            "SELECT count(*) FROM thuoc_quy_doi WHERE drug_catalog_id = $1::uuid", drug
-        )
-        == 0
-    )
+    assert await _he_so_hop(co, drug) == 10, "hệ số đã khai không bị rác đè"
 
 
 async def test_he_so_lech_hon_10_lan_phai_xac_nhan(co: Co) -> None:
@@ -182,12 +210,7 @@ async def test_nhap_dung_don_vi_ban_thi_nguyen_trang(co: Co) -> None:
     # Gõ "Viên" → lô lưu đúng chữ của danh mục ("viên"), không để hai cách viết.
     assert lo["unit"] == "viên"
     assert "quy_doi" not in kq
-    assert (
-        await co.q.pool.fetchval(
-            "SELECT count(*) FROM thuoc_quy_doi WHERE drug_catalog_id = $1::uuid", drug
-        )
-        == 0
-    )
+    assert await _he_so_hop(co, drug) == 10, "hệ số gõ cho đơn vị gốc bị bỏ qua"
 
 
 async def test_gia_von_lam_tron_dong(co: Co) -> None:
@@ -229,6 +252,7 @@ async def test_giao_thuoc_sau_khi_quy_doi_tru_kho_dung(co: Co) -> None:
     await co.q.pool.execute(
         "UPDATE drug_catalog SET don_vi_ban = 'viên' WHERE id = $1::uuid", drug
     )
+    await _khai_hop(co, drug)
     await _thu(co.q)
     kq = await _nhap(co, drug, 6, "hộp", cost_price=450000, he_so="10")
     svc = PharmacyService(co.q.pool)
@@ -293,7 +317,7 @@ async def test_phieu_nhap_mot_dong_thieu_he_so_thi_ca_phieu_khong_vao(co: Co) ->
     ma_a, ma_b = _ma(), _ma()
     han = (hom_nay_vn() + timedelta(days=900)).isoformat()
     khoa = uuid.uuid4().hex
-    with pytest.raises(ValidationError, match=r"Dòng 2: .*1 hộp = \? viên"):
+    with pytest.raises(ValidationError, match="Dòng 2: .*chưa khai đơn vị “hộp”"):
         await kho_thuoc_service.tao_phieu_nhap(
             co.q.pool,
             identity=co.ds,
@@ -333,30 +357,27 @@ async def test_phieu_nhap_mot_dong_thieu_he_so_thi_ca_phieu_khong_vao(co: Co) ->
 async def test_xem_truoc_noi_ro_dong_nhap(co: Co) -> None:
     drug = await _thuoc_ban_vien(co)
     pool = co.q.pool
-    chua = await kho_thuoc_service.xem_truoc_quy_doi(
+    chua = await xem_truoc_quy_doi(
+        pool, identity=co.ds, drug_catalog_id=drug, unit="lọ", so_luong="6"
+    )
+    assert (chua["he_so"], chua["so_luong_quy_doi"]) == (None, None)
+    assert "chưa khai" in chua["loi"]
+    da_khai = await xem_truoc_quy_doi(
         pool, identity=co.ds, drug_catalog_id=drug, unit="hộp", so_luong="6"
     )
-    assert (chua["can_doi"], chua["he_so"], chua["so_luong_quy_doi"]) == (
-        True,
-        None,
-        None,
+    assert da_khai["so_luong_quy_doi"] == D(60)
+    assert da_khai["ket_qua"] == "6 hộp = 60 viên"
+    go = await xem_truoc_quy_doi(
+        pool, identity=co.ds, drug_catalog_id=drug, unit="hộp", he_so="12", so_luong="6"
     )
-    go = await kho_thuoc_service.xem_truoc_quy_doi(
-        pool, identity=co.ds, drug_catalog_id=drug, unit="hộp", he_so="10", so_luong="6"
-    )
-    assert go["so_luong_quy_doi"] == D(60) and go["can_xac_nhan"] is False
-    # Xem trước KHÔNG được nhớ hệ số.
-    assert (
-        await pool.fetchval(
-            "SELECT count(*) FROM thuoc_quy_doi WHERE drug_catalog_id = $1::uuid", drug
-        )
-        == 0
-    )
-    cung = await kho_thuoc_service.xem_truoc_quy_doi(
+    assert go["so_luong_quy_doi"] == D(72) and go["can_xac_nhan"] is False
+    # Xem trước KHÔNG được ghi hệ số.
+    assert await _he_so_hop(co, drug) == 10
+    cung = await xem_truoc_quy_doi(
         pool, identity=co.ds, drug_catalog_id=drug, unit="viên", so_luong="abc"
     )
     assert cung["can_doi"] is False
-    rac = await kho_thuoc_service.xem_truoc_quy_doi(
+    rac = await xem_truoc_quy_doi(
         pool, identity=co.ds, drug_catalog_id=drug, unit="hộp", he_so="10", so_luong="x"
     )
     assert rac["so_luong_quy_doi"] is None  # số lượng rác → trả rỗng, không ném

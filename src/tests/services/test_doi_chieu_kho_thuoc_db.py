@@ -154,6 +154,17 @@ async def khop(
 async def _nhap(
     co: Co, drug: str, so: int, don_vi: str, *, he_so: int | None = None
 ) -> str:
+    if he_so is not None:
+        # Nhập chỉ theo đơn vị đã khai (PR C 26/11): khai trước, như người kho làm
+        # ở Danh mục ("chỉ để nhập").
+        await co.q.pool.execute(
+            "INSERT INTO thuoc_quy_doi (clinic_id, drug_catalog_id, don_vi, he_so,"
+            " dang_ban) SELECT clinic_id, id, $2, $3, false FROM drug_catalog"
+            " WHERE id = $1::uuid ON CONFLICT DO NOTHING",
+            drug,
+            don_vi,
+            he_so,
+        )
     kq = await PharmacyService(co.q.pool).nhap_lo(
         identity=co.ds,
         drug_catalog_id=drug,
@@ -343,6 +354,12 @@ async def test_giao_khi_lo_nhap_hop_da_doi_ve_vien_thi_kho_phan_anh(q: Quay) -> 
     rx, drug = await _dong_da_xac_dinh(q, 8)
     await _thu(q)
     svc = PharmacyService(q.pool)
+    await q.pool.execute(
+        "INSERT INTO thuoc_quy_doi (clinic_id, drug_catalog_id, don_vi, he_so,"
+        " dang_ban) SELECT clinic_id, id, 'hộp', 10, false FROM drug_catalog"
+        " WHERE id = $1::uuid",
+        drug,
+    )
     nhap = await svc.nhap_lo(
         identity=q.duoc_si,
         drug_catalog_id=drug,

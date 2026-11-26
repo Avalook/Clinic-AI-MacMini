@@ -782,7 +782,6 @@ MODULE: dict[str, Module] = {
                 "partner.sample_collected",
             ],
             ben_nhan=["doi_tac_nhan_viec"],
-            # `doi_tac_thanh_toan` chuyển sang `xet_nghiem_doi_tac` (05/11/2026).
             bang=["doi_tac_nhan_viec"],
             goi_dong_bo=["xet_nghiem_doi_tac.RecordLabPayment"],
         ),
@@ -882,7 +881,6 @@ MODULE: dict[str, Module] = {
             lenh=[
                 "MapDrug",
                 "SetPurchasedQty",
-                # Quầy chỉnh đơn bán trước khi thu (24/09/2026).
                 "AdjustSaleAtCounter",
                 "AllocateLots",
                 "DispenseMedicine",
@@ -896,6 +894,8 @@ MODULE: dict[str, Module] = {
                 "pharmacy.expiry_checked",
                 "medicine.returned",
                 "pharmacy.stocktake_mismatch",
+                "drug_unit.base_renamed",
+                "drug_unit.base_rename_undone",
             ],
             bang=["prescription_allocation", "inventory_txn"],
             quyen=["pharmacy.dispense", "pharmacy.view", "price.medicine.manage"],

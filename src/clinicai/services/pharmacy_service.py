@@ -73,6 +73,8 @@ from clinicai.services.hoan_tac_giao_service import (
 )
 from clinicai.services.moc_kham_xong import kham_xong_sql
 from clinicai.services.phan_lo_service import chua_giao_cua_dong, khoa_lo, so
+from clinicai.services.thuoc import don_vi_ke
+from clinicai.services.thuoc.don_vi_nhap import xet_quy_doi
 from clinicai.services.thuoc.gia_dong import don_vi_ke_mac_dinh, don_vi_me
 from clinicai.services.vat_tu_trung_ma import thuoc_la_vat_tu
 
@@ -583,6 +585,7 @@ class PharmacyService:
             else _so(ton_toi_thieu, ten="Tồn tối thiểu", cho_0=True)
         )
         don_vi_them = doc_don_vi_gui_len(cac_don_vi, goc=don_vi_ban, gia_goc=gia_so)
+        me = don_vi_ke.doc_me_gui_len(cac_don_vi)
 
         def _chu(v: str | None) -> str | None:
             v = (v or "").strip()
@@ -600,6 +603,9 @@ class PharmacyService:
             if trung is not None:
                 raise ConflictError(f"Đã có thuốc tên “{ten_sach}” trong danh mục.")
             gia_cu: Decimal | None = None
+            await don_vi_ke.kiem_ten_goc(
+                conn, identity.clinic_id, drug_catalog_id, don_vi_ban
+            )
             if drug_catalog_id is not None:
                 await kiem_doi_don_vi_goc(
                     conn, identity, thuoc=drug_catalog_id, goc_moi=don_vi_ban
@@ -673,17 +679,21 @@ class PharmacyService:
                         "don_vi": _chu(don_vi_ban),
                     },
                 )
+            await don_vi_ke.truoc_khi_luu(
+                conn, identity, thuoc=ma, me=me, ds=cac_don_vi
+            )
             doi = await luu_cac_don_vi(
                 conn, identity, thuoc=ma, ds=don_vi_them, gia_goc=gia_so
             )
-            if doi:
+            doi_me = await don_vi_ke.sau_khi_luu(conn, identity, thuoc=ma, me=me)
+            if doi or doi_me:
                 await _log(
                     conn,
                     identity=identity,
                     event_type="pharmacy.sale_units_changed",
                     aggregate_type="drug_catalog",
                     aggregate_id=ma,
-                    payload={"doi": doi},
+                    payload={"doi": doi, **(doi_me or {})},
                 )
         return {"ok": True, "id": ma}
 
@@ -3748,11 +3758,6 @@ def kiem_dong_nhap(
     return _so(so_luong, ten="Số lượng nhập"), ma_lo, don_vi, han
 
 
-#: Hệ số quy đổi tối đa (khớp CHECK `thuoc_quy_doi.he_so`).
-HE_SO_TOI_DA = Decimal(10_000)
-#: Hệ số lần này lệch quá ngần ấy lần so với hệ số đã nhớ thì bắt xác nhận —
-#: gõ thừa/thiếu một số 0 là lỗi hay gặp nhất và làm lệch tồn cả chục lần.
-NGUONG_HE_SO_LA = Decimal(10)
 _BA_SO_LE = Decimal("0.001")
 #: Trần của `inventory_txn.quantity` numeric(12,3), chừa chỗ cho số lẻ.
 _LUONG_TOI_DA_SAU_DOI = Decimal(999_999_999)
@@ -3782,70 +3787,6 @@ def _so_dep(x: Decimal) -> str:
     return format(x.normalize(), "f")
 
 
-async def xet_quy_doi(
-    conn: asyncpg.Connection,
-    *,
-    identity: StaffIdentity,
-    drug_catalog_id: str,
-    unit: str,
-    he_so: Any = None,
-) -> dict[str, Any]:
-    """Nhập theo `unit` thì có phải đổi về đơn vị bán không, và hệ số nào.
-
-    Trả `{can_doi, don_vi_ban, he_so_da_nho, he_so, la}`: `he_so` là hệ số sẽ dùng
-    (gõ vào, không thì đã nhớ; None = còn thiếu), `la` = hệ số gõ lệch hơn
-    `NGUONG_HE_SO_LA` lần so với hệ số đã nhớ. Hệ số gõ rác → ValidationError."""
-    ban = (
-        await conn.fetchval(
-            "SELECT don_vi_ban FROM public.drug_catalog"
-            " WHERE id = $1::uuid AND clinic_id = $2::uuid",
-            drug_catalog_id,
-            identity.clinic_id,
-        )
-        or ""
-    ).strip()
-    if not ban or not _don_vi(unit) or _don_vi(unit) == _don_vi(ban):
-        return {
-            "can_doi": False,
-            "don_vi_ban": ban or None,
-            "he_so_da_nho": None,
-            "he_so": None,
-            "la": False,
-        }
-    nho = await conn.fetchval(
-        "SELECT he_so FROM public.thuoc_quy_doi"
-        " WHERE clinic_id = $1::uuid AND drug_catalog_id = $2::uuid AND don_vi = $3",
-        identity.clinic_id,
-        drug_catalog_id,
-        _don_vi(unit),
-    )
-    if he_so is None or str(he_so).strip() == "":
-        return {
-            "can_doi": True,
-            "don_vi_ban": ban,
-            "he_so_da_nho": nho,
-            "he_so": nho,
-            "la": False,
-        }
-    hs = _so(he_so, ten="Hệ số quy đổi")
-    if hs > HE_SO_TOI_DA:
-        raise ValidationError(
-            f"Hệ số quy đổi quá lớn (tối đa {HE_SO_TOI_DA:,.0f}) — "
-            "kiểm tra lại có gõ thừa số 0 không."
-        )
-    hs = hs.quantize(_BA_SO_LE, rounding=ROUND_HALF_UP)
-    if hs <= 0:
-        raise ValidationError("Hệ số quy đổi phải lớn hơn 0 (tối đa 3 số lẻ).")
-    la = nho is not None and max(hs / nho, nho / hs) > NGUONG_HE_SO_LA
-    return {
-        "can_doi": True,
-        "don_vi_ban": ban,
-        "he_so_da_nho": nho,
-        "he_so": hs,
-        "la": la,
-    }
-
-
 async def quy_doi_dong_nhap(
     conn: asyncpg.Connection,
     *,
@@ -3857,34 +3798,22 @@ async def quy_doi_dong_nhap(
     he_so: Any = None,
     xac_nhan_he_so: bool = False,
 ) -> DongQuyDoi:
-    """Đổi một dòng nhập về ĐƠN VỊ BÁN của thuốc, ĐỨNG TRƯỚC `nhap_vao_lo`.
-
-    Kho chỉ giữ một đơn vị = `drug_catalog.don_vi_ban`; nhập khác đơn vị thì kho
-    ghi số đã đổi (6 hộp × 10 = 60 gói, giá 450.000đ/hộp → 45.000đ/gói), nếu
-    không giao thuốc ghi tiền mà không trừ được kho. Không đoán: thiếu hệ số thì
-    từ chối bằng một câu nói rõ cần gõ gì. Thuốc chưa khai đơn vị bán, hoặc nhập
-    đúng đơn vị bán → nguyên trạng."""
+    """Đổi một dòng nhập về ĐƠN VỊ GỐC (kho đếm), ĐỨNG TRƯỚC `nhap_vao_lo`: 6 hộp
+    × 10 = 60 gói, 450.000đ/hộp → 45.000đ/gói. Đơn vị phải đã khai, luật ở
+    `thuoc.don_vi_nhap.xet_quy_doi`; gõ hệ số khác thì cập nhật hệ số đã khai."""
     x = await xet_quy_doi(
         conn, identity=identity, drug_catalog_id=drug_catalog_id, unit=unit, he_so=he_so
     )
+    if x["loi"]:
+        raise ValidationError(x["loi"])
     if not x["can_doi"]:
-        # Gõ "Viên" mà thuốc bán theo "viên": lưu đúng chữ của danh mục, kẻo màn
-        # hiện hai cách viết của cùng một đơn vị.
-        ban = x["don_vi_ban"]
-        trung = bool(ban) and _don_vi(unit) == _don_vi(ban)
-        return DongQuyDoi(so_luong, ban if trung else unit, cost_price)
-    ban = x["don_vi_ban"]
-    hs = x["he_so"]
-    if hs is None:
-        raise ValidationError(
-            f"Thuốc này bán theo “{ban}”, bạn nhập theo “{unit}”: "
-            f"nhập hệ số — 1 {unit} = ? {ban}."
-        )
+        # Gõ "Viên" mà gốc là "viên": lưu đúng chữ của danh mục.
+        return DongQuyDoi(so_luong, x["don_vi"] or unit, cost_price)
+    ban, hs, unit = x["don_vi_ban"], x["he_so"], x["don_vi"]
     if x["la"] and not xac_nhan_he_so:
         raise ValidationError(
-            f"Hệ số lần này (1 {unit} = {_so_dep(hs)} {ban}) lệch hơn "
-            f"{NGUONG_HE_SO_LA:.0f} lần so với lần trước "
-            f"(1 {unit} = {_so_dep(x['he_so_da_nho'])} {ban}). "
+            f"Lần này 1 {unit} có {_so_dep(hs)} {ban} — lệch hơn 10 lần so với đã "
+            f"khai (1 {unit} có {_so_dep(x['he_so_da_nho'])} {ban}). "
             "Nếu đúng, tích “Đúng, hệ số này” rồi lưu lại."
         )
     luong = (so_luong * hs).quantize(_BA_SO_LE, rounding=ROUND_HALF_UP)
@@ -3901,15 +3830,9 @@ async def quy_doi_dong_nhap(
         )
     if x["he_so_da_nho"] != hs:
         await conn.execute(
-            """
-            INSERT INTO public.thuoc_quy_doi
-                (clinic_id, drug_catalog_id, don_vi, he_so, cap_nhat_boi)
-            VALUES ($1::uuid, $2::uuid, $3, $4, $5::uuid)
-            ON CONFLICT (clinic_id, drug_catalog_id, don_vi)
-            DO UPDATE SET he_so = EXCLUDED.he_so,
-                          cap_nhat_boi = EXCLUDED.cap_nhat_boi,
-                          cap_nhat_luc = now()
-            """,
+            "UPDATE public.thuoc_quy_doi SET he_so = $4, cap_nhat_boi = $5::uuid,"
+            " cap_nhat_luc = now() WHERE clinic_id = $1::uuid"
+            " AND drug_catalog_id = $2::uuid AND don_vi = $3",
             identity.clinic_id,
             drug_catalog_id,
             _don_vi(unit),

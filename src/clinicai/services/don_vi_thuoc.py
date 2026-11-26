@@ -13,10 +13,9 @@ Lô theo đơn vị khác gốc (lô cũ "hộp", thuốc bán "viên"): cột k
 gốc, không quá `SAI_SO_GOC_TOI_DA` (hệ số tới 100 luôn lọt). Hệ số lớn hơn mà đổi không
 chẵn thì KHÔNG trừ: phần đó vào chờ gán lô, câu báo nói rõ.
 
-Chữ bác sĩ gõ tự do giữ nguyên trên dòng đơn. `BangDonVi` chỉ NHẬN DIỆN: "Hộp", "hop",
-"hộp 30 viên", "v" (khi thuốc chỉ có một đơn vị bắt đầu bằng v). Nhận không ra thì là
-đơn vị chưa khai, không đoán. Số lượng do `so_luong_tu_van_ban` đọc ("1/2 hộp" không
-có số) — ở đây không đoán số.
+Chữ bác sĩ gõ giữ nguyên trên dòng đơn. `BangDonVi` chỉ NHẬN DIỆN: "Hộp", "hop", "hộp
+30 viên", "v" (thuốc chỉ có một đơn vị bắt đầu bằng v); không ra thì là chưa khai,
+không đoán. Số lượng do `so_luong_tu_van_ban` đọc — ở đây không đoán số.
 """
 
 from __future__ import annotations
@@ -169,6 +168,7 @@ class BangDonVi:
                 "gia": int(d.gia) if d.gia is not None else None,
                 "dang_ban": d.dang_ban,
                 "phien": d.phien,
+                "mac_dinh_ke": chuan(d.don_vi) == self.me,
             }
             for d in sorted(self.dong.values(), key=lambda x: (x.he_so, x.don_vi))
         ]
@@ -298,7 +298,7 @@ def cau_thieu_quy_doi(q: QuyDoiDong, don_vi_lo: Iterable[str | None]) -> str | N
     if q.he_so_dong is None:
         return (
             f"Cần thêm đơn vị “{q.don_vi}” ở Danh mục kho "
-            f"(1 {q.don_vi} = ? {b.goc}) rồi gán lô."
+            f"(1 {q.don_vi} có bao nhiêu {b.goc}?) rồi gán lô."
         )
     thieu = sorted(
         {

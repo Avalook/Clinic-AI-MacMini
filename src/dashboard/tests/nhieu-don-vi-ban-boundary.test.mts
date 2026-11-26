@@ -20,13 +20,37 @@ test("mọi ô đơn vị thuốc đi qua ODonVi", () => {
   for (const tep of [
     `${D}/pharmacy/inventory/DanhMucKho.tsx`,
     `${D}/pharmacy/inventory/SuaDonViBan.tsx`,
-    `${D}/pharmacy/inventory/NhapLo.tsx`,
-    `${D}/pharmacy/inventory/PhieuNhap.tsx`,
+    `${D}/pharmacy/inventory/ChonDonViNhap.tsx`,
     `${D}/thu-ngan/ChinhDonQuay.tsx`,
     `${D}/_lam-viec/phieu-kham/DonThuocPhieu.tsx`,
   ]) {
     assert.ok(doc(tep).includes("ODonVi"), tep);
   }
+});
+
+test("nhập kho (Nhập lô, Phiếu nhập) CHỌN đơn vị đã khai, không gõ tự do (PR C 26/11)", () => {
+  for (const tep of ["NhapLo", "PhieuNhap"]) {
+    const s = doc(`${D}/pharmacy/inventory/${tep}.tsx`);
+    assert.ok(s.includes("<ChonDonViNhap"), tep);
+    assert.ok(!s.includes("<ODonVi"), `${tep} còn ô gõ đơn vị tự do`);
+  }
+  const c = doc(`${D}/pharmacy/inventory/ChonDonViNhap.tsx`);
+  assert.ok(c.includes("cac_don_vi") && c.includes("<select"), "danh sách do máy chủ trả");
+  // ODonVi chỉ còn cho thuốc chưa khai đơn vị gốc (danh sách rỗng).
+  assert.match(c, /if \(ds && ds\.length === 0\) \{\s*return <ODonVi/);
+});
+
+test("đơn vị bán thêm: câu lời người, mặc định khi kê, đổi tên gốc (PR C 26/11)", () => {
+  const s = doc(`${D}/pharmacy/inventory/SuaDonViBan.tsx`);
+  assert.ok(s.includes("có bao nhiêu {goc}?"), "câu “1 hộp có bao nhiêu viên?”");
+  assert.ok(!s.includes("= ? {goc}"), "bỏ câu kiểu máy “1 hộp = ? viên”");
+  assert.ok(s.includes("mac_dinh_ke: j === i"), "gửi cờ mặc định ở mọi dòng");
+  assert.ok(s.includes("<DoiTenGoc"));
+  const d = doc(`${D}/pharmacy/inventory/DoiTenGoc.tsx`);
+  assert.ok(d.includes('guiKho("doi-ten-goc"') && d.includes('guiKho("hoan-tac-doi-ten-goc"'));
+  const r = doc("app/api/pharmacy/[action]/route.ts");
+  assert.ok(r.includes('"doi-ten-goc": "/api/v1/pharmacy/doi-ten-goc"'));
+  assert.ok(r.includes('"hoan-tac-doi-ten-goc": "/api/v1/pharmacy/hoan-tac-doi-ten-goc"'));
 });
 
 test("quầy: đổi đơn vị gọi máy chủ, proxy chuyển đúng route", () => {

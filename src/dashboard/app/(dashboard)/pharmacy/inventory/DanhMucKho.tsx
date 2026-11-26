@@ -267,7 +267,7 @@ export default function DanhMucKho({
             {o("cach_dung", "Cách dùng (điền sẵn vào đơn)", true)}
             {o("luu_y", "Lưu ý", true)}
           </div>
-          <SuaDonViBan donViGoc={form.don_vi_ban} dong={donVi} onDoi={setDonVi} suaGiaDuoc={suaGiaDuoc} />
+          <SuaDonViBan donViGoc={form.don_vi_ban} dong={donVi} onDoi={setDonVi} suaGiaDuoc={suaGiaDuoc} idThuoc={sua || null} />
           <label className="flex min-h-10 items-center gap-2 text-body text-ink">
             <input
               type="checkbox"

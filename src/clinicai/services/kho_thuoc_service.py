@@ -54,7 +54,6 @@ from clinicai.services.pharmacy_service import (
     nhap_vao_lo,
     quy_doi_dong_nhap,
     tach_kho_quay_bat,
-    xet_quy_doi,
 )
 
 #: Loại dòng sổ đổi tồn VẬT LÝ (khác SALE / SALE_REVERSAL).
@@ -346,43 +345,6 @@ async def xuat_nhap_ton(
             identity.location_id,
         )
     return {"tu": a.isoformat(), "den": b.isoformat(), "dong": [dict(r) for r in rows]}
-
-
-async def xem_truoc_quy_doi(
-    pool: asyncpg.Pool,
-    *,
-    identity: StaffIdentity,
-    drug_catalog_id: str,
-    unit: str,
-    he_so: Any = None,
-    so_luong: Any = None,
-) -> dict[str, Any]:
-    """Xem trước một dòng nhập: có phải đổi về đơn vị bán, hệ số nào, "= N đơn vị
-    bán", và có cần xác nhận hệ số lạ không. Chỉ đọc — không nhớ hệ số.
-    Số lượng rác → không có dòng "= N" (không ném)."""
-    async with pool.acquire() as conn:
-        x = await xet_quy_doi(
-            conn,
-            identity=identity,
-            drug_catalog_id=drug_catalog_id,
-            unit=unit,
-            he_so=he_so,
-        )
-    kq: dict[str, Any] = {
-        "can_doi": x["can_doi"],
-        "don_vi_ban": x["don_vi_ban"],
-        "he_so_da_nho": x["he_so_da_nho"],
-        "he_so": x["he_so"],
-        "can_xac_nhan": x["la"],
-        "so_luong_quy_doi": None,
-    }
-    if x["can_doi"] and x["he_so"] is not None:
-        try:
-            luong = _so(so_luong, ten="Số lượng nhập")
-        except ValidationError:
-            return kq
-        kq["so_luong_quy_doi"] = (luong * x["he_so"]).quantize(Decimal("0.001"))
-    return kq
 
 
 async def danh_sach_phieu(

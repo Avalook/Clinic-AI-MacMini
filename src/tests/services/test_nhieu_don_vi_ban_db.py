@@ -901,7 +901,7 @@ async def test_don_vi_la_tinh_gia_goc_co_canh_bao_giao_cho_gan_noi_can_them(
 
     assert kq["chua_tru_kho"] == 1 and await _ton(q, lo) == 40
     assert "Cần thêm đơn vị “tuýp”" in kq["tom_tat"]
-    assert "1 tuýp = ? gói" in kq["tom_tat"]
+    assert "1 tuýp có bao nhiêu gói?" in kq["tom_tat"]
 
     await _sua_don_vi(
         q, drug, [{"don_vi": "tuýp", "he_so": 10, "gia": 800_000, "dang_ban": True}]
