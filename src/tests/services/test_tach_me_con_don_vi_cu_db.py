@@ -39,7 +39,16 @@ async def _thuoc(conn: asyncpg.Connection, dv: str) -> str:
 Dong = list[tuple[str, int, str]]
 
 
-async def _lo(conn: asyncpg.Connection, thuoc: str, dv: str, noi: str, ds: Dong) -> str:
+async def _lo(
+    conn: asyncpg.Connection,
+    thuoc: str,
+    dv: str,
+    noi: str,
+    ds: Dong,
+    cung_lo: str | None = None,
+) -> str:
+    """`cung_lo` = id lô KHO: tạo hàng QUẦY cùng mã lô + mã tem (như prod) — để
+    kiểm `drug_batch_hang_khop` (hai hàng cùng lô phải cùng đơn vị) chạy thật."""
     cs = await conn.fetchval(
         "SELECT id::text FROM clinic_location WHERE clinic_id = $1::uuid LIMIT 1",
         CLINIC,
@@ -48,8 +57,11 @@ async def _lo(conn: asyncpg.Connection, thuoc: str, dv: str, noi: str, ds: Dong)
         await conn.fetchval(
             "INSERT INTO drug_batch (clinic_id, location_id, drug_catalog_id,"
             " batch_code, expiry_date, quantity_on_hand, unit, noi_chua, received_at,"
-            " ma_tem) VALUES ($1::uuid, $2::uuid, $3::uuid, $4, '2099-12-31', 0, $5,"
-            " $6, now(), 'LT' || lpad(nextval('drug_batch_tem_seq')::text, 8, '0'))"
+            " ma_tem) SELECT $1::uuid, $2::uuid, $3::uuid,"
+            " coalesce(k.batch_code, $4), '2099-12-31', 0, $5, $6, now(),"
+            " coalesce(k.ma_tem,"
+            "  'LT' || lpad(nextval('drug_batch_tem_seq')::text, 8, '0'))"
+            " FROM (SELECT 1) x LEFT JOIN drug_batch k ON k.id = $7::uuid"
             " RETURNING id::text",
             CLINIC,
             cs,
@@ -57,6 +69,7 @@ async def _lo(conn: asyncpg.Connection, thuoc: str, dv: str, noi: str, ds: Dong)
             f"LO-{uuid.uuid4().hex[:6]}",
             dv,
             noi,
+            cung_lo,
         )
     )
     for loai, so, ly_do in ds:
@@ -97,9 +110,13 @@ async def test_tach_me_con(pool: asyncpg.Pool) -> None:  # noqa: F811
                 ("CHUYEN_RA", -11, "Chuyển kho"),
             ],
         )
-        lo_quay = await _lo(conn, eca, dv, "QUAY", [("CHUYEN_VAO", 3, "Chuyển kho")])
+        lo_quay = await _lo(
+            conn, eca, dv, "QUAY", [("CHUYEN_VAO", 3, "Chuyển kho")], cung_lo=lo_kho
+        )
 
-        await conn.execute(SQL)
+        # Một giao dịch như lúc áp migration: kiểm hoãn tới commit phải qua.
+        async with conn.transaction():
+            await conn.execute(SQL)
         await conn.execute(SQL)  # chạy lại: không đổi gì thêm
 
         ton = dict(

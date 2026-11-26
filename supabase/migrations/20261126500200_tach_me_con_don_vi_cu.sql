@@ -33,19 +33,30 @@ BEGIN
            FOR UPDATE OF d
     LOOP
         IF EXISTS (
+            SELECT 1 FROM public.thuoc_giao_chua_gan_lo g
+             WHERE g.clinic_id = r.clinic_id AND g.drug_catalog_id = r.id
+               AND g.drug_batch_id IS NULL AND g.huy_luc IS NULL
+        ) AND EXISTS (
             SELECT 1 FROM public.thuoc_quy_doi q
              WHERE q.clinic_id = r.clinic_id AND q.drug_catalog_id = r.id
                AND public.chuan_don_vi(q.don_vi) = public.chuan_don_vi(r.me)
                AND q.he_so = r.n
         ) THEN
-            IF EXISTS (
-                SELECT 1 FROM public.thuoc_giao_chua_gan_lo g
-                 WHERE g.clinic_id = r.clinic_id AND g.drug_catalog_id = r.id
-                   AND g.drug_batch_id IS NULL AND g.huy_luc IS NULL
-            ) THEN
-                RAISE NOTICE 'Bỏ qua % (%): còn dòng chờ gán lô', r.id, r.cu;
-                CONTINUE;
-            END IF;
+            RAISE NOTICE 'Bỏ qua % (%): còn dòng chờ gán lô', r.id, r.cu;
+            CONTINUE;
+        END IF;
+        -- Đổi chữ trên lô TRƯỚC dòng ADJUST: kiểm "hai hàng KHO/QUẦY cùng đơn vị"
+        -- (drug_batch_hang_khop, hoãn tới commit) so bản ghi của từng lần cập nhật —
+        -- ADJUST trừ tồn khi lô còn chữ cũ sẽ bị so với hàng kia đã mang chữ mới.
+        UPDATE public.drug_batch SET unit = r.me, updated_at = now()
+         WHERE clinic_id = r.clinic_id AND drug_catalog_id = r.id
+           AND public.chuan_don_vi(unit) = public.chuan_don_vi(r.cu);
+        IF EXISTS (
+            SELECT 1 FROM public.thuoc_quy_doi q
+             WHERE q.clinic_id = r.clinic_id AND q.drug_catalog_id = r.id
+               AND public.chuan_don_vi(q.don_vi) = public.chuan_don_vi(r.me)
+               AND q.he_so = r.n
+        ) THEN
             FOR lo IN
                 SELECT b.id, b.quantity_on_hand FROM public.drug_batch b
                  WHERE b.clinic_id = r.clinic_id AND b.drug_catalog_id = r.id
@@ -72,9 +83,6 @@ BEGIN
              WHERE q.clinic_id = r.clinic_id AND q.drug_catalog_id = r.id
                AND public.chuan_don_vi(q.don_vi) = public.chuan_don_vi(r.me);
         END IF;
-        UPDATE public.drug_batch SET unit = r.me, updated_at = now()
-         WHERE clinic_id = r.clinic_id AND drug_catalog_id = r.id
-           AND public.chuan_don_vi(unit) = public.chuan_don_vi(r.cu);
         UPDATE public.drug_catalog
            SET don_vi_ban = r.me,
                don_vi_con = coalesce(don_vi_con, r.con),
