@@ -11,12 +11,14 @@ vị tách từ `quantity` ("2 hộp"), cách dùng là phần sau " — " của
 from __future__ import annotations
 
 import re
+from datetime import date
 from typing import Any
 
 import asyncpg
 
 from clinicai.api.exceptions import NotFoundError
 from clinicai.api.identity import StaffIdentity
+from clinicai.core.clock import hom_nay_vn
 from clinicai.services.thuoc import cach_dung_db
 
 _SO_DON_VI = re.compile(r"^\s*([0-9]+(?:[.,][0-9]+)?)\s*(.*?)\s*$")
@@ -46,6 +48,25 @@ async def _luot_cua_phieu(conn: asyncpg.Connection, cid: str, phieu_id: str) -> 
     return str(v)
 
 
+async def _ngay_mua(
+    conn: asyncpg.Connection, cid: str, visit_id: str, phieu_id: str | None
+) -> date:
+    """Ngày khách mua = ngày của lần thu thuốc (đúng phiếu nếu có, không thì lần thu
+    thuốc còn sống gần nhất của lượt); chưa thu thì hôm nay (Tuyền 26/11)."""
+    d = await conn.fetchval(
+        "SELECT (coalesce(paid_at, created_at) AT TIME ZONE 'Asia/Ho_Chi_Minh')::date"
+        "  FROM public.payment_cycle"
+        " WHERE clinic_id = $1::uuid AND visit_id = $2::uuid AND kind = 'thuoc'"
+        "   AND ($3::uuid IS NULL OR payment_cycle_id = $3::uuid)"
+        "   AND status IN ('PENDING_VERIFICATION', 'PAID')"
+        " ORDER BY created_at DESC LIMIT 1",
+        cid,
+        visit_id,
+        phieu_id,
+    )
+    return d if d is not None else hom_nay_vn()
+
+
 async def ngay_het_thuoc_cua_luot(
     pool: asyncpg.Pool,
     *,
@@ -67,6 +88,7 @@ async def ngay_het_thuoc_cua_luot(
             cid,
             visit_id,
         )
+        ngay_mua = await _ngay_mua(conn, cid, str(visit_id), phieu_id)
     if not rows:
         return []
     dong = []
@@ -88,6 +110,7 @@ async def ngay_het_thuoc_cua_luot(
         kinh_lan_cuoi=None,
         chu_ky=None,
         da_gac_quyen=True,
+        ngay_mua=ngay_mua,
     )
     return [
         {"ten": r["ten"], "so_luong": str(r["quantity"] or ""), **n}
@@ -117,7 +140,8 @@ async def ngay_het_tung_dong(
     dong: list[dict[str, Any]],
 ) -> dict[str, dict[str, Any]]:
     """Quầy gửi dòng đang bán (số quầy nhập / số kê, đơn vị đang chọn, chữ cách dùng)
-    → {id dòng: {so_ngay, ngay_het}}, chỉ dòng tính được. Người gọi đã gác quyền."""
+    → {id dòng: {so_ngay, ngay_het}}, chỉ dòng tính được. Người gọi đã gác quyền.
+    Khách đang mua tại quầy → ngày hết tính từ hôm nay."""
     if not dong:
         return {}
     kq = await cach_dung_db.tinh_don(
@@ -128,6 +152,7 @@ async def ngay_het_tung_dong(
         kinh_lan_cuoi=None,
         chu_ky=None,
         da_gac_quyen=True,
+        ngay_mua=hom_nay_vn(),
     )
     return {
         str(d["id"]): n

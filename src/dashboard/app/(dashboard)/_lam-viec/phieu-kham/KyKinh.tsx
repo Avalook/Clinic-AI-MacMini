@@ -51,6 +51,10 @@ export default function KyKinh({
   chiDoc: boolean;
 }) {
   const thu = mo ? ngayThuCuaKy(kinh.kinh_lan_cuoi, kinh.chu_ky, ngayKe ?? "") : null;
+  // Ngày kinh sau ngày khám → không tính được; nói rõ thay vì im lặng (Tuyền 26/11).
+  const kinhIso = sangIso(kinh.kinh_lan_cuoi);
+  const keIso = (ngayKe ?? "").slice(0, 10);
+  const sauNgayKham = Boolean(kinhIso && keIso && kinhIso > keIso);
   const so = (v: string) => Math.max(1, Math.min(60, Number(v) || 1));
   return (
     <div className="rounded-control border border-brand-600/30 bg-brand-50 p-2 sm:col-span-12">
@@ -113,7 +117,11 @@ export default function KyKinh({
               Hôm nay (ngày khám) là ngày thứ {thu} của kỳ kinh.
             </p>
           ) : null}
-          {ketQua ? (
+          {sauNgayKham ? (
+            <p className="col-span-2 text-body font-semibold text-danger sm:col-span-6" role="alert">
+              Ngày kinh {kinh.kinh_lan_cuoi} sau ngày khám {sangVn(keIso)} — kiểm lại ngày.
+            </p>
+          ) : ketQua ? (
             <p className="col-span-2 text-body font-semibold text-success sm:col-span-6" role="status">
               {ketQua}
             </p>

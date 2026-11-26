@@ -28,7 +28,18 @@ def test_tach_dong_don() -> None:
     assert cach_dung_cua_dong("Ngày 2 lần") == "Ngày 2 lần"
 
 
-async def test_ngay_het_thuoc_cua_luot(pool: asyncpg.Pool) -> None:  # noqa: F811
+@pytest.fixture
+def hom_nay(monkeypatch: pytest.MonkeyPatch) -> date:
+    """Khách mua 28/11, hai ngày sau ngày khám 26/11 (Tuyền: tính từ ngày mua)."""
+    d = date(2026, 11, 28)
+    monkeypatch.setattr("clinicai.services.thuoc.het_thuoc.hom_nay_vn", lambda: d)
+    return d
+
+
+async def test_ngay_het_thuoc_cua_luot(
+    pool: asyncpg.Pool,  # noqa: F811
+    hom_nay: date,
+) -> None:
     async with pool.acquire() as conn:
         bs = await _nguoi(conn, "DOCTOR")
         luot = await _luot(conn, bs)
@@ -55,10 +66,27 @@ async def test_ngay_het_thuoc_cua_luot(pool: asyncpg.Pool) -> None:  # noqa: F81
             },
         ],
     )
+    # Chưa thu: tính từ hôm nay (ngày khách đứng ở quầy mua) 28/11, không từ ngày khám.
     ds = await ngay_het_thuoc_cua_luot(pool, identity=bs, visit_id=luot["visit"])
-    assert [(d["so_ngay"], d["ngay_het"]) for d in ds] == [(30, date(2026, 12, 25))]
+    assert [(d["so_ngay"], d["ngay_het"]) for d in ds] == [(30, date(2026, 12, 27))]
 
-    # Quầy bán 2 hộp (khác số kê) → theo số ĐANG BÁN: 60 ngày.
+    # Đã thu 29/11: hoá đơn in tính từ ngày của lần thu đó.
+    async with pool.acquire() as conn:
+        phieu = await conn.fetchval(
+            "INSERT INTO public.payment_cycle"
+            " (payment_cycle_id, clinic_id, visit_id, kind, amount, status, legacy,"
+            "  paid_at)"
+            " SELECT gen_random_uuid(), clinic_id, visit_id, 'thuoc', 550000, 'PAID',"
+            "        true, '2026-11-29 10:00+07'"
+            "   FROM public.visit WHERE visit_id = $1::uuid"
+            " RETURNING payment_cycle_id::text",
+            luot["visit"],
+        )
+    for theo in ({"visit_id": luot["visit"]}, {"phieu_id": phieu}):
+        ds = await ngay_het_thuoc_cua_luot(pool, identity=bs, **theo)
+        assert [(d["so_ngay"], d["ngay_het"]) for d in ds] == [(30, date(2026, 12, 28))]
+
+    # Quầy bán 2 hộp (khác số kê) → theo số ĐANG BÁN: 60 ngày, từ hôm nay 28/11.
     theo_dong = await ngay_het_tung_dong(
         pool,
         identity=bs,
@@ -75,5 +103,5 @@ async def test_ngay_het_thuoc_cua_luot(pool: asyncpg.Pool) -> None:  # noqa: F81
         ],
     )
     assert theo_dong == {
-        "a": {"so_ngay": 60, "ngay_het": date(2027, 1, 24), "bat_dau": None}
+        "a": {"so_ngay": 60, "ngay_het": date(2027, 1, 26), "bat_dau": None}
     }
