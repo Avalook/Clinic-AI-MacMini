@@ -64,6 +64,7 @@ const KHO_MOCK = {
   "./TheoDoiThuoc": rong,
   "./ThuocTraChoKiem": rong,
   "./XuatNhapTon": rong,
+  "./YeuCauNhoKho": rong,
 };
 
 const BATCHES = [lo("k1", "KHO", 10), lo("k2", "KHO", 0), lo("q1", "QUAY", 4), lo("q0", "QUAY", 0)];
