@@ -13,12 +13,15 @@ Tên thuốc giả, không dữ liệu khách thật.
 
 from __future__ import annotations
 
+import asyncio
 from decimal import Decimal
 from typing import Any
 
 import pytest
 
 from clinicai.api.exceptions import ConflictError, ValidationError
+from clinicai.core.exceptions import SafetyGateError
+from clinicai.services.pharmacy_service import PharmacyService
 from clinicai.services.thuoc import doi_ten_goc
 from tests.services.test_luot_kham_service_db import CLINIC
 from tests.services.test_nhieu_don_vi_ban_db import _giao, _hd, _ke, _lo, _thu
@@ -183,6 +186,68 @@ async def test_doi_ten_trung_ten_cu_bi_tu_choi(q: Quay) -> None:
     drug = await _goc_co_so(q, "lọ", 550_000)
     with pytest.raises(ValidationError, match="giống tên"):
         await _doi(q, drug, ten_moi="Lọ")
+
+
+async def test_khong_quyen_sua_gia_thi_khong_doi_duoc(q: Quay) -> None:
+    drug = await _goc_co_so(q, "hộp 60 viên", 550_000)
+    with pytest.raises(SafetyGateError):
+        await doi_ten_goc.doi_ten_goc(
+            q.pool, identity=q.thu_ngan, thuoc=drug, ten_moi="viên",
+            don_vi_me="hộp", he_so_me="60",
+        )  # fmt: skip
+    assert await _me(q, drug) == []
+
+
+async def test_hoan_tac_bi_tu_choi_khi_goc_da_doi_tiep(q: Quay) -> None:
+    drug = await _goc_co_so(q, "hộp 60 viên", 550_000)
+    kq = await _doi(q, drug)
+    await q.pool.execute(
+        "UPDATE drug_catalog SET don_vi_ban = 'gói' WHERE id = $1::uuid", drug
+    )
+    with pytest.raises(ConflictError, match="đã đổi tiếp"):
+        await _hoan(q, kq["su_kien_id"])
+
+
+async def test_luu_danh_muc_chen_giua_doi_ten_khong_ghi_de_goc_gia(q: Quay) -> None:
+    """Tranh chấp: A mở form (gốc "hộp 60 viên", 550.000), B đổi tên gốc và commit
+    trước khi A bấm Lưu. A phải bị từ chối — không ghi lại 550.000đ cho 1 viên.
+    Ép thứ tự bằng khoá DB (B giữ FOR UPDATE), không bằng sleep."""
+    drug = await _goc_co_so(q, "hộp 60 viên", 550_000)
+    async with q.pool.acquire() as b:
+        tx = b.transaction()
+        await tx.start()
+        await b.execute(
+            "SELECT 1 FROM drug_catalog WHERE id = $1::uuid FOR UPDATE", drug
+        )
+        luu_a = asyncio.create_task(
+            PharmacyService(q.pool).luu_thuoc(
+                identity=q.duoc_si, drug_catalog_id=drug, ten=await q.pool.fetchval(
+                    "SELECT name_raw FROM drug_catalog WHERE id=$1", drug
+                ), gia=550_000, don_vi_ban="hộp 60 viên",
+            )
+        )  # fmt: skip
+        # Chờ ĐIỀU KIỆN DB (A đang xếp hàng sau khoá của B), có trần — không đoán giờ.
+        for _ in range(500):
+            if await q.pool.fetchval(
+                "SELECT EXISTS (SELECT 1 FROM pg_stat_activity WHERE"
+                " wait_event_type = 'Lock' AND query ILIKE '%drug_catalog%')"
+            ):
+                break
+            await asyncio.sleep(0.02)
+        else:
+            pytest.fail("A không xếp hàng sau khoá của B")
+        await b.execute(
+            "UPDATE drug_catalog SET don_vi_ban = 'viên', unit_price = NULL"
+            " WHERE id = $1::uuid",
+            drug,
+        )
+        await tx.commit()
+    with pytest.raises(ValidationError):
+        await luu_a
+    r = await q.pool.fetchrow(
+        "SELECT don_vi_ban, unit_price FROM drug_catalog WHERE id = $1::uuid", drug
+    )
+    assert (r["don_vi_ban"], r["unit_price"]) == ("viên", None)
 
 
 async def test_doi_ten_kem_gia_vien_khai_tay(q: Quay) -> None:

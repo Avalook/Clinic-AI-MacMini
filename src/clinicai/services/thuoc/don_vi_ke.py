@@ -59,6 +59,28 @@ def doc_me_gui_len(ds: Any) -> object | str:
     return me[0] if me else ""
 
 
+async def khoa_thuoc(
+    conn: asyncpg.Connection,
+    clinic_id: str,
+    thuoc: str | None,
+    *,
+    chia_se: bool = False,
+) -> None:
+    """Khoá dòng `drug_catalog` trong giao dịch của người gọi. Lưu danh mục khoá
+    độc quyền; nhập lô khoá chia sẻ — cả hai xếp hàng sau "Đổi tên đơn vị gốc"
+    (`doi_ten_goc`, FOR UPDATE) nên không đọc gốc cũ rồi ghi sau khi gốc đã đổi."""
+    if thuoc is None:
+        return
+    sql = (
+        "SELECT 1 FROM public.drug_catalog"
+        " WHERE clinic_id = $1::uuid AND id = $2::uuid FOR SHARE"
+        if chia_se
+        else "SELECT 1 FROM public.drug_catalog"
+        " WHERE clinic_id = $1::uuid AND id = $2::uuid FOR UPDATE"
+    )
+    await conn.execute(sql, clinic_id, thuoc)
+
+
 async def kiem_ten_goc(
     conn: asyncpg.Connection, clinic_id: str, thuoc: str | None, goc_moi: str | None
 ) -> None:

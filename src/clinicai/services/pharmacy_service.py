@@ -603,6 +603,9 @@ class PharmacyService:
             if trung is not None:
                 raise ConflictError(f"Đã có thuốc tên “{ten_sach}” trong danh mục.")
             gia_cu: Decimal | None = None
+            # Khoá dòng thuốc TRƯỚC khi đọc gốc/giá: lần "Đổi tên đơn vị gốc" chen
+            # giữa thì lần lưu này chờ rồi đọc số mới, không ghi đè gốc/giá cũ.
+            await don_vi_ke.khoa_thuoc(conn, identity.clinic_id, drug_catalog_id)
             await don_vi_ke.kiem_ten_goc(
                 conn, identity.clinic_id, drug_catalog_id, don_vi_ban
             )
@@ -3801,6 +3804,8 @@ async def quy_doi_dong_nhap(
     """Đổi một dòng nhập về ĐƠN VỊ GỐC (kho đếm), ĐỨNG TRƯỚC `nhap_vao_lo`: 6 hộp
     × 10 = 60 gói, 450.000đ/hộp → 45.000đ/gói. Đơn vị phải đã khai, luật ở
     `thuoc.don_vi_nhap.xet_quy_doi`; gõ hệ số khác thì cập nhật hệ số đã khai."""
+    # Khoá chia sẻ: không đọc gốc cũ trong lúc "Đổi tên đơn vị gốc" đang chạy.
+    await don_vi_ke.khoa_thuoc(conn, identity.clinic_id, drug_catalog_id, chia_se=True)
     x = await xet_quy_doi(
         conn, identity=identity, drug_catalog_id=drug_catalog_id, unit=unit, he_so=he_so
     )

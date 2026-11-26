@@ -226,14 +226,7 @@ async def doi_ten_goc(
         bang = (await doc_bang(conn, identity.clinic_id, [thuoc]))[thuoc]
         truoc = _kiem_bang(bang, cu, ten, me, hs)
         lo = await _doi_chu_lo(conn, identity.clinic_id, thuoc, bang, ten)
-        await conn.execute(
-            "UPDATE public.drug_catalog SET don_vi_ban = $3, unit_price = $4"
-            " WHERE clinic_id = $1::uuid AND id = $2::uuid",
-            identity.clinic_id,
-            thuoc,
-            ten,
-            le,
-        )
+        await _dat_goc(conn, identity.clinic_id, thuoc, ten, le)
         gia_me = truoc.gia if truoc is not None and truoc.gia is not None else gia_cu
         bi_danh = await _dat_me_moi(conn, identity, thuoc, (cu, me, hs, gia_me))
         p = DonViGocDaDoiTen(
@@ -244,13 +237,7 @@ async def doi_ten_goc(
             he_so_me=so_dep(hs),
             gia_goc_cu=None if gia_cu is None else int(gia_cu),
             gia_goc_moi=None if le is None else int(le),
-            me_truoc=None
-            if truoc is None
-            else {
-                "he_so": so_dep(truoc.he_so),
-                "gia": None if truoc.gia is None else int(truoc.gia),
-                "dang_ban": truoc.dang_ban,
-            },
+            me_truoc=_anh_me(truoc),
             me_cu=bang.me,
             bi_danh=bi_danh,
             don_vi_lo=lo,
@@ -264,18 +251,35 @@ async def doi_ten_goc(
             payload=p,
             boi=nguoi(identity),
         )
+    gia_hop = tien(gia_me) if gia_me is not None else "—"
     cau = (
-        f"Đã đổi: kho đếm theo “{ten}”, 1 {me} có {so_dep(hs)} {ten} giá "
-        f"{tien(gia_me) if gia_me is not None else '—'}; {len(lo)} lô đổi chữ, số tồn "
-        "giữ nguyên."
+        f"Đã đổi: kho đếm theo “{ten}”, 1 {me} có {so_dep(hs)} {ten} giá {gia_hop}; "
+        f"{len(lo)} lô đổi chữ, số tồn giữ nguyên."
     )
-    return {
-        "ok": True,
-        "su_kien_id": su_kien,
-        "so_lo": len(lo),
-        "bi_danh": bi_danh,
-        "cau": cau,
-    }
+    kq = {"su_kien_id": su_kien, "so_lo": len(lo), "bi_danh": bi_danh, "cau": cau}
+    return {"ok": True, **kq}
+
+
+async def _dat_goc(
+    conn: asyncpg.Connection, clinic_id: str, thuoc: str, ten: str, gia: Any
+) -> None:
+    """Chữ đơn vị gốc + giá gốc — dùng cho cả lần đổi và lệnh bù."""
+    await conn.execute(
+        "UPDATE public.drug_catalog SET don_vi_ban = $3, unit_price = $4"
+        " WHERE clinic_id = $1::uuid AND id = $2::uuid",
+        clinic_id,
+        thuoc,
+        ten,
+        gia,
+    )
+
+
+def _anh_me(truoc: DonViBan | None) -> dict[str, str | int | bool | None] | None:
+    """Dòng mẹ TRƯỚC khi đổi, đủ để lệnh bù ghi lại y như cũ."""
+    if truoc is None:
+        return None
+    gia = None if truoc.gia is None else int(truoc.gia)
+    return {"he_so": so_dep(truoc.he_so), "gia": gia, "dang_ban": truoc.dang_ban}
 
 
 async def hoan_tac_doi_ten_goc(
@@ -355,14 +359,7 @@ async def _dao_lai(
         p.ten_cu,
         chuan(p.ten_moi),
     )
-    await conn.execute(
-        "UPDATE public.drug_catalog SET don_vi_ban = $3, unit_price = $4"
-        " WHERE clinic_id = $1::uuid AND id = $2::uuid",
-        ck,
-        thuoc,
-        p.ten_cu,
-        p.gia_goc_cu,
-    )
+    await _dat_goc(conn, ck, thuoc, p.ten_cu, p.gia_goc_cu)
     await _bo_co_me(conn, ck, thuoc)
     xoa = [chuan(p.ten_cu)] if p.bi_danh else []
     if p.me_truoc is None:
