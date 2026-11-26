@@ -24,7 +24,7 @@ import re
 import unicodedata
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
-from decimal import ROUND_FLOOR, ROUND_HALF_UP, Decimal, InvalidOperation
+from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
 from typing import Any
 
 import asyncpg
@@ -208,32 +208,10 @@ class BangDonVi:
         # Lô tính hộp ghi 3 số lẻ: 9,333 × 30 = 279,99 đọc là 280 viên.
         tong = tong.quantize(Decimal("0.1"), rounding=ROUND_HALF_UP)
         phan = [f"= {so_dep(tong)} {self.goc}"] if co_lo_khac_goc else []
-        d = self._me_lon()
-        # Chưa đủ một mẹ: dòng "= N gốc" là đủ. Đủ chẵn mà lô toàn gốc thì vẫn ghi.
-        if d and tong >= d.he_so and (tong % d.he_so or not co_lo_khac_goc):
-            phan.append(self.chu_me_con(tong) or "")
-        return " · ".join(phan) or None
+        from clinicai.services.thuoc.me_con import phan_me_con_cua_chu_ton
 
-    def _me_lon(self) -> DonViBan | None:
-        """Đơn vị MẸ để đọc tồn: mẹ đã đặt (hệ số > 1), không có thì đơn vị lớn nhất."""
-        if self.me in self.dong and self.dong[self.me].he_so > 1:
-            return self.dong[self.me]
-        lon = [d for d in self.dong.values() if d.he_so > 1]
-        return max(lon, key=lambda x: x.he_so) if lon else None
-
-    def chu_me_con(self, tong_goc: Decimal) -> str | None:
-        """Tồn đọc theo MẸ + CON (Tuyền 26/11): "303 hộp + 50 viên" — viên lẻ là phần
-        còn của hộp đã bóc bán lẻ. Chưa khai đơn vị mẹ (hệ số > 1) thì None."""
-        d = self._me_lon()
-        if d is None or tong_goc <= 0:
-            return None
-        nguyen = (tong_goc / d.he_so).to_integral_value(rounding=ROUND_FLOOR)
-        du = tong_goc - nguyen * d.he_so
-        if nguyen > 0 and du > 0:
-            return f"{so_dep(nguyen)} {d.don_vi} + {so_dep(du)} {self.goc}"
-        if nguyen > 0:
-            return f"{so_dep(nguyen)} {d.don_vi}"
-        return f"{so_dep(du)} {self.goc}"
+        phan.append(phan_me_con_cua_chu_ton(self, tong, co_lo_khac_goc) or "")
+        return " · ".join(p for p in phan if p) or None
 
 
 def tien(x: Decimal) -> str:

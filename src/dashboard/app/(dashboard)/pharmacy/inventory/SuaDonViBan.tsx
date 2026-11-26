@@ -67,6 +67,11 @@ export default function SuaDonViBan({
           + Thêm đơn vị
         </Button>
       </div>
+      <p className="text-meta text-ink-muted">
+        <b>Mẹ</b> là đơn vị bán nguyên (hộp, lọ), <b>con</b> là đơn vị gốc kho đếm (viên, gói). Khai
+        “1 hộp = ? {goc || "viên"}” để bàn khám bán lẻ, tính ngày dùng và hiện tồn “còn 3 hộp + 5{" "}
+        {goc || "viên"}”.
+      </p>
       {!goc ? (
         <p role="status" className="text-meta text-warning">
           Thuốc này chưa khai đơn vị — khai đơn vị gốc ở ô phía trên trước.

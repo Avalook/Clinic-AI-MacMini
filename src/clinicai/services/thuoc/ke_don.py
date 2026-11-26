@@ -21,6 +21,7 @@ from clinicai.api.identity import StaffIdentity
 from clinicai.services.don_vi_thuoc import BangDonVi, so_dep
 from clinicai.services.pharmacy_service import PharmacyService
 from clinicai.services.thuoc.cach_dung_db import gan_mac_dinh_ke_don
+from clinicai.services.thuoc.me_con import chu_me_con
 
 
 def chu_ton_ke_don(bang: BangDonVi, ton_theo_don_vi: list[dict[str, Any]]) -> str:
@@ -31,7 +32,7 @@ def chu_ton_ke_don(bang: BangDonVi, ton_theo_don_vi: list[dict[str, Any]]) -> st
         if tong <= 0:
             return "hết hàng"
         # Có khai mẹ (hộp = N viên): "còn 303 hộp + 50 viên" (Tuyền 26/11).
-        return f"còn {bang.chu_me_con(tong) or f'{so_dep(tong)} {bang.goc}'}"
+        return f"còn {chu_me_con(bang, tong) or f'{so_dep(tong)} {bang.goc}'}"
     phan = [
         f"{so_dep(Decimal(str(x.get('ton') or 0)))} {x.get('don_vi') or ''}".strip()
         for x in ton_theo_don_vi
