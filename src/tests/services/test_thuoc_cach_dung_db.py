@@ -202,11 +202,13 @@ async def test_cach_dung_don_vi_trong_theo_mac_dinh_ke(
         ({**CHU_KY, "tu_ngay": 26}, "chu kỳ kinh"),
     ],
 )
-async def test_khong_luu_cach_dung_chua_du(
+async def test_cach_dung_chua_du_van_luu_giu_chu_bac_si(
     pool: asyncpg.Pool,  # noqa: F811
     ct: dict[str, Any],
     loi: str,
 ) -> None:
+    """Tự lưu giữa chừng không được làm hỏng cả đơn; chữ bác sĩ gõ không bị đè."""
+    del loi
     async with pool.acquire() as conn:
         bs = await _nguoi(conn, "DOCTOR")
         luot = await _luot(conn, bs)
@@ -221,11 +223,10 @@ async def test_khong_luu_cach_dung_chua_du(
     await svc.luu_don_thuoc(visit_id=luot["visit"], identity=bs, ly_do=None, dong=[don])
     truoc = await svc.doc_don_thuoc(visit_id=luot["visit"], identity=bs)
     sua = {**don, "id": truoc[0]["id"], "dosage": "Chữ chưa đủ", "cach_dung_ct": ct}
-    with pytest.raises(ValidationError, match=loi):
-        await svc.luu_don_thuoc(
-            visit_id=luot["visit"], identity=bs, ly_do=None, dong=[sua]
-        )
-    assert await svc.doc_don_thuoc(visit_id=luot["visit"], identity=bs) == truoc
+    await svc.luu_don_thuoc(visit_id=luot["visit"], identity=bs, ly_do=None, dong=[sua])
+    [sau] = await svc.doc_don_thuoc(visit_id=luot["visit"], identity=bs)
+    assert sau["dosage_instructions"] == "Chữ chưa đủ"
+    assert sau["cach_dung_ct"] is not None
 
 
 async def test_luu_khoang_da_chon_tao_cau_du_khong_gui_duong_dung(

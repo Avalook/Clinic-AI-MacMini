@@ -23,10 +23,7 @@ from clinicai.api.identity import StaffIdentity
 from clinicai.core.clock import hom_nay_vn
 from clinicai.services.don_vi_thuoc import BangDonVi, chuan, doc_bang
 from clinicai.services.thuoc.cach_dung import (
-    LY_DO_KHOANG,
     LY_DO_NGOAI_DANH_MUC,
-    LY_DO_THIEU_LIEU,
-    LY_DO_THIEU_MOC_CHU_KY,
     CachDung,
     cau_cach_dung,
     chua_chon_khoang,
@@ -207,14 +204,15 @@ def chuan_hoa_dong(d: dict[str, Any]) -> dict[str, Any]:
         return out
     if not d.get("drug_catalog_id"):
         raise ValidationError(LY_DO_NGOAI_DANH_MUC)
-    if chua_chon_khoang(ct):
-        raise ValidationError(LY_DO_KHOANG)
-    if lieu_ngay(ct) is None:
-        raise ValidationError(LY_DO_THIEU_LIEU)
-    if ct.kieu == "chu_ky" and moc_chu_ky(ct) is None:
-        raise ValidationError(LY_DO_THIEU_MOC_CHU_KY)
-    if not ct.don_vi_lieu.strip():
-        raise ValidationError("Nhập đơn vị liều cho mỗi lần dùng.")
+    # Chưa điền đủ: vẫn lưu (màn tự lưu khi gõ — chặn thì mất cả đơn nháp), giữ chữ
+    # bác sĩ đã gõ, không sinh câu thiếu đè lên. Màn tự hiện lý do "chưa tính được".
+    if (
+        chua_chon_khoang(ct)
+        or lieu_ngay(ct) is None
+        or (ct.kieu == "chu_ky" and moc_chu_ky(ct) is None)
+        or not ct.don_vi_lieu.strip()
+    ):
+        return out
     duong = str(d.get("duong_dung") or "").strip()
     out["dosage"] = NOI.join(x for x in (duong, cau_cach_dung(ct)) if x)
     return out
