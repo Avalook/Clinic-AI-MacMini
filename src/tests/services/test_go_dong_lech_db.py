@@ -109,9 +109,10 @@ async def test_gan_thuoc_dung_thu_duoc_hoan_tac_tra_ve_nhu_cu(q: Quay) -> None:
     kq = await gan_thuoc_dung(
         q.pool, identity=q.thu_ngan, prescription_id=rx, drug_catalog_id=dung
     )
-    assert kq["nhac"] is None  # "viên" có ở thuốc mới → giữ, số lượng đúng nghĩa
+    assert kq["nhac"] is None  # "viên" có ở thuốc mới → số lượng đúng nghĩa
     d = await _dong(q, rx)
-    assert (d["thuoc"], d["ten"], d["unit"]) == (dung, f"Pricefil 5mg {q.duoi}", "viên")
+    # Chỉ đổi thuốc kho; tên + đơn vị bác sĩ gõ là hồ sơ, giữ nguyên.
+    assert (d["thuoc"], d["ten"], d["unit"]) == (dung, f"Pricefil {q.duoi}", "viên")
     hd = await _hd(q, "thuoc")
     assert hd.thu_duoc and hd.tong == 12 * 4_000
     assert (await _vet(q, rx))[-1]["hanh_dong"] == "GAN_THUOC"
@@ -136,7 +137,24 @@ async def test_gan_don_vi_khong_co_o_thuoc_moi_thi_nhac_soat_so_luong(
         q.pool, identity=q.thu_ngan, prescription_id=rx, drug_catalog_id=dung
     )
     assert "soát lại số lượng" in (kq["nhac"] or "")
-    assert (await _dong(q, rx))["unit"] == "hộp"
+    assert (await _dong(q, rx))["unit"] == "viên"
+
+
+async def test_gan_va_hoan_tac_tren_ho_so_da_ky(q: Quay) -> None:
+    """Ca thật T3: bác sĩ gõ tay, KÝ hồ sơ, rồi quầy mới gỡ — trigger
+    `prescription_dinh_chinh_guard` chặn sửa tên/đơn vị tại chỗ, nên gán chỉ đổi
+    thuốc kho."""
+    rx, rac = await _rac(q)
+    await q.pool.execute(
+        "UPDATE visit SET status = 'FINALIZED' WHERE visit_id = $1::uuid", q.visit_id
+    )
+    dung = await _thuoc_dv(q, f"Pricefil 5mg {q.duoi}", 4_000, "viên")
+    await gan_thuoc_dung(
+        q.pool, identity=q.thu_ngan, prescription_id=rx, drug_catalog_id=dung
+    )
+    assert (await _hd(q, "thuoc")).thu_duoc
+    await hoan_tac_gan(q.pool, identity=q.thu_ngan, prescription_id=rx)
+    assert (await _dong(q, rx))["thuoc"] == rac
 
 
 async def test_gan_trung_thuoc_cu_va_sau_khi_thu_bi_tu_choi(q: Quay) -> None:
@@ -160,7 +178,11 @@ async def test_dong_doi_sau_lan_gan_thi_khong_hoan_tac_nham(q: Quay) -> None:
     await gan_thuoc_dung(
         q.pool, identity=q.thu_ngan, prescription_id=rx, drug_catalog_id=a
     )
-    await q.pool.execute("UPDATE prescription SET unit = 'gói' WHERE id = $1::uuid", rx)
+    # Nhà thuốc xác định lại thuốc kho bằng đường khác sau lần gán.
+    b = await _thuoc_dv(q, f"Thuốc B {q.duoi}", 5_000, "viên")
+    await PharmacyService(q.pool).xac_dinh_thuoc(
+        identity=q.duoc_si, prescription_id=rx, drug_catalog_id=b
+    )
     with pytest.raises(ConflictError, match="đã đổi sau lần gán"):
         await hoan_tac_gan(q.pool, identity=q.thu_ngan, prescription_id=rx)
 
@@ -213,7 +235,10 @@ async def test_quyen_gia_thuoc_co_quyen_dien_gia_thu_duoc(q: Quay) -> None:
 
 
 @pytest.mark.parametrize(
-    "rac_vao", [None, "", "abc", -5, 0, "1,5e3x", 1.5, True, "9" * 20, float("nan")]
+    "rac_vao",
+    [None, "", "abc", -5, 0, "1,5e3x", 1.5, True, "9" * 20, float("nan")]
+    # Dấu sai mẫu nghìn: bỏ dấu là nhân giá 10–100 lần → phải từ chối.
+    + ["35000.5", "35000,50", "35.00", "3.5.000"],
 )
 async def test_gia_rac_tra_cau_tieng_viet_khong_500(q: Quay, rac_vao: Any) -> None:
     _, rac = await _rac(q)
@@ -227,6 +252,8 @@ async def test_gia_rac_tra_cau_tieng_viet_khong_500(q: Quay, rac_vao: Any) -> No
 def test_gia_quay_doc_so_ham_thuan() -> None:
     assert gia_quay("35.000") == 35_000
     assert gia_quay(35000) == 35_000
+    assert gia_quay("1,200,000") == 1_200_000
+    assert gia_quay("35000.5") is None
     assert gia_quay("0") is None
     assert gia_quay(object()) is None
 

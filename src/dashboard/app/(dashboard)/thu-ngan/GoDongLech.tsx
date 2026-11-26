@@ -4,7 +4,8 @@
 //
 // Một dòng chưa giá / chưa gắn thuốc kho khoá cả hoá đơn thuốc của lượt. Trước đây quầy
 // chỉ có "bỏ tick" (mất doanh thu dòng đó). Ở đây ba đường, cả ba đi lệnh máy chủ:
-//   · Gán sang thuốc đúng trong danh mục (đổi tên + đơn vị theo thuốc đó) — hoàn tác được;
+//   · Gán sang thuốc đúng trong danh mục (đổi thuốc kho; tên bác sĩ gõ giữ nguyên vì
+//     hồ sơ đã ký không sửa tại chỗ được) — hoàn tác được;
 //   · Điền giá cho thuốc chưa có giá — chỉ người có quyền Sửa giá thuốc, người khác thấy
 //     nút khoá kèm lý do (máy chủ trả cờ `dien_gia_duoc`, màn không tự suy quyền);
 //   · Khách không lấy — đúng lệnh bỏ tick có sẵn.

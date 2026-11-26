@@ -198,7 +198,7 @@ async def gan_thuoc(
     identity: StaffIdentity = Depends(get_current_identity),
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> dict[str, Any]:
-    """Gán dòng sang thuốc đúng trong danh mục (đổi tên + đơn vị theo thuốc đó)."""
+    """Gán dòng sang thuốc đúng trong danh mục (đổi thuốc kho; tên bác sĩ giữ)."""
     identity = await authorize_drug_line(pool, identity, str(body.prescription_id))
     return await go_dong_lech.gan_thuoc_dung(
         pool,

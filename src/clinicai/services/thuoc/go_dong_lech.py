@@ -6,8 +6,9 @@ quầy chỉ có một đường gỡ là bỏ tick (mất doanh thu dòng đó)
 
 Hai đường gỡ, cả hai đi qua lệnh ĐANG CÓ, không viết đường thứ hai:
   * GÁN dòng sang thuốc đúng trong danh mục: `PharmacyService.xac_dinh_thuoc` (khoá,
-    chặn đã thu / đã giao / đã chọn lô) + đổi tên và đơn vị của dòng theo thuốc đó,
-    trong CÙNG giao dịch. Hoàn tác được (`hoan_tac_gan`): đọc lại sự kiện gán.
+    chặn đã thu / đã giao / đã chọn lô), cùng giao dịch với sự kiện gán. Tên + đơn
+    vị bác sĩ gõ giữ nguyên (hồ sơ đã ký không sửa tại chỗ được). Hoàn tác được
+    (`hoan_tac_gan`): đọc lại sự kiện gán.
   * ĐIỀN GIÁ cho thuốc chưa có giá: `PharmacyService.luu_thuoc` (chốt quyền
     `doi_quyen_sua_gia`, sự kiện `pharmacy.price_changed`). Ở quầy chỉ ĐIỀN giá còn
     trống; đổi giá đã có là việc của Danh mục kho.
@@ -19,6 +20,7 @@ Thu NHIỀU lần thuốc cho một lượt (T4) không làm ở đây — chỉ
 from __future__ import annotations
 
 import json
+import re
 from decimal import Decimal, InvalidOperation
 from typing import Any, cast
 
@@ -40,6 +42,7 @@ QUYEN_THU = "payment.medicine.collect"
 GAN = "GAN_THUOC"
 BO_GAN = "BO_GAN_THUOC"
 GIA_TOI_DA = Decimal(1_000_000_000)
+_MAU_GIA = re.compile(r"\d+|\d{1,3}(\.\d{3})+|\d{1,3}(,\d{3})+")
 KHONG_QUYEN_GIA = (
     "Bạn không có quyền đổi giá thuốc — nhờ người có quyền Sửa giá thuốc, "
     "hoặc bỏ tick nếu khách không lấy."
@@ -50,8 +53,13 @@ def gia_quay(v: Any) -> Decimal | None:
     """Giá quầy điền: số nguyên dương (đồng). Rác / âm / 0 → None (không ném)."""
     if v is None or isinstance(v, bool):
         return None
-    # Chữ gõ ở quầy: "35.000" / "35,000" là dấu nghìn. Số gửi lên giữ nguyên.
-    chu = str(v).replace(".", "").replace(",", "") if isinstance(v, str) else str(v)
+    # Chữ gõ ở quầy: chỉ chữ số, hoặc dấu nghìn ĐÚNG MẪU ("35.000", "1,200,000").
+    # "35000.5" / "35000,50" không đoán (bỏ dấu là nhân giá 10–100 lần) → None.
+    chu = str(v).strip()
+    if isinstance(v, str):
+        if not _MAU_GIA.fullmatch(chu):
+            return None
+        chu = chu.replace(".", "").replace(",", "")
     try:
         so = Decimal(chu.strip())
     except (InvalidOperation, ValueError):
@@ -93,7 +101,7 @@ async def _ghi_gan(
             "visit_id": vid,
             "hanh_dong": hanh_dong,
             "nguon": don["nguon"],
-            "ten_thuoc": moi["ten"],
+            "ten_thuoc": don["drug_name_raw"],
             "cu": cu,
             "moi": moi,
         },
@@ -112,11 +120,7 @@ async def _ghi_gan(
 
 
 def _trang(don: asyncpg.Record) -> dict[str, Any]:
-    return {
-        "thuoc": str(don["drug_catalog_id"]) if don["drug_catalog_id"] else None,
-        "ten": don["drug_name_raw"],
-        "don_vi": don["unit"],
-    }
+    return {"thuoc": str(don["drug_catalog_id"]) if don["drug_catalog_id"] else None}
 
 
 async def _doc_dong_don(
@@ -137,11 +141,12 @@ async def gan_thuoc_dung(
     prescription_id: str,
     drug_catalog_id: str,
 ) -> dict[str, Any]:
-    """Gán dòng sang thuốc đúng: thuốc kho + tên + đơn vị theo thuốc đó.
+    """Gán dòng sang thuốc đúng trong danh mục — CHỈ đổi thuốc kho của dòng.
 
-    Đơn vị: thuốc mới nhận ra chữ cũ ("viên") thì giữ — số lượng bác sĩ kê vẫn đúng
-    nghĩa; không thì lấy đơn vị kê mặc định (mẹ, không có thì gốc) và trả câu nhắc
-    soát lại số lượng."""
+    Tên và đơn vị bác sĩ gõ là nội dung chuyên môn của hồ sơ: trigger
+    `prescription_dinh_chinh_guard` chặn sửa tại chỗ khi hồ sơ đã ký (ca thật: bác
+    sĩ gõ "Pricefil", ký, rồi quầy mới thu). Giá, kho, hoá đơn đã đi theo thuốc kho.
+    Đơn vị bác sĩ ghi mà thuốc mới không có → trả câu nhắc quầy đổi đơn vị / số."""
     async with pool.acquire() as conn, conn.transaction():
         await _khoa_dong_quay(conn, identity, prescription_id)
         truoc = await _doc_dong_don(conn, identity.clinic_id, prescription_id)
@@ -154,54 +159,45 @@ async def gan_thuoc_dung(
             prescription_id=prescription_id,
             drug_catalog_id=drug_catalog_id,
         )
-        ten = await conn.fetchval(
-            "SELECT name_raw FROM public.drug_catalog WHERE id = $1::uuid",
-            drug_catalog_id,
-        )
         bang = (await doc_bang(conn, identity.clinic_id, [drug_catalog_id])).get(
             drug_catalog_id, BangDonVi()
         )
-        giu = bang.nhan_ra(truoc["unit"])
-        don_vi = giu or bang.don_vi_ke or None
-        await conn.execute(
-            "UPDATE public.prescription SET drug_name_raw = $3, unit = $4,"
-            " updated_at = now() WHERE id = $1::uuid AND clinic_id = $2::uuid",
-            prescription_id,
-            identity.clinic_id,
-            ten,
-            don_vi,
-        )
-        moi = {"thuoc": drug_catalog_id, "ten": ten, "don_vi": don_vi}
+        moi = {"thuoc": drug_catalog_id}
         await _ghi_gan(
             conn, identity, don=truoc, hanh_dong=GAN, cu=_trang(truoc), moi=moi
         )
     nhac = None
-    if truoc["unit"] and not giu:
+    if truoc["unit"] and bang.co_goc and not bang.nhan_ra(truoc["unit"]):
         nhac = (
-            f"Đơn vị “{truoc['unit']}” không có ở thuốc này — đã đổi sang "
-            f"“{don_vi or 'đơn vị gốc'}”, soát lại số lượng."
+            f"Đơn vị “{truoc['unit']}” không có ở thuốc này — chọn đơn vị đúng ở "
+            "dòng thuốc rồi soát lại số lượng."
         )
     return {"ok": True, "prescription_id": prescription_id, "nhac": nhac}
 
 
-async def _lan_gan_cuoi(
-    conn: asyncpg.Connection, clinic_id: str, rx: str
-) -> dict[str, Any] | None:
-    """Lần GÁN / BỎ GÁN gần nhất của dòng (sổ `event_log`)."""
-    raw = await conn.fetchval(
+async def _lan_gan_cuoi_lo(
+    conn: asyncpg.Connection, clinic_id: str, ids: list[str]
+) -> dict[str, dict[str, Any]]:
+    """Lần GÁN / BỎ GÁN gần nhất của từng dòng (sổ `event_log`) — một câu SQL."""
+    rows = await conn.fetch(
         """
-        SELECT payload FROM public.event_log
+        SELECT DISTINCT ON (aggregate_id) aggregate_id::text AS rx, payload
+          FROM public.event_log
          WHERE clinic_id = $1::uuid AND aggregate_type = 'prescription'
-           AND aggregate_id = $2::uuid AND event_type = 'pharmacy.counter_changed'
+           AND aggregate_id = ANY($2::uuid[])
+           AND event_type = 'pharmacy.counter_changed'
            AND payload ->> 'hanh_dong' IN ('GAN_THUOC', 'BO_GAN_THUOC')
-         ORDER BY occurred_at DESC, recorded_at DESC LIMIT 1
+         ORDER BY aggregate_id, occurred_at DESC, recorded_at DESC
         """,
         clinic_id,
-        rx,
+        ids,
     )
-    if raw is None:
-        return None
-    return dict(json.loads(raw) if isinstance(raw, str) else raw)
+    return {
+        r["rx"]: dict(
+            json.loads(r["payload"]) if isinstance(r["payload"], str) else r["payload"]
+        )
+        for r in rows
+    }
 
 
 def bo_gan_duoc(lan: dict[str, Any] | None, hien: dict[str, Any]) -> bool:
@@ -212,28 +208,28 @@ def bo_gan_duoc(lan: dict[str, Any] | None, hien: dict[str, Any]) -> bool:
 async def hoan_tac_gan(
     pool: asyncpg.Pool, *, identity: StaffIdentity, prescription_id: str
 ) -> dict[str, Any]:
-    """Lệnh bù của đúng lần gán: trả thuốc / tên / đơn vị cũ của dòng."""
+    """Lệnh bù của đúng lần gán: trả thuốc kho cũ của dòng."""
     async with pool.acquire() as conn, conn.transaction():
         await _khoa_dong_quay(conn, identity, prescription_id)
         hien = await _doc_dong_don(conn, identity.clinic_id, prescription_id)
-        lan = await _lan_gan_cuoi(conn, identity.clinic_id, prescription_id)
+        lan = (await _lan_gan_cuoi_lo(conn, identity.clinic_id, [prescription_id])).get(
+            prescription_id
+        )
         if not bo_gan_duoc(lan, _trang(hien)):
             raise ConflictError(
                 "Không có lần gán nào để hoàn tác, hoặc dòng đã đổi sau lần gán."
             )
         if await PharmacyService._da_phan_lo(conn, identity, prescription_id) > 0:
             raise ConflictError("Dòng này đã chọn lô — bỏ lô trước khi hoàn tác.")
-        cu = dict((lan or {})["cu"])
+        cu = {"thuoc": (lan or {}).get("cu", {}).get("thuoc")}
         await conn.execute(
             "UPDATE public.prescription SET drug_catalog_id = $3::uuid,"
-            " drug_name_raw = $4, unit = $5, drug_mapped_by = $6::uuid,"
-            " drug_mapped_at = now(), updated_at = now()"
-            " WHERE id = $1::uuid AND clinic_id = $2::uuid",
+            " drug_mapped_by = CASE WHEN $3::uuid IS NULL THEN NULL ELSE $4::uuid END,"
+            " drug_mapped_at = CASE WHEN $3::uuid IS NULL THEN NULL ELSE now() END,"
+            " updated_at = now() WHERE id = $1::uuid AND clinic_id = $2::uuid",
             prescription_id,
             identity.clinic_id,
             cu["thuoc"],
-            cu["ten"],
-            cu["don_vi"],
             identity.staff_id,
         )
         await _ghi_gan(
@@ -308,8 +304,9 @@ async def doc_dong_lech(
         )
         van_de = {d.source_id: d.van_de for d in hd.dong if d.van_de}
         dong: list[dict[str, Any]] = []
+        gan = await _lan_gan_cuoi_lo(conn, identity.clinic_id, [r["id"] for r in rows])
         for r in rows:
-            lan = await _lan_gan_cuoi(conn, identity.clinic_id, r["id"])
+            lan = gan.get(r["id"])
             bo = bo_gan_duoc(lan, _trang(r))
             if r["id"] not in van_de and not bo:
                 continue
