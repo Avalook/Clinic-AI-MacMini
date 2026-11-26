@@ -24,6 +24,8 @@ export default function DoiTenGoc({ idThuoc, goc }: { idThuoc: string; goc: stri
   const [xong, setXong] = useState<{ su_kien_id: string; cau: string } | null>(null);
   const [lyDoHoan, setLyDoHoan] = useState("");
   const [bao, setBao] = useState<string | null>(null);
+  // Đổi tên KHÔNG nhân số tồn: bắt người đổi xác nhận số đang là đơn vị nhỏ (26/11).
+  const [daKiem, setDaKiem] = useState(false);
 
   const doi = async () => {
     setDang(true);
@@ -104,8 +106,15 @@ export default function DoiTenGoc({ idThuoc, goc }: { idThuoc: string; goc: stri
             {o("gia_goc_moi", `Giá 1 ${vien} (đ)`, `Trống = chia từ giá ${hop}`)}
             {o("ly_do", "Lý do (không bắt buộc)", "")}
           </div>
+          <label className="flex items-start gap-2 rounded-control bg-warning-bg p-2 text-meta text-ink">
+            <input type="checkbox" checked={daKiem} onChange={(e) => setDaKiem(e.target.checked)} />
+            <span>
+              Tôi đã đếm lại: số tồn đang ghi là số <b>{vien}</b>, không phải số {goc}. (Đổi tên
+              không nhân số — kho đang đếm theo {goc} thật thì <b>không</b> dùng nút này.)
+            </span>
+          </label>
           <div className="flex flex-wrap gap-2">
-            <Button type="button" size="sm" variant="primary" disabled={dang} onClick={() => void doi()}>
+            <Button type="button" size="sm" variant="primary" disabled={dang || !daKiem} onClick={() => void doi()}>
               {dang ? "Đang đổi…" : "Đổi tên"}
             </Button>
             <Button type="button" size="sm" variant="ghost" onClick={() => setMo(false)}>

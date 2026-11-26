@@ -601,7 +601,7 @@ async def test_metronidazol_cho_gan_cu_tru_duoc_sau_khi_khai_he_so(q: Quay) -> N
     )
     assert await _ton(q, lo) == Decimal("9.333")
     dm = await _dong_danh_muc(q, drug)
-    assert dm["ton_quy_doi"] == "= 280 viên · 9 hộp 10 viên"
+    assert dm["ton_quy_doi"] == "= 280 viên · 9 hộp + 10 viên"
     assert dm["lo_chua_quy_doi"] == []
 
 
@@ -1082,11 +1082,11 @@ def test_chu_ton_quy_doi() -> None:
         goc="gói",
         dong={"hộp": DonViBan("hộp", Decimal(30), Decimal(1), True)},
     )
-    assert b.chu_ton([{"don_vi": "gói", "ton": 125}]) == "4 hộp 5 gói"
+    assert b.chu_ton([{"don_vi": "gói", "ton": 125}]) == "4 hộp + 5 gói"
     assert b.chu_ton([{"don_vi": "gói", "ton": 120}]) == "4 hộp"
     assert b.chu_ton([{"don_vi": "gói", "ton": 5}]) is None
     assert b.chu_ton([{"don_vi": "hộp", "ton": 2}, {"don_vi": "gói", "ton": 5}]) == (
-        "= 65 gói · 2 hộp 5 gói"
+        "= 65 gói · 2 hộp + 5 gói"
     )
     assert b.chu_ton([{"don_vi": "lạ", "ton": 5}]) is None
 

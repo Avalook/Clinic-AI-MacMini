@@ -251,9 +251,14 @@ export default function DanhMucKho({
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             {o("ten", "Tên thuốc")}
             {o("ma_hang", "Mã hàng (KiotViet)")}
-            {o("gia", "Giá bán đơn vị gốc (đ)")}
+            <p className="text-meta text-ink-muted sm:col-span-2">
+              Đơn vị mẹ / con: <b>mẹ</b> là đơn vị bán nguyên (hộp, lọ), <b>con</b> là đơn vị nhỏ
+              nhất (viên, gói). Kho đếm theo đơn vị gốc dưới đây; khai “1 hộp = ? viên” ở mục
+              Đơn vị mẹ để bàn khám bán lẻ, tính ngày dùng và hiện tồn “còn 3 hộp + 5 viên”.
+            </p>
+            {o("gia", "Giá bán 1 đơn vị gốc (đ)")}
             <div className="block">
-              <span className={LABEL}>Đơn vị gốc (kho tính theo đơn vị này)</span>
+              <span className={LABEL}>Đơn vị gốc — kho đếm theo (nên là con: viên, gói…)</span>
               <ODonVi
                 value={form.don_vi_ban}
                 onChange={(v) => setForm({ ...form, don_vi_ban: v })}

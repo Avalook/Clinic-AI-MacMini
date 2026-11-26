@@ -24,11 +24,14 @@ def _bang() -> BangDonVi:
 def test_chu_ton_cong_ve_don_vi_goc() -> None:
     b = _bang()
     ton = [{"don_vi": "hộp", "ton": 2}, {"don_vi": "viên", "ton": 5}]
-    assert chu_ton_ke_don(b, ton) == "còn 65 viên"
+    # 2 hộp + 5 viên = 65 viên, đọc theo mẹ + con (Tuyền 26/11).
+    assert chu_ton_ke_don(b, ton) == "còn 2 hộp + 5 viên"
+    assert chu_ton_ke_don(b, [{"don_vi": "viên", "ton": 7}]) == "còn 7 viên"
+    assert chu_ton_ke_don(b, [{"don_vi": "hộp", "ton": 3}]) == "còn 3 hộp"
     assert chu_ton_ke_don(b, []) == "hết hàng"
     assert chu_ton_ke_don(b, [{"don_vi": "lọ lạ", "ton": 4}]) == "hết hàng"
     # chu_ton cũ (màn Kho thuốc) vẫn ra đúng chữ sau khi tách `ton_goc`.
-    assert b.chu_ton(ton) == "= 65 viên · 2 hộp 5 viên"
+    assert b.chu_ton(ton) == "= 65 viên · 2 hộp + 5 viên"
     assert chu_ton_ke_don(BangDonVi(), [{"don_vi": "hộp", "ton": 3}]) == "còn 3 hộp"
 
 

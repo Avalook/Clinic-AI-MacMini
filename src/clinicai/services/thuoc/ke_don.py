@@ -28,7 +28,10 @@ def chu_ton_ke_don(bang: BangDonVi, ton_theo_don_vi: list[dict[str, Any]]) -> st
     if bang.co_goc:
         tong = bang.ton_goc(ton_theo_don_vi)
         tong = tong.quantize(Decimal("0.1"), rounding=ROUND_HALF_UP)
-        return f"còn {so_dep(tong)} {bang.goc}" if tong > 0 else "hết hàng"
+        if tong <= 0:
+            return "hết hàng"
+        # Có khai mẹ (hộp = N viên): "còn 303 hộp + 50 viên" (Tuyền 26/11).
+        return f"còn {bang.chu_me_con(tong) or f'{so_dep(tong)} {bang.goc}'}"
     phan = [
         f"{so_dep(Decimal(str(x.get('ton') or 0)))} {x.get('don_vi') or ''}".strip()
         for x in ton_theo_don_vi

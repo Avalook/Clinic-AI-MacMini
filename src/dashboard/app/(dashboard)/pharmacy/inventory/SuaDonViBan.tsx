@@ -52,7 +52,9 @@ export default function SuaDonViBan({
   return (
     <section aria-label="Đơn vị bán thêm" className="space-y-2 rounded-control border border-line p-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h4 className="text-body font-semibold text-ink">Đơn vị bán thêm</h4>
+        <h4 className="text-body font-semibold text-ink">
+          Đơn vị mẹ / bán thêm <span className="font-normal text-ink-muted">(vd 1 hộp = 30 {goc || "viên"})</span>
+        </h4>
         <Button
           type="button"
           size="sm"
