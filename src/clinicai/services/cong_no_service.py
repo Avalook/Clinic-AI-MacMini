@@ -19,10 +19,8 @@ rồi lọc theo luật Tuyền chốt:
     quầy — dịch vụ đã làm là đã nhận). Khoản khách không chọn làm, hay chưa làm,
     không tính. Phụ thu đi theo chỉ định cha. Vật tư khách đã được thêm vào hoá
     đơn (C13) là nợ ngay — không gắn chỉ định nào.
-  * Thuốc: dòng quầy đã ghi số khách mua (``purchased_qty``) hoặc đã cấp
-    (``dispensed_qty``) mà chưa thu. Dòng bác sĩ kê mà quầy chưa ghi khách lấy
-    KHÔNG là nợ, không chặn check-out (Tuyền 26/11: bác sĩ kê ≠ khách mua; khách
-    không lấy thì quầy bấm "Khách không mua đơn này"). Khách từ chối / mua 0 không tính.
+  * Thuốc: chỉ dòng quầy đã ghi số khách mua / đã cấp mà chưa thu. Bác sĩ kê ≠
+    khách mua: số mua trống KHÔNG là nợ (Tuyền 26/11). Từ chối / mua 0 không tính.
   * Dịch vụ đối tác tự thu không tính (khách trả thẳng đối tác).
 
 Dòng chưa có giá vẫn là nợ (số tiền chưa rõ) — không im lặng bỏ qua.
