@@ -18,6 +18,8 @@ import { LABEL } from "../../form-ui";
 interface MacDinh {
   id: string;
   don_vi_goc: string;
+  /** Máy chủ: kho đếm đúng đơn vị liều thì không cần khai (= 1). */
+  can_khai_so_lieu: boolean;
   ct: CachDungCT | null;
   so_lieu_moi_don_vi_goc: string | number | null;
   cau: string | null;
@@ -121,7 +123,13 @@ export default function CachDungDanhMuc({ thuocId, ghiDuoc }: { thuocId: string;
             ))}
           </OChon>
         </label>
-        {o("soLieu", `1 ${md.don_vi_goc || "đơn vị kho"} có bao nhiêu ${f.dvLieu || "viên"}?`, "col-span-2")}
+        {md.can_khai_so_lieu ? (
+          o("soLieu", `1 ${md.don_vi_goc || "đơn vị kho"} có bao nhiêu ${f.dvLieu || "viên"}?`, "col-span-2")
+        ) : (
+          <p className="col-span-2 self-end text-meta text-ink-muted">
+            Kho đếm theo {md.don_vi_goc} — không cần khai số {f.dvLieu || "viên"} mỗi đơn vị.
+          </p>
+        )}
         {coSo ? (
           <>
             {o("lan", "Mỗi lần (số, cho 0,5)")}

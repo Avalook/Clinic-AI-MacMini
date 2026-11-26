@@ -113,6 +113,7 @@ class TinhKetQua(BaseModel):
 class CachDungMacDinh(BaseModel):
     id: str
     don_vi_goc: str
+    can_khai_so_lieu: bool
     cach_dung: str
     ct: CachDung | None = None
     so_lieu_moi_don_vi_goc: Decimal | None = None

@@ -249,9 +249,12 @@ async def doc_mac_dinh(
     if r is None:
         raise ValidationError("Không tìm thấy thuốc trong danh mục.")
     ct = doc_ct(r["cach_dung_ct"])
+    goc = (r["don_vi_ban"] or "").strip()
     return {
         "id": r["id"],
-        "don_vi_goc": (r["don_vi_ban"] or "").strip(),
+        "don_vi_goc": goc,
+        # Kho đếm đúng đơn vị liều ("viên"/"viên") thì không cần khai — là 1.
+        "can_khai_so_lieu": lieu_moi_don_vi_kho(ct or CachDung(), goc, None) is None,
         "cach_dung": r["cach_dung"] or "",
         "ct": ct,
         "so_lieu_moi_don_vi_goc": r["so_lieu_moi_don_vi_goc"],
