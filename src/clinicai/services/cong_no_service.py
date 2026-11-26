@@ -19,8 +19,8 @@ rồi lọc theo luật Tuyền chốt:
     quầy — dịch vụ đã làm là đã nhận). Khoản khách không chọn làm, hay chưa làm,
     không tính. Phụ thu đi theo chỉ định cha. Vật tư khách đã được thêm vào hoá
     đơn (C13) là nợ ngay — không gắn chỉ định nào.
-  * Thuốc: dòng quầy đã ghi số khách mua (``purchased_qty``) hoặc đã cấp
-    (``dispensed_qty``) mà chưa thu. Dòng khách từ chối / mua 0 không tính.
+  * Thuốc: mọi dòng đơn hiện hành chưa có lần thu phủ — kể cả số mua để trống
+    (NULL = mua đủ số kê, T5 26/11). Khách từ chối / bỏ tick (mua 0) không tính.
   * Dịch vụ đối tác tự thu không tính (khách trả thẳng đối tác).
 
 Dòng chưa có giá vẫn là nợ (số tiền chưa rõ) — không im lặng bỏ qua.
@@ -64,14 +64,14 @@ SELECT o.id::text AS id, o.selection_status
    AND o.selection_status IN ('SELECTED', 'PENDING')
 """
 
-#: Dòng thuốc khách đã mua / đã cấp mà chưa có lần thu nào giữ phủ.
+#: Dòng thuốc khách lấy (số mua trống = mua đủ) / đã cấp mà chưa có lần thu phủ.
 _THUOC_CHUA_THU_SQL = """
 SELECT r.id::text AS id
   FROM public.prescription r
  WHERE r.clinic_id = $1::uuid AND r.visit_id = $2::uuid
    AND r.removed_at IS NULL
    AND r.refusal_reason IS NULL
-   AND (coalesce(r.purchased_qty, 0) > 0 OR coalesce(r.dispensed_qty, 0) > 0)
+   AND (coalesce(r.purchased_qty, 1) > 0 OR coalesce(r.dispensed_qty, 0) > 0)
    AND NOT EXISTS (
        SELECT 1 FROM public.payment_bill_line bl
          JOIN public.payment_cycle c

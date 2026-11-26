@@ -82,7 +82,7 @@
     "src/clinicai/services/payment_service.py": 2557,
     "src/clinicai/services/permission_service.py": 638,
     "src/clinicai/services/phan_lo_service.py": 462,
-    "src/clinicai/services/pharmacy_service.py": 4337,
+    "src/clinicai/services/pharmacy_service.py": 4328,
     "src/clinicai/services/phi_kham_service.py": 441,
     "src/clinicai/services/phieu_kham_service.py": 1030,
     "src/clinicai/services/quay_thu_service.py": 1686,

@@ -53,6 +53,12 @@ async def stock_conn(test_db_url: str) -> AsyncIterator[asyncpg.Connection]:
                 visit_id uuid NOT NULL, kind text NOT NULL, status text NOT NULL,
                 legacy boolean NOT NULL
             );
+            -- Giao chỉ dòng đã thu (thuoc/giao_da_thu): lần thu legacy không có
+            -- dòng hoá đơn nào → luật cũ, bảng rỗng là đủ.
+            CREATE TEMP TABLE payment_bill_line (
+                clinic_id uuid, payment_cycle_id uuid, source_type text,
+                source_id text
+            );
             CREATE TEMP TABLE prescription (
                 id uuid PRIMARY KEY, clinic_id uuid NOT NULL,
                 visit_id uuid NOT NULL,
