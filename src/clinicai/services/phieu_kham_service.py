@@ -70,7 +70,7 @@ from clinicai.services.danh_muc_dich_vu_service import (
 )
 from clinicai.services.don_vi_thuoc import BangDonVi, doc_bang
 from clinicai.services.thai_ky_service import dong_bo_tu_phieu, thai_ky_cua_luot
-from clinicai.services.thuoc.cach_dung_db import ct_ra
+from clinicai.services.thuoc.cach_dung_db import chuan_hoa_dong, ct_ra
 from clinicai.services.thuoc.ke_don import gan_ton_ke_don
 
 logger = structlog.get_logger()
@@ -882,7 +882,7 @@ class PhieuKhamService:
                 visit_id=visit_id,
                 clinic_id=cid,
                 clinic_patient_id=luot["pid"],
-                prescriptions=dong,
+                prescriptions=[chuan_hoa_dong(d) for d in dong],  # câu do máy sinh
                 created_by=identity.staff_id,
                 identity=identity,
                 ly_do=ly_do,

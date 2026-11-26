@@ -29,6 +29,7 @@ from clinicai.services.thai_ky_service import doc_ngay_tu_do
 
 Kieu = Literal["ngay", "tuan", "cach_ngay", "chu_ky", "chu"]
 CHU_KY_MIN, CHU_KY_MAX = 15, 60
+SO_NGAY_TOI_DA = 3660
 
 LY_DO_CHU = "Chỉ ghi chữ — không tính ngày."
 LY_DO_KHOANG = "Cách dùng có khoảng — chọn một số để máy tính ngày."
@@ -256,6 +257,8 @@ def tinh_dong(
     so = math.floor(so_lieu / lieu)
     if so < 1:
         return {**kq, "ly_do": "Số lượng kê chưa đủ một ngày dùng."}
+    if so > SO_NGAY_TOI_DA:  # gõ nhầm "9999999" — không để ngày vượt lịch (500)
+        return {**kq, "ly_do": "Số lượng quá lớn — đủ dùng hơn 10 năm, kiểm lại."}
     kq.update(
         tinh_duoc=True,
         so_ngay=so,

@@ -1,7 +1,7 @@
 """PR E (26/11/2026): cách dùng có cấu trúc — tính ở máy chủ, lưu bản chụp trên đơn.
 
 Kế hoạch `docs/KE-HOACH-DON-VI-ME-CON-CACH-DUNG.md` mục 2, 4, 6, 10. Đi đúng đường màn
-gọi: router lưu đơn chạy `chuan_hoa_dong` rồi `PhieuKhamService.luu_don_thuoc`.
+gọi: `PhieuKhamService.luu_don_thuoc` tự chạy `chuan_hoa_dong` (câu do máy sinh).
 """
 
 from __future__ import annotations
@@ -130,7 +130,7 @@ async def test_ecanix_tinh_o_may_chu_va_luu_ban_chup(pool: asyncpg.Pool) -> None
     cu = {"drug_catalog_id": t2, "drug_name": "y", "quantity": "1", "dosage": "bôi"}
     await svc.luu_don_thuoc(
         visit_id=luot["visit"],
-        dong=[cach_dung_db.chuan_hoa_dong(gui), cach_dung_db.chuan_hoa_dong(cu)],
+        dong=[gui, cu],
         ly_do=None,
         identity=bs,
     )
@@ -146,7 +146,7 @@ async def test_ecanix_tinh_o_may_chu_va_luu_ban_chup(pool: asyncpg.Pool) -> None
     sua = {**gui, "id": d1["id"], "cach_dung_ct": {**HAI_LAN, "so_lan": 3}}
     await svc.luu_don_thuoc(
         visit_id=luot["visit"],
-        dong=[cach_dung_db.chuan_hoa_dong(sua), {**cu, "id": d2["id"]}],
+        dong=[sua, {**cu, "id": d2["id"]}],
         ly_do=None,
         identity=bs,
     )

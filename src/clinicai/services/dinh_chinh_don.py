@@ -467,9 +467,10 @@ async def ap_dung_don_da_ky(
         )
 
     for old, item in kh.sua_huong_dan:
-        await conn.execute(
+        await conn.execute(  # đường đã ký không gửi cấu trúc: bỏ bản chụp PR E cũ
             "UPDATE prescription SET dosage_instructions = $3, caution = $4,"
-            " updated_at = now() WHERE id = $1::uuid AND clinic_id = $2::uuid",
+            " cach_dung_ct = NULL, updated_at = now()"
+            " WHERE id = $1::uuid AND clinic_id = $2::uuid",
             old["id"],
             clinic_id,
             _chu(item.get("dosage")),
@@ -495,7 +496,7 @@ async def ap_dung_don_da_ky(
                        CASE WHEN $7::uuid IS NULL THEN NULL ELSE $8::uuid END,
                    drug_mapped_at =
                        CASE WHEN $7::uuid IS NULL THEN NULL ELSE now() END,
-                   purchased_qty = NULL, updated_at = now()
+                   purchased_qty = NULL, updated_at = now(), cach_dung_ct = NULL
              WHERE id = $1::uuid AND clinic_id = $2::uuid
             """,
             old["id"],

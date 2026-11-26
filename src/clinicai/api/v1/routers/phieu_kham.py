@@ -34,7 +34,6 @@ from clinicai.services.phieu_kham_service import (
     kiem_quyen_core,
 )
 from clinicai.services.thuoc.cach_dung import CachDung
-from clinicai.services.thuoc.cach_dung_db import chuan_hoa_dong
 
 router = APIRouter()
 
@@ -238,7 +237,7 @@ async def luu_don_thuoc(
     """Đơn thuốc mục E — đi thẳng tới nhà thuốc như đơn bệnh án cũ."""
     return await PhieuKhamService(pool, kiem_quyen=kiem_quyen).luu_don_thuoc(
         visit_id=str(visit_id),
-        dong=[chuan_hoa_dong(d.model_dump()) for d in body.dong],
+        dong=[d.model_dump() for d in body.dong],
         ly_do=body.ly_do,
         identity=identity,
     )

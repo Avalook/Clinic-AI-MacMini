@@ -159,6 +159,13 @@ def test_cau_co_trong_ngay_va_thoi_diem() -> None:
     assert cau_cach_dung(ct) == cau
 
 
+@pytest.mark.parametrize("sl", ["9999999", "9" * 50, "1" + "0" * 30 + " hộp"])
+def test_so_luong_qua_lon_khong_500(sl: str) -> None:
+    kq = _tinh(ECANIX, sl)  # trước đây: OverflowError ngày vượt lịch → 500
+    assert not kq["tinh_duoc"] and kq["ngay_het"] is None
+    assert "quá lớn" in kq["ly_do"]
+
+
 def test_so_luong_rac() -> None:
     assert so_luong_so("1/2") is None and so_luong_so("0") is None
     assert so_luong_so("abc") is None and so_luong_so(None) is None
