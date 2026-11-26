@@ -172,6 +172,29 @@ def test_so_luong_rac() -> None:
     assert so_luong_so("1,5") == Fraction(3, 2)
 
 
+@pytest.mark.parametrize(
+    ("ten", "lieu", "so"),
+    [
+        ("hộp 60 viên", "viên", Fraction(60)),
+        ("Hộp  30 Viên", "viên", Fraction(30)),
+        ("hộp 25 que", "viên", None),  # con trong tên khác đơn vị liều → không đoán
+        ("hộp", "viên", None),  # không ghi số → kho phải khai
+        ("hộp 0 viên", "viên", None),
+    ],
+)
+def test_doc_so_con_trong_ten_don_vi(ten: str, lieu: str, so: Fraction | None) -> None:
+    from clinicai.services.thuoc.cach_dung_db import (
+        lieu_moi_don_vi_kho,
+        so_con_trong_ten,
+    )
+
+    assert so_con_trong_ten(ten, lieu) == so
+    ct = CachDung.model_validate({"kieu": "ngay", "moi_lan": 1, "so_lan": 2})
+    # Kho đã khai số thì số khai thắng chữ trong tên.
+    assert lieu_moi_don_vi_kho(ct, ten, Decimal(50)) == Fraction(50)
+    assert lieu_moi_don_vi_kho(ct, ten, None) == so
+
+
 def test_doc_ct_hong_tra_none() -> None:
     assert doc_ct('{"kieu": "la"}') is None
     assert doc_ct("không phải json") is None

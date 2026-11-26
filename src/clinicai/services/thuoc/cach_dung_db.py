@@ -12,6 +12,7 @@
 from __future__ import annotations
 
 import json
+import re
 from datetime import date
 from fractions import Fraction
 from typing import Any
@@ -50,12 +51,29 @@ def _gia_tri_o_phieu(o: Any) -> Any:
     return o.get("gia_tri") if isinstance(o, dict) else o
 
 
+#: Tên đơn vị mẹ ghi kèm số con: "hộp 60 viên" = hộp (mẹ) chứa 60 viên (con).
+_ME_CO_SO_CON = re.compile(r"^\S+\s+(\d+(?:[.,]\d+)?)\s+(\S+)$")
+
+
+def so_con_trong_ten(don_vi: str, don_vi_lieu: str) -> Fraction | None:
+    """ "hộp 60 viên" + liều tính theo "viên" → 60 (Tuyền 26/11: tên hiện số con cho
+    người dùng biết). Đơn vị con trong tên phải trùng đơn vị liều, không thì None."""
+    m = _ME_CO_SO_CON.match(" ".join(don_vi.split()))
+    if not m or chuan(m[2]) != chuan(don_vi_lieu):
+        return None
+    so = Fraction(m[1].replace(",", "."))
+    return so if so > 0 else None
+
+
 def lieu_moi_don_vi_kho(ct: CachDung, goc: str, so_lieu: Any) -> Fraction | None:
-    """1 đơn vị kho = bao nhiêu đơn vị liều. Cùng tên ("viên"/"viên") = 1; khác thì
-    phải khai ở danh mục (`so_lieu_moi_don_vi_goc`) — không đoán từ tên thuốc."""
+    """1 đơn vị kho = bao nhiêu đơn vị liều. Cùng tên ("viên"/"viên") = 1; khác thì lấy
+    số kho khai ở danh mục (`so_lieu_moi_don_vi_goc`); chưa khai thì đọc số con ghi
+    trong tên đơn vị ("hộp 60 viên"). Không đoán từ tên thuốc."""
     if chuan(goc) and chuan(goc) == chuan(ct.don_vi_lieu):
         return Fraction(1)
-    return Fraction(str(so_lieu)) if so_lieu is not None else None
+    if so_lieu is not None:
+        return Fraction(str(so_lieu))
+    return so_con_trong_ten(goc, ct.don_vi_lieu)
 
 
 def he_so_dong(bang: BangDonVi, don_vi: str | None) -> Fraction | None:
