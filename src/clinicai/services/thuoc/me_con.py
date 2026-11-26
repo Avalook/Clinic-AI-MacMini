@@ -6,6 +6,7 @@ gốc kho đếm (viên, gói). Viên lẻ là phần còn của hộp đã bóc
 
 from __future__ import annotations
 
+import re
 from decimal import ROUND_FLOOR, Decimal
 from typing import TYPE_CHECKING
 
@@ -48,4 +49,28 @@ def phan_me_con_cua_chu_ton(
     return None
 
 
-__all__ = ["chu_me_con", "me_lon", "phan_me_con_cua_chu_ton"]
+#: Tên đơn vị cũ ghi kèm số con: "hộp 60 viên" → ("hộp", 60, "viên").
+_TEN_CO_SO = re.compile(r"^(\S+)\s+(\d+)\s+(\S+(?:\s+\S+)?)$")
+
+
+def tach_ten_me_co_so(ten: str | None) -> tuple[str, int, str] | None:
+    """ "hộp 60 viên" → ("hộp", 60, "viên"); tên không kèm số → None."""
+    m = _TEN_CO_SO.match(" ".join((ten or "").split()))
+    return (m[1], int(m[2]), m[3]) if m and int(m[2]) > 0 else None
+
+
+def la_doi_ten_cung_nghia(cu: str | None, moi: str | None) -> bool:
+    """Đổi "hộp 15 viên" → "hộp": cùng nghĩa (vẫn là hộp), số tồn giữ nguyên."""
+    from clinicai.services.don_vi_thuoc import chuan
+
+    t = tach_ten_me_co_so(cu)
+    return t is not None and chuan(t[0]) == chuan(moi)
+
+
+__all__ = [
+    "chu_me_con",
+    "la_doi_ten_cung_nghia",
+    "me_lon",
+    "phan_me_con_cua_chu_ton",
+    "tach_ten_me_co_so",
+]

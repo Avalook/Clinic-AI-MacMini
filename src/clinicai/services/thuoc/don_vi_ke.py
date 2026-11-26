@@ -21,6 +21,7 @@ import asyncpg
 from clinicai.api.exceptions import ValidationError
 from clinicai.api.identity import StaffIdentity
 from clinicai.services.don_vi_thuoc import chuan
+from clinicai.services.thuoc.me_con import la_doi_ten_cung_nghia, tach_ten_me_co_so
 
 #: Gửi lên không có khoá `mac_dinh_ke` ở dòng nào = giữ nguyên đơn vị mặc định.
 GIU = object()
@@ -85,7 +86,8 @@ async def kiem_ten_goc(
     conn: asyncpg.Connection, clinic_id: str, thuoc: str | None, goc_moi: str | None
 ) -> None:
     """Đơn vị gốc mới (thuốc mới, hoặc đổi chữ) không được có số; giữ nguyên chữ
-    cũ thì cho lưu."""
+    cũ thì cho lưu. Đổi CÙNG NGHĨA "hộp 15 viên" → "hộp" (Tuyền 26/11): đổi luôn chữ
+    trên lô + điền đơn vị con / số con — xem `doi_ten_cung_nghia`."""
     cu = None
     if thuoc is not None:
         cu = await conn.fetchval(
@@ -96,6 +98,50 @@ async def kiem_ten_goc(
         )
     if chuan(cu) != chuan(goc_moi):
         kiem_ten_don_vi(goc_moi)
+        if thuoc is not None and la_doi_ten_cung_nghia(cu, goc_moi):
+            await doi_ten_cung_nghia(conn, clinic_id, thuoc, str(cu), str(goc_moi))
+
+
+async def doi_ten_cung_nghia(
+    conn: asyncpg.Connection, clinic_id: str, thuoc: str, cu: str, moi: str
+) -> None:
+    """ "hộp 15 viên" → "hộp": số tồn vẫn là số hộp, chỉ đổi chữ trên lô; điền đơn vị
+    con = viên, 1 hộp = 15 nếu chưa khai. CHẶN khi bảng quy đổi đã có "hộp = N [gốc]"
+    (Ecanix, Aktiv): kho thật ra đang đếm theo VIÊN — đổi tên sẽ biến 18.230 viên thành
+    18.230 hộp."""
+    t = tach_ten_me_co_so(cu)
+    assert t is not None
+    _, so, con = t
+    trung = await conn.fetchval(
+        "SELECT he_so FROM public.thuoc_quy_doi WHERE clinic_id = $1::uuid"
+        " AND drug_catalog_id = $2::uuid AND public.chuan_don_vi(don_vi) = $3",
+        clinic_id,
+        thuoc,
+        chuan(moi),
+    )
+    if trung is not None:
+        raise ValidationError(
+            f"Kho thuốc này đang đếm theo {con} (bảng quy đổi ghi 1 {moi} = "
+            f"{trung:g} {cu}) — đổi tên thành “{moi}” sẽ làm số tồn sai. Giữ nguyên, "
+            "chờ chức năng chuyển kho sang hộp + viên lẻ."
+        )
+    await conn.execute(
+        "UPDATE public.drug_batch SET unit = $4 WHERE clinic_id = $1::uuid"
+        " AND drug_catalog_id = $2::uuid AND public.chuan_don_vi(unit) = $3",
+        clinic_id,
+        thuoc,
+        chuan(cu),
+        moi,
+    )
+    await conn.execute(
+        "UPDATE public.drug_catalog SET don_vi_con = coalesce(don_vi_con, $3),"
+        " so_lieu_moi_don_vi_goc = coalesce(so_lieu_moi_don_vi_goc, $4)"
+        " WHERE clinic_id = $1::uuid AND id = $2::uuid",
+        clinic_id,
+        thuoc,
+        con,
+        so,
+    )
 
 
 async def _me_hien_tai(conn: asyncpg.Connection, clinic_id: str, thuoc: str) -> str:

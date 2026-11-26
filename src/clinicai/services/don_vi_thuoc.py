@@ -607,8 +607,14 @@ async def kiem_doi_don_vi_goc(
         thuoc,
         identity.clinic_id,
     )
-    if not chuan(cu) or chuan(cu) == chuan(goc_moi):
-        return
+    from clinicai.services.thuoc.me_con import la_doi_ten_cung_nghia
+
+    if (
+        not chuan(cu)
+        or chuan(cu) == chuan(goc_moi)
+        or la_doi_ten_cung_nghia(cu, goc_moi)
+    ):
+        return  # "hộp 15 viên" → "hộp" cùng nghĩa: `don_vi_ke.doi_ten_cung_nghia`
     r = await conn.fetchrow(
         """
         SELECT EXISTS (SELECT 1 FROM public.thuoc_quy_doi q
