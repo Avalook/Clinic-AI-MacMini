@@ -70,6 +70,7 @@ from clinicai.services.danh_muc_dich_vu_service import (
 )
 from clinicai.services.don_vi_thuoc import BangDonVi, doc_bang
 from clinicai.services.thai_ky_service import dong_bo_tu_phieu, thai_ky_cua_luot
+from clinicai.services.thuoc.ke_don import gan_ton_ke_don
 
 logger = structlog.get_logger()
 
@@ -734,10 +735,9 @@ class PhieuKhamService:
                 {"nhom": f"{ten} (danh mục phòng khám)", "muc": them[ten]}
             )
 
-        # KHO LÀ NGUỒN (Tuyền 25/09/2026): tên, giá, đơn vị, cách dùng, lưu ý đọc
-        # từ danh mục kho — dược sĩ sửa ở Kho thuốc là màn kê đơn đổi theo. Nhãn
-        # phiếu chỉ còn là chỗ bác sĩ quen tìm. Mặt hàng kho không có trên phiếu
-        # (Ozempic, King Seal…) cũng chọn được, kèm hướng dẫn.
+        # KHO LÀ NGUỒN: tên, giá, đơn vị, cách dùng, lưu ý đọc từ danh mục kho —
+        # dược sĩ sửa ở Kho thuốc là màn kê đơn đổi theo. Nhãn phiếu chưa gắn thuốc
+        # kho bị bỏ, tồn + cờ chọn được do `thuoc.ke_don` gắn (26/11/2026).
         def tu_kho(m: dict[str, Any], r: asyncpg.Record | None) -> dict[str, Any]:
             if r is None:
                 return {**m, "drug_catalog_id": None, "gia": None}
@@ -772,7 +772,7 @@ class PhieuKhamService:
                     r,
                 )
             )
-        tc["mau_thuoc"] = mau
+        tc["mau_thuoc"] = await gan_ton_ke_don(self._pool, identity, mau, bang_dv)
         return tc
 
     # Đơn thuốc (mục E) — ghi qua ĐÚNG đường bệnh án đang dùng

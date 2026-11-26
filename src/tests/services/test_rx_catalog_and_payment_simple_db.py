@@ -38,6 +38,7 @@ from clinicai.services.payment_service import PaymentService
 from tests.services.test_luot_kham_service_db import CLINIC, _nguoi
 from tests.services.test_tien_thuoc_cp1_db import Quay, _du_lo, tao_quay
 from tests.so_ck import so_ck
+from tests.thuoc_danh_muc import co_thuoc
 
 pytest_plugins = ["tests.services.test_luot_kham_service_db"]
 pytestmark = [pytest.mark.db, pytest.mark.asyncio]
@@ -322,7 +323,7 @@ async def test_6_thuoc_ngoai_danh_muc_chua_thu_duoc_khong_tinh_0d(q: Quay) -> No
         appt_id = await _get_appointment_id(conn, q.visit_id)
         pat_id = await _get_patient_id(conn, q.visit_id)
 
-    # Bác sĩ kê thuốc ngoài danh mục
+    await co_thuoc(q.pool, CLINIC, "Thuốc ngoại nhập xách tay")
     service = ClinicalRecordService(q.pool)
     await service.save(
         identity=q.bac_si,
@@ -347,8 +348,6 @@ async def test_6_thuoc_ngoai_danh_muc_chua_thu_duoc_khong_tinh_0d(q: Quay) -> No
             conn, clinic_id=CLINIC, visit_id=q.visit_id, kind="thuoc"
         )
         assert hd.thu_duoc is False
-        # 24/09/2026: thuốc gõ tay được THÊM vào danh mục kho (cần soát, chưa
-        # giá) thay vì "chưa gắn kho" — vẫn KHÔNG thu được, không tính 0đ.
         assert any("chưa có giá" in v for v in hd.van_de)
 
     ps = PaymentService(q.pool)
@@ -471,7 +470,8 @@ async def test_9_bac_si_sua_dosage_soap_giu_nguyen_mapping_duoc_si(q: Quay) -> N
         appt_id = await _get_appointment_id(conn, q.visit_id)
         pat_id = await _get_patient_id(conn, q.visit_id)
 
-    # 1. Bác sĩ ban đầu kê tự do
+    # 1. Bác sĩ ban đầu kê tự do (tên đã có trong danh mục — PR B chặn tên lạ hẳn)
+    await co_thuoc(q.pool, CLINIC, "Men vi sinh gói")
     service = ClinicalRecordService(q.pool)
     await service.save(
         identity=q.bac_si,

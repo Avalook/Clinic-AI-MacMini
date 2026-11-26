@@ -565,6 +565,11 @@ export interface MauThuoc {
   gia?: number | null;
   /** Đơn vị bán của thuốc, gốc trước — máy chủ trả (31/10/2026). */
   cac_don_vi?: { don_vi: string; he_so: string; gia: number | null; goc: boolean }[];
+  /** Máy chủ soạn sẵn (26/11/2026): tồn cơ sở "còn 3 hộp" / "hết hàng"; chưa giá → không chọn được. */
+  ton_chu?: string;
+  con_hang?: boolean;
+  chon_duoc?: boolean;
+  ly_do_khong_chon?: string | null;
 }
 
 export interface ThuThuatNguon {
@@ -655,23 +660,6 @@ export function dongTuMau(m: MauThuoc): DongThuoc {
     mau_ma: m.ma,
     don_gia: m.drug_catalog_id ? (m.gia ?? null) : null,
     dvt_kho: dvtKho,
-  };
-}
-
-/** "+ Thuốc ngoài danh mục": dòng trống, bác sĩ gõ tên / ĐVT tự do. Chưa có tên
- *  thì chưa lưu (`luuDon` bỏ dòng không tên). */
-export function dongNgoaiDanhMuc(): DongThuoc {
-  return {
-    drug_catalog_id: null,
-    ten_thuoc: "",
-    duong_dung: "",
-    so_luong: "",
-    don_vi: "",
-    cach_dung: "",
-    luu_y: "",
-    mau_ma: null,
-    don_gia: null,
-    dvt_kho: null,
   };
 }
 

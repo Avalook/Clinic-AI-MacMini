@@ -56,6 +56,7 @@ from tests.services.test_xac_nhan_tep_ket_qua_db import (
     _tao_review_round_cho_order,
     _tao_staff,
 )
+from tests.thuoc_danh_muc import co_thuoc
 
 pytestmark = [pytest.mark.db, pytest.mark.asyncio]
 
@@ -631,7 +632,7 @@ async def test_smoke_3_unlisted_drug_free_text_blocked_at_payment_e2e(
     svc_cr = ClinicalRecordService(pool)
     svc_pay = PaymentService(pool)
 
-    # Bác sĩ lưu đơn thuốc tự gõ (free-text, không có drug_catalog_id)
+    await co_thuoc(pool, CLINIC_A, "Thuốc Nam bôi ngoài da gia truyền")
     await svc_cr.save(
         identity=doc,
         appointment_id=aid,
@@ -656,7 +657,6 @@ async def test_smoke_3_unlisted_drug_free_text_blocked_at_payment_e2e(
         # Kiểm tra hóa đơn
         hd = await tinh_hoa_don(conn, clinic_id=CLINIC_A, visit_id=vid, kind="thuoc")
         assert hd.thu_duoc is False
-        # 24/09/2026: thuốc gõ tay vào danh mục kho (cần soát, CHƯA GIÁ).
         assert any("chưa có giá" in v for v in hd.van_de)
 
     # Thử thu tiền -> bị chặn vì thuốc chưa có giá (không tính 0đ)

@@ -20,7 +20,6 @@ import {
   soODaDien,
   dongKetQua,
   tongPhongKham,
-  dongNgoaiDanhMuc,
   dongTuDon,
   nguoiKeDon,
   dongTuMau,
@@ -193,9 +192,6 @@ test("chọn thuốc kho: mang đơn giá + ĐVT kho; thuốc chưa gắn kho th
   const chuaGan = dongTuMau(mau({ drug_catalog_id: null, gia: null }));
   assert.equal(chuaGan.don_gia, null);
   assert.equal(chuaGan.dvt_kho, null, "ĐVT chỉ là chữ khi KHO có");
-  const tuDo = dongNgoaiDanhMuc();
-  assert.equal(tuDo.drug_catalog_id, null);
-  assert.equal(tuDo.ten_thuoc, "");
 });
 
 test("số lượng đọc như máy chủ: số / thập phân phẩy; phân số và 0 thì không đoán", () => {
@@ -215,7 +211,7 @@ test("thành tiền chỉ khi có giá, đọc được số lượng và ĐVT k
   assert.equal(thanhTienDong({ ...d, so_luong: "1/2" }), null);
   assert.equal(thanhTienDong({ ...d, don_vi: "Hộp" }), null, "2 hộp × giá một viên là sai");
   assert.equal(thanhTienDong({ ...d, don_vi: " Viên " }), 120000, "không phân biệt hoa/thường");
-  assert.equal(thanhTienDong({ ...dongNgoaiDanhMuc(), so_luong: "3" }), null);
+  assert.equal(thanhTienDong({ ...dongTuMau(mau({ drug_catalog_id: null, gia: null })), so_luong: "3" }), null);
 });
 
 test("đọc đơn đã lưu: giữ ĐVT đã ghi; đơn cũ chưa ghi ĐVT thì lấy ĐVT kho", () => {

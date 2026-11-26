@@ -691,8 +691,7 @@ MODULE: dict[str, Module] = {
         Module(
             ma="chuong",
             ten="Chuông thông báo",
-            # CHỈ NGHE. Ai nhận chuông cho sự kiện nào là DỮ LIỆU
-            # (`day_nhan_thong_bao`) — quản lý chỉnh trên màn (nhóm 5).
+            # CHỈ NGHE. Ai nhận chuông là DỮ LIỆU (`day_nhan_thong_bao`).
             nghe=[
                 "result_file.uploaded",
                 "result_file.confirmed",
@@ -703,6 +702,7 @@ MODULE: dict[str, Module] = {
                 "partner.result_returned",
                 "pharmacy.expiry_checked",
                 "pharmacy.stocktake_mismatch",
+                "pharmacy.drug_requested",
             ],
             ben_nhan=["chuong_thong_bao"],
             bang=["day_nhan_thong_bao"],
@@ -710,8 +710,7 @@ MODULE: dict[str, Module] = {
         Module(
             ma="chuong_nhan_cheo",
             ten="Chuông nhận chéo (phòng quên Xong)",
-            # CHỈ NGHE (07/10/2026): khách được phòng khác nhận lúc phòng cũ
-            # còn đang làm → réo phòng cũ; lần làm đóng → chuông tự đóng.
+            # CHỈ NGHE: phòng khác nhận khách lúc phòng cũ đang làm → réo phòng cũ.
             nghe=[
                 "service.room_released",
                 "service.completed",
@@ -896,8 +895,9 @@ MODULE: dict[str, Module] = {
                 "pharmacy.expiry_checked",
                 "medicine.returned",
                 "pharmacy.stocktake_mismatch",
+                "pharmacy.drug_requested",
             ],
-            bang=["prescription_allocation", "inventory_txn"],
+            bang=["prescription_allocation", "inventory_txn", "thuoc_nho_kho"],
             quyen=["pharmacy.dispense", "pharmacy.view", "price.medicine.manage"],
         ),
         # 21 lego (Tuyền 25/09/2026): hai module chỉ-đọc cho lego Báo cáo /

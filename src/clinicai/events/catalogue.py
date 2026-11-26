@@ -1398,6 +1398,13 @@ class KiemKeLech(PayloadSuKien):
     so_dong_lech: int
 
 
+class ThuocNhoKho(PayloadSuKien):
+    """Kê đơn gõ tên ngoài danh mục, bấm "Nhờ kho thêm thuốc" (26/11/2026)."""
+
+    ten_go: str
+    visit_id: str | None = None
+
+
 DANH_MUC: dict[str, SuKien] = {
     su_kien.ten: su_kien
     for su_kien in (
@@ -1418,6 +1425,16 @@ DANH_MUC: dict[str, SuKien] = {
             source_module="pharmacy",
             payload=KiemKeLech,
             nhan="Kiểm kê ca ở quầy có thuốc lệch",
+            consumers=[CHUONG],
+            is_public=False,
+        ),
+        SuKien(
+            ten="pharmacy.drug_requested",
+            version=1,
+            aggregate_type="thuoc_nho_kho",
+            source_module="pharmacy",
+            payload=ThuocNhoKho,
+            nhan="Nhờ kho thêm thuốc chưa có trong danh mục",
             consumers=[CHUONG],
             is_public=False,
         ),
@@ -1655,8 +1672,6 @@ DANH_MUC: dict[str, SuKien] = {
             source_module="consultation",
             payload=DonThuocDaLuu,
             nhan="Bác sĩ kê / sửa đơn thuốc",
-            # Kê đơn từng KHÔNG phát sự kiện nào (bộ mô phỏng ngày khám,
-            # 24/09/2026): kho thuốc, dòng thời gian không có dây để nghe.
             # Sổ nợ nghe (G4d · R3): đính chính dòng ĐÃ THU chưa giao sau khi
             # khách về = phòng khám nợ khách.
             consumers=[DONG_THOI_GIAN_LUOT, SO_NO],
@@ -1677,11 +1692,9 @@ DANH_MUC: dict[str, SuKien] = {
             source_module="service_selection",
             payload=KhachDaChonDichVu,
             nhan="Khách chốt làm / không làm chỉ định",
-            # Không cần giao theo thứ tự: bên nhận chạy lại vòng đọc từ trạng
-            # thái hiện tại (chạy lại bao lần cũng ra một kết quả). Khối Đối tác
-            # nghe để nhận việc đối tác TỰ THU (27/09/2026): khách chốt làm là
-            # đủ, không chờ phòng khám thu tiền. Hành trình nghe để tự xếp phòng
-            # khi hoá đơn 0đ — không có lần thu nào để chờ (V2, 30/09/2026).
+            # Không cần giao theo thứ tự: vòng đọc chạy lại từ trạng thái hiện
+            # tại. Đối tác nghe để nhận việc TỰ THU (khách chốt làm là đủ); Hành
+            # trình nghe để tự xếp phòng khi hoá đơn 0đ (không có lần thu để chờ).
             consumers=[DONG_THOI_GIAN_LUOT, VONG_DOC, DOI_TAC_NHAN_VIEC, HANH_TRINH],
         ),
         SuKien(
@@ -1764,8 +1777,7 @@ DANH_MUC: dict[str, SuKien] = {
             theo_thu_tu=True,
         ),
         SuKien(
-            # V4 (30/09/2026): không mở việc trách nhiệm — chỉ định bị dừng đã
-            # về chờ làm và khách vẫn nằm trong hàng phòng cũ, không rơi đâu.
+            # Không mở việc trách nhiệm: chỉ định dừng đã về chờ làm, không rơi.
             ten="service.patient_moved",
             version=1,
             aggregate_type="service_order",
@@ -1785,9 +1797,8 @@ DANH_MUC: dict[str, SuKien] = {
             consumers=[DONG_THOI_GIAN_LUOT, CHUONG_NHAN_CHEO, SO_NO, VAT_TU_BAN],
             theo_thu_tu=True,
         ),
-        # ── Hoàn tác (01/10/2026) — chỉ lên dòng thời gian: mỗi lệnh hoàn tác
-        # tự đưa mọi bảng về đúng chỗ trong CHÍNH giao dịch của nó, các màn tự
-        # tải lại qua NOTIFY của bảng (không cần bên nghe nào làm thêm việc).
+        # ── Hoàn tác — chỉ lên dòng thời gian: lệnh hoàn tác tự đưa mọi bảng về
+        # đúng chỗ trong CHÍNH giao dịch của nó, màn tải lại qua NOTIFY của bảng.
         SuKien(
             ten="service.completion_undone",
             version=1,
@@ -1892,8 +1903,7 @@ DANH_MUC: dict[str, SuKien] = {
             consumers=[DONG_THOI_GIAN_LUOT],
             theo_thu_tu=True,
         ),
-        # Nhận khách tại phòng (07/10/2026) — Nhận = `service.routed` nguồn
-        # 'tai_phong'; ba sự kiện dưới là rời phòng, hoàn tác Nhận, hướng dẫn.
+        # Nhận tại phòng = `service.routed` 'tai_phong'; dưới: rời, hoàn tác, hướng dẫn.
         SuKien(
             ten="service.room_released",
             version=1,
@@ -1961,8 +1971,7 @@ DANH_MUC: dict[str, SuKien] = {
             source_module="result_file",
             payload=TepKetQuaDaXacNhan,
             nhan="Đã xác nhận tệp kết quả",
-            # Chuông (23/09 khuya): tệp đối tác HỢP LỆ = kết quả chính thức về
-            # → báo bác sĩ chính + CSKH. Trước đó chỉ có chuông lúc TẢI LÊN.
+            # Chuông: tệp đối tác HỢP LỆ = kết quả chính thức → bác sĩ chính + CSKH.
             consumers=[DONG_THOI_GIAN_LUOT, CHUONG, VONG_DOC],
         ),
         SuKien(
@@ -2174,8 +2183,7 @@ DANH_MUC: dict[str, SuKien] = {
             consumers=[DONG_THOI_GIAN_LUOT],
             is_public=False,
         ),
-        # Bàn xét nghiệm đối tác đời mới (05/11/2026, ADR-0015) — tiền tố `lab.`,
-        # không dùng lại `partner.*` (của bàn cũ, đã có bên nhận).
+        # Bàn xét nghiệm đối tác (ADR-0015): tiền tố `lab.`, không dùng `partner.*`.
         SuKien(
             ten="lab.payment_recorded",
             version=1,
@@ -2220,8 +2228,6 @@ DANH_MUC: dict[str, SuKien] = {
             for ten, loai, payload, nhan in (
                 ("lab.sample_collected", "mau_xet_nghiem", XetNghiemMau, "Lấy mẫu"),
                 ("lab.sample_voided", "mau_xet_nghiem", XetNghiemMau, "Huỷ mẫu"),
-                # "lab.prepay_waived" / "lab.prepay_waiver_revoked" (cho lấy mẫu trước)
-                # đã bỏ cùng lệnh (Tuyền 05/11) — lấy mẫu chỉ sau khi ghi nhận thu hộ.
                 (
                     "lab.result_arrived",
                     "service_order",
@@ -2276,8 +2282,6 @@ DANH_MUC: dict[str, SuKien] = {
                     XetNghiemViec,
                     "Thu hồi kết quả đối tác",
                 ),
-                # "lab.closed_by_partner" (Đối tác đã tự trả khách) đã bỏ cùng lệnh
-                # đóng việc (Tuyền 05/11) — chỉ còn mở lại việc đã lỡ đóng.
                 ("lab.reopened", "service_order", XetNghiemViec, "Mở lại việc"),
             )
         ],
@@ -2360,7 +2364,6 @@ DANH_MUC: dict[str, SuKien] = {
             payload=HinhThucThuDaDoi,
             nhan="Đổi hình thức thu",
             consumers=[DONG_THOI_GIAN_LUOT],
-            # Tiền là chuyện nội bộ (như payment.*): AI/Zalo không nghe.
             is_public=False,
         ),
         SuKien(
@@ -2371,7 +2374,6 @@ DANH_MUC: dict[str, SuKien] = {
             payload=LanThuDaHoanTac,
             nhan="Hoàn tác lần thu",
             consumers=[DONG_THOI_GIAN_LUOT, SO_NO],
-            # Tiền là chuyện nội bộ (như payment.*): AI/Zalo không nghe.
             is_public=False,
         ),
         SuKien(
@@ -2429,7 +2431,6 @@ DANH_MUC: dict[str, SuKien] = {
             payload=CongNoDaGhi,
             nhan="Ghi nợ khi khách về",
             consumers=[DONG_THOI_GIAN_LUOT, SO_NO],
-            # Tiền là chuyện nội bộ (như payment.*).
             is_public=False,
         ),
         SuKien(
@@ -2484,8 +2485,7 @@ DANH_MUC: dict[str, SuKien] = {
             source_module="result",
             payload=KetQuaDaSua,
             nhan="Đã sửa kết quả",
-            # 28/09/2026: kết quả SỬA LẠI cũng phải réo bác sĩ chính và chạy
-            # lại vòng đọc — trước đây chỉ vào dòng thời gian, bác sĩ không biết.
+            # Kết quả SỬA LẠI cũng réo bác sĩ chính và chạy lại vòng đọc.
             consumers=[DONG_THOI_GIAN_LUOT, CHUONG, VONG_DOC],
             is_public=True,
             theo_thu_tu=True,

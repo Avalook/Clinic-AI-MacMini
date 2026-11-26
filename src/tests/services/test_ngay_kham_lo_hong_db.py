@@ -232,7 +232,7 @@ async def test_ke_don_phat_su_kien(pool: asyncpg.Pool) -> None:  # noqa: F811
         visit_id=vid,
         dong=[
             {
-                "drug_name": "Paracetamol 500mg",
+                "drug_name": "Betmiga 50mg",
                 "quantity": "10 viên",
                 "dosage": "2 lần/ngày",
             }
