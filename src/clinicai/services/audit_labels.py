@@ -37,10 +37,8 @@ EVENT_LABELS: dict[str, str] = {
     "appointment.rescheduled": "Dời lịch hẹn",
     # Menu ⋯ dòng lịch hẹn — đổi loại khám của lịch (và lượt nếu chưa khám).
     "appointment.service_switched": "Đổi dịch vụ khám",
-    # Quản lý gỡ ca trực khám của một bác sĩ ⇒ lịch hẹn ngày ấy bỏ bác sĩ, rơi
-    # về hàng "Chờ xếp bác sĩ" (14/08/2026). Không phải người bấm vào lịch hẹn,
-    # nên nhãn nói RÕ nguyên nhân — đọc lại sáu tháng sau vẫn hiểu vì sao một
-    # lịch tự nhiên mất bác sĩ.
+    # Quản lý gỡ ca trực khám của bác sĩ ⇒ lịch ngày ấy về "Chờ xếp bác sĩ".
+    # Không phải người bấm vào lịch hẹn, nên nhãn nói RÕ nguyên nhân.
     "patient.phone_added": "Thêm số điện thoại cho khách",
     "patient.phone_removed": "Xoá số điện thoại của khách",
     "appointment.doctor_removed": "Gỡ bác sĩ khỏi lịch (ca trực bị xoá)",
@@ -150,6 +148,7 @@ EVENT_LABELS: dict[str, str] = {
     "pharmacy.sale_units_changed": "Đổi đơn vị bán của thuốc",
     "pharmacy.price_changed": "Đổi giá bán thuốc",
     "pharmacy.drug_deleted": "Xoá thuốc chưa từng dùng khỏi danh mục",
+    "pharmacy.drug_request_marked": "Kho đánh dấu xong / mở lại yêu cầu thêm thuốc",
     "pharmacy.kiem_ke_ca_sua_so_dem": "Sửa số đếm kiểm kê ca (giữ bản đã chốt)",
     "pharmacy.kiem_ke_ca_mo": "Mở phiếu kiểm kê ca ở quầy thuốc",
     "pharmacy.kiem_ke_ca_chot": "Chốt phiếu kiểm kê ca ở quầy thuốc",

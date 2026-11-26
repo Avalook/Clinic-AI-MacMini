@@ -20,6 +20,7 @@ from clinicai.api.identity import StaffIdentity
 from clinicai.core.tran import canh_bao_neu_day
 from clinicai.events import emit_event, nguoi
 from clinicai.events.catalogue import ThuocNhoKho
+from clinicai.services.pharmacy_service import ghi_nhat_ky
 
 TEN_TOI_DA = 200
 GHI_CHU_TOI_DA = 500
@@ -136,6 +137,16 @@ async def danh_dau_nho_kho(
             raise ConflictError(
                 "Đang có yêu cầu khác mở cho cùng tên thuốc — dùng yêu cầu đó."
             ) from None
+        if ma is not None:
+            # Mở lại xoá dấu "ai xong" trên dòng — nhật ký giữ lại từng lần bấm.
+            await ghi_nhat_ky(
+                conn,
+                identity=identity,
+                event_type="pharmacy.drug_request_marked",
+                aggregate_type="thuoc_nho_kho",
+                aggregate_id=ma,
+                payload={"xong": xong},
+            )
     if ma is None:
         raise NotFoundError("Không thấy yêu cầu này, hoặc nó đã đổi — tải lại.")
     return {"id": ma, "xong": xong}

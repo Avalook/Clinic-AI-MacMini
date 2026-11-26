@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import re
 from decimal import Decimal
+from pathlib import Path
 from typing import Any
 
 import pytest
@@ -122,3 +124,17 @@ def test_chuong_kho_nho_kho_va_hai_chuong_cu_giu_nguyen() -> None:
         "/pharmacy/inventory",
     )
     assert _chuong_kho(_su_kien("result.ready", {})) is None
+
+
+def test_duong_cu_tu_them_thuoc_da_chet_chi_con_mot_cho_ghi_danh_muc() -> None:
+    """Luật 2 — đường cũ `dinh_chinh_don._ma_kho` tự INSERT thuốc lạ (needs_review)
+    đã xoá. Chỉ còn MỘT chỗ thêm thuốc: form Danh mục (`PharmacyService.luu_thuoc`).
+    Số chỗ chỉ được giảm; thêm chỗ mới phải qua soát."""
+    mau = re.compile(r"INSERT\s+INTO\s+(public\.)?drug_catalog\b", re.IGNORECASE)
+    goc = Path(__file__).resolve().parents[2] / "clinicai"
+    cho = sorted(
+        str(f.relative_to(goc))
+        for f in goc.rglob("*.py")
+        for _ in mau.finditer(f.read_text(encoding="utf-8"))
+    )
+    assert cho == ["services/pharmacy_service.py"], cho

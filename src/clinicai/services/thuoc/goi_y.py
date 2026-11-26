@@ -96,9 +96,16 @@ async def goi_y_thuoc(
     """Thuốc chọn được (đang dùng, có giá) gần giống tên gõ, của phòng khám này."""
     if not chu_so_khop(ten_go):
         return []
+    # "Chọn được" cùng nghĩa với ô chọn kê đơn (`ke_don.sap_xep_ke_don`): có giá
+    # gốc, hoặc có một đơn vị bán đang bán có giá.
     rows = await conn.fetch(
-        "SELECT id::text AS id, name_raw AS ten, biet_duoc FROM public.drug_catalog"
-        " WHERE clinic_id = $1::uuid AND is_active AND unit_price IS NOT NULL",
+        "SELECT c.id::text AS id, c.name_raw AS ten, c.biet_duoc"
+        "  FROM public.drug_catalog c"
+        " WHERE c.clinic_id = $1::uuid AND c.is_active"
+        "   AND (c.unit_price IS NOT NULL OR EXISTS ("
+        "        SELECT 1 FROM public.thuoc_quy_doi q"
+        "         WHERE q.clinic_id = c.clinic_id AND q.drug_catalog_id = c.id"
+        "           AND q.dang_ban AND q.gia IS NOT NULL))",
         clinic_id,
     )
     return xep_goi_y(ten_go, [dict(r) for r in rows])
