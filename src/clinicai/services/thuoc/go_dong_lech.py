@@ -32,7 +32,7 @@ from clinicai.events.catalogue import ThuocQuayDaChinh
 from clinicai.events.emit import emit_event, nguoi
 from clinicai.permissions.can import can, doi_quyen
 from clinicai.services.audit import record_event
-from clinicai.services.bill_service import tinh_hoa_don
+from clinicai.services.bill_service import THIEU_SO_LUONG, tinh_hoa_don
 from clinicai.services.don_vi_thuoc import QUYEN_SUA_GIA, BangDonVi, doc_bang
 from clinicai.services.payment_access_service import head_money_grant
 from clinicai.services.pharmacy_service import PharmacyService
@@ -302,7 +302,12 @@ async def doc_dong_lech(
             identity.clinic_id,
             visit_id,
         )
-        van_de = {d.source_id: d.van_de for d in hd.dong if d.van_de}
+        # Thiếu số lượng gỡ ngay ở ô số lượng của dòng (đã tô nổi) — không lặp ở đây.
+        van_de = {
+            d.source_id: d.van_de
+            for d in hd.dong
+            if d.van_de and d.van_de != THIEU_SO_LUONG
+        }
         dong: list[dict[str, Any]] = []
         gan = await _lan_gan_cuoi_lo(conn, identity.clinic_id, [r["id"] for r in rows])
         for r in rows:

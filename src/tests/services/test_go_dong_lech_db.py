@@ -249,6 +249,21 @@ async def test_gia_rac_tra_cau_tieng_viet_khong_500(q: Quay, rac_vao: Any) -> No
         )
 
 
+async def test_dong_chi_thieu_so_luong_khong_vao_khung_go_lech(q: Quay) -> None:
+    rx = await _don(q, 1, ten=f"Trống số {q.duoi}")
+    co_gia = await _thuoc_dv(q, f"Có giá {q.duoi}", 4_000, "viên")
+    await PharmacyService(q.pool).xac_dinh_thuoc(
+        identity=q.duoc_si, prescription_id=rx, drug_catalog_id=co_gia
+    )
+    await q.pool.execute(
+        "UPDATE prescription SET quantity = NULL, quantity_num = NULL"
+        " WHERE id = $1::uuid",
+        rx,
+    )
+    lech = await doc_dong_lech(q.pool, identity=q.thu_ngan, visit_id=q.visit_id)
+    assert rx not in {d["prescription_id"] for d in lech["dong"]}
+
+
 def test_gia_quay_doc_so_ham_thuan() -> None:
     assert gia_quay("35.000") == 35_000
     assert gia_quay(35000) == 35_000
