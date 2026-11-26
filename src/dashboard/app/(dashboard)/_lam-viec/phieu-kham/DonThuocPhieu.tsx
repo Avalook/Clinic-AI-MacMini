@@ -99,7 +99,10 @@ export default function DonThuocPhieu({
 }) {
   const [tu, setTu] = useState(tuKhoaDau ?? "");
   const [moDanhMuc, setMoDanhMuc] = useState(!!tuKhoaDau);
-  const loc = useMemo(() => locMauThuoc(mauThuoc, tu), [mauThuoc, tu]);
+  // Ô chọn chỉ có thuốc đang có hàng ở kho / quầy của cơ sở (Tuyền 26/11). Thuốc khác
+  // bác sĩ vẫn kê được bằng "+ Thuốc ngoài danh mục" như cũ.
+  const coHang = useMemo(() => mauThuoc.filter((m) => m.con_hang), [mauThuoc]);
+  const loc = useMemo(() => locMauThuoc(coHang, tu), [coHang, tu]);
   const chiDoc = !onDoi;
 
   const sua = (i: number, ma: keyof DongThuoc, v: string | CachDungCT | null) =>
@@ -143,7 +146,7 @@ export default function DonThuocPhieu({
               aria-expanded={moDanhMuc}
               onClick={() => setMoDanhMuc(!moDanhMuc)}
             >
-              Danh mục thuốc ({mauThuoc.length})
+              Thuốc có ở kho / quầy ({coHang.length})
             </Button>
             {ngoaiDanhMuc ? (
               <Button

@@ -19,6 +19,16 @@ test("không nhận đề xuất khi yêu cầu lỗi hoặc đã hết hiệu l
   assert.match(hook, /await r\.json\(\)[^;]*;\s*if \(!bo\) setTraLoi/);
 });
 
+test("ô chọn thuốc ở bàn khám chỉ có thuốc còn hàng ở kho / quầy", () => {
+  const man = readFileSync(
+    new URL("../app/(dashboard)/_lam-viec/phieu-kham/DonThuocPhieu.tsx", import.meta.url),
+    "utf8",
+  );
+  assert.match(man, /mauThuoc\.filter\(\(m\) => m\.con_hang\)/);
+  assert.match(man, /locMauThuoc\(coHang, tu\)/);
+  assert.doesNotMatch(man, /Danh mục thuốc \(\{mauThuoc\.length\}\)/);
+});
+
 test("bàn khám không bắt bác sĩ khai cách dùng theo ô — chỉ hiện số ngày máy tính", () => {
   const man = readFileSync(
     new URL("../app/(dashboard)/_lam-viec/phieu-kham/DonThuocPhieu.tsx", import.meta.url),
