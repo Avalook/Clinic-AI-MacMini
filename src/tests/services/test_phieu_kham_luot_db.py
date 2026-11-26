@@ -24,7 +24,6 @@ from tests.services.test_phieu_kham_db import (
     _o,
     pool,  # noqa: F401
 )
-from tests.thuoc_danh_muc import co_thuoc
 
 pytestmark = [pytest.mark.db, pytest.mark.asyncio]
 
@@ -246,8 +245,6 @@ async def test_don_thuoc_muc_e_ghi_va_sua_khong_tao_trung(
             "caution": "",
         }
     ]
-    # PR B: tên ngoài danh mục nay bị 422 — dựng sẵn mục kho chưa giá (như dữ liệu cũ).
-    await co_thuoc(pool, bs.clinic_id, "Duphaston (4v/2v)")
     await svc.luu_don_thuoc(visit_id=luot["visit"], dong=dong, ly_do=None, identity=bs)
     doc = await svc.doc_don_thuoc(visit_id=luot["visit"], identity=bs)
     assert [d["drug_name_raw"] for d in doc] == ["Duphaston (4v/2v)"]

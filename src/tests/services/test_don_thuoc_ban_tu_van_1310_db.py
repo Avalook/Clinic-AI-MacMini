@@ -30,7 +30,6 @@ from tests.services.test_phieu_kham_db import (
     _luot,
     pool,  # noqa: F401
 )
-from tests.thuoc_danh_muc import co_thuoc
 
 pytestmark = [pytest.mark.db, pytest.mark.asyncio]
 
@@ -110,8 +109,6 @@ async def _canh(pool: asyncpg.Pool) -> dict[str, Any]:  # noqa: F811
         )
         cache.quen(CLINIC, khong_lego.staff_id)
         luot = await _luot(conn, bs)
-        # PR B: tên ngoài danh mục nay bị 422 — dựng sẵn hai thuốc các bài dùng.
-        await co_thuoc(conn, CLINIC, "Duphaston", "Vitamin D3")
     return {
         "svc": PhieuKhamService(pool, kiem_quyen=kiem_quyen_core),
         "bs": bs,

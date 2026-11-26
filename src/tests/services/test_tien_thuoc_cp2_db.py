@@ -37,7 +37,6 @@ from tests.services.test_tien_thuoc_cp1_db import (
     q,  # noqa: F401
 )
 from tests.so_ck import so_ck
-from tests.thuoc_danh_muc import don_co_thuoc
 
 pytest_plugins = ["tests.services.test_luot_kham_service_db"]
 pytestmark = [pytest.mark.db, pytest.mark.asyncio]
@@ -50,7 +49,8 @@ async def _luu_don(
     ly_do: str | None = None,
     identity: Any = None,
 ) -> None:
-    """Như `save()`, bằng bác sĩ chính; tên gõ tay dựng sẵn trong danh mục (PR B)."""
+    """Đúng như `save()`: khoá dòng visit trước, rồi thay đơn thuốc — bằng
+    danh tính bác sĩ chính của lượt (CP6: đính chính cần bác sĩ + lý do)."""
     async with q.pool.acquire() as conn:
         async with conn.transaction():
             await conn.execute(
@@ -65,7 +65,7 @@ async def _luu_don(
                 conn,
                 visit_id=q.visit_id,
                 clinic_patient_id=pid,
-                prescriptions=await don_co_thuoc(conn, CLINIC, dong),
+                prescriptions=dong,
                 clinic_id=CLINIC,
                 created_by=q.bac_si.staff_id,
                 identity=identity or q.bac_si,

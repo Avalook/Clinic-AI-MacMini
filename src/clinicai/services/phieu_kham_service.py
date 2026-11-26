@@ -736,8 +736,8 @@ class PhieuKhamService:
             )
 
         # KHO LÀ NGUỒN: tên, giá, đơn vị, cách dùng, lưu ý đọc từ danh mục kho —
-        # dược sĩ sửa ở Kho thuốc là màn kê đơn đổi theo. Nhãn phiếu chưa gắn thuốc
-        # kho bị bỏ, tồn + cờ chọn được do `thuoc.ke_don` gắn (26/11/2026).
+        # dược sĩ sửa ở Kho thuốc là màn kê đơn đổi theo. Tồn của cơ sở ("còn 3
+        # hộp") + thứ tự còn hàng trước do `thuoc.ke_don` gắn (26/11/2026).
         def tu_kho(m: dict[str, Any], r: asyncpg.Record | None) -> dict[str, Any]:
             if r is None:
                 return {**m, "drug_catalog_id": None, "gia": None}

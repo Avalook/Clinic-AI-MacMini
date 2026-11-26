@@ -1,8 +1,9 @@
 "use client";
 
 // Nút Xoá trong form Sửa thuốc (Tuyền chốt 26/11/2026). Máy chủ nói thuốc đã từng được
-// dùng ở đâu chưa (đơn, lô, phiếu kho, kiểm kê, quy đổi, mã vạch…): chưa → "Xoá thuốc"
-// (xoá thật, ghi nhật ký ai xoá); đã có lịch sử → "Tắt thuốc" (giữ cho đơn cũ).
+// dùng ở đâu chưa (đơn, lô, phiếu kho, kiểm kê, hoá đơn…): chưa → "Xoá thuốc" (hỏi lý do,
+// máy chủ LƯU bản chụp rồi mới xoá — khôi phục được ở "Thuốc đã xoá"); đã có lịch sử →
+// "Tắt thuốc" (giữ cho đơn cũ).
 
 import { useEffect, useState } from "react";
 
@@ -42,9 +43,10 @@ export default function XoaThuoc({
   }, [thuocId]);
 
   const xoa = async () => {
-    if (!window.confirm(`Xoá hẳn “${ten}” khỏi danh mục? Thuốc chưa từng được dùng nên không mất gì; không hoàn tác được.`)) return;
+    const lyDo = window.prompt(`Xoá “${ten}” khỏi danh mục — lý do? (máy lưu lại, khôi phục được ở "Thuốc đã xoá")`);
+    if (lyDo === null) return;
     setDang(true);
-    const r = await goiThuoc("xoa", { body: { id: thuocId } });
+    const r = await goiThuoc("xoa", { body: { id: thuocId, ly_do: lyDo } });
     setDang(false);
     if (r.ok) onDaXoa();
     else setLoi(r.loi);

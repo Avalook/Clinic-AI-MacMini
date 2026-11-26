@@ -1,22 +1,16 @@
-// Gọi proxy `/api/thuoc/[action]` (gợi ý tên, nhờ kho, xoá thuốc — 26/11/2026).
+// Gọi proxy `/api/thuoc/[action]` (xoá / khôi phục thuốc ở Danh mục — 26/11/2026).
 // Máy chủ quyết luật và quyền; ở đây chỉ gửi và đọc câu trả lời.
 
 export type KetQuaThuoc<T> = { ok: true; data: T } | { ok: false; loi: string };
 
-export interface GoiYThuoc {
-  drug_catalog_id: string;
-  ten: string;
-  biet_duoc: string | null;
-}
-
-export interface YeuCauNhoKho {
+export interface ThuocDaXoa {
   id: string;
-  ten_go: string;
-  ghi_chu: string | null;
-  tao_luc: string;
-  nguoi_nho: string | null;
-  nguoi_xong: string | null;
-  xong: boolean;
+  ten: string;
+  ly_do: string;
+  xoa_luc: string;
+  nguoi_xoa: string | null;
+  nguoi_khoi_phuc: string | null;
+  da_khoi_phuc: boolean;
 }
 
 export async function goiThuoc<T>(

@@ -50,7 +50,6 @@ from tests.services.test_thu_tien_xep_phong_mang_sang_db import (
     _kham_va_chi_dinh,
     _thu,
 )
-from tests.thuoc_danh_muc import don_co_thuoc
 
 pytestmark = [pytest.mark.db, pytest.mark.asyncio]
 
@@ -335,15 +334,16 @@ async def _luu_don(
     don: list[dict[str, Any]],
     ai: Any = None,
 ) -> None:
+    ai = ai or ca.bac_si
     async with pool.acquire() as conn, conn.transaction():
         await luu_don_chua_ky(
             conn,
             visit_id=visit,
             clinic_id=CLINIC,
             clinic_patient_id=pid,
-            prescriptions=await don_co_thuoc(conn, CLINIC, don),  # PR B: tên lạ → 422
-            created_by=(ai or ca.bac_si).staff_id,
-            identity=ai or ca.bac_si,
+            prescriptions=don,
+            created_by=ai.staff_id,
+            identity=ai,
             ly_do=None,
         )
 

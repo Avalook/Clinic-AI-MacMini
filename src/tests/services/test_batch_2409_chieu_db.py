@@ -11,12 +11,10 @@
 from __future__ import annotations
 
 import uuid
-from typing import Any
 
 import asyncpg
 import pytest
 
-from clinicai.api.exceptions import ValidationError
 from clinicai.services.dinh_chinh_don import luu_don_chua_ky
 from clinicai.services.service_execution_service import ServiceExecutionService
 from clinicai.services.service_routing_service import eligible_rooms
@@ -121,39 +119,30 @@ async def test_luu_don_bang_ten_tu_gan_ma_kho(
         co_san,
     )
     chua_co = f"Thuoc moi {uuid.uuid4().hex[:6]}"
-
-    async def _luu(don: list[dict[str, Any]]) -> None:
-        async with pool.acquire() as conn, conn.transaction():
-            await luu_don_chua_ky(
-                conn,
-                visit_id=visit,
-                clinic_id=CLINIC,
-                clinic_patient_id=pid,
-                prescriptions=don,
-                created_by=ca.bac_si.staff_id,
-                identity=ca.bac_si,
-                ly_do=None,
-            )
-
-    co = {"drug_name": f"  {co_san.upper()} ", "quantity": "2 hộp"}
-    # PR B (26/11/2026): tên chưa có trong danh mục KHÔNG còn tự thêm thuốc mới
-    # (thuốc rác không giá khoá cả hoá đơn) — từ chối cả lần lưu.
-    with pytest.raises(ValidationError, match="không có trong danh mục"):
-        await _luu([co, {"drug_name": chua_co, "quantity": "1 hộp"}])
-    assert not await pool.fetchval(
-        "SELECT count(*) FROM drug_catalog WHERE clinic_id = $1::uuid"
-        " AND name_raw = $2",
-        CLINIC,
-        chua_co,
-    )
-    await _luu([co])
+    async with pool.acquire() as conn, conn.transaction():
+        await luu_don_chua_ky(
+            conn,
+            visit_id=visit,
+            clinic_id=CLINIC,
+            clinic_patient_id=pid,
+            prescriptions=[
+                {"drug_name": f"  {co_san.upper()} ", "quantity": "2 hộp"},
+                {"drug_name": chua_co, "quantity": "1 hộp"},
+            ],
+            created_by=ca.bac_si.staff_id,
+            identity=ca.bac_si,
+            ly_do=None,
+        )
     rows = await pool.fetch(
-        "SELECT pr.drug_catalog_id::text AS ma, d.name_raw"
+        "SELECT pr.drug_catalog_id::text AS ma, d.name_raw, d.needs_review"
         " FROM prescription pr JOIN drug_catalog d ON d.id = pr.drug_catalog_id"
         " WHERE pr.visit_id = $1::uuid AND pr.removed_at IS NULL",
         visit,
     )
-    assert [(r["name_raw"], r["ma"]) for r in rows] == [(co_san, id_co_san)]
+    ma = {r["name_raw"]: r for r in rows}
+    assert ma[co_san]["ma"] == id_co_san  # gắn đúng thuốc có sẵn
+    assert ma[chua_co]["needs_review"] is True  # thuốc mới vào danh mục, cần soát
+    assert len(rows) == 2, "không còn dòng chưa gắn kho"
 
 
 async def test_khach_thu_thuat_san_chau_hien_o_moi_phong_thu_thuat(

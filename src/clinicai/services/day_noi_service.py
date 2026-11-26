@@ -1,6 +1,7 @@
 """KHỐI CHỈNH DÂY — quản lý chỉnh dây nối nghiệp vụ trên màn (nhóm 5, 24/09/2026).
 
-Tuyền chốt: "Đường nối H1–H8 phải CUSTOM được (không khoá cứng)".
+Tuyền chốt: "Đường nối H1–H8 phải CUSTOM được (không khoá cứng)"; "Tuyền hỏi: có
+nên xây một khối chuyên điều chỉnh khối nào nhận event nào không" → đây.
 
 Chỉnh được (dây NGHIỆP VỤ):
   * loại khám nào qua bác sĩ tư vấn (H1), loại lịch nào đi thẳng phòng (H2);
@@ -54,7 +55,6 @@ VAI_NHAN_DUOC: tuple[str, ...] = (
 NHAN_CHUONG: dict[str, str] = {
     "pharmacy.expiry_checked": "Lô thuốc sắp hết hạn / đã hết hạn (hằng ngày)",
     "pharmacy.stocktake_mismatch": "Kiểm kê ca ở quầy thuốc có thuốc lệch",
-    "pharmacy.drug_requested": "Bác sĩ nhờ kho thêm thuốc chưa có trong danh mục",
     "result_file.uploaded": "Tệp kết quả về",
     "result_file.confirmed": "Tệp kết quả đối tác được xác nhận hợp lệ",
     "result.ready": "Phòng hoàn tất phiếu kết quả",

@@ -232,8 +232,8 @@ BEGIN
     -- 133 → 135 (05/11/2026): drive_tep, drive_nhip (20261106100000, chặng 4 Drive).
     -- 135 → 136 (24/11/2026): dtqg_gui (20261124020000, hàng chờ đơn thuốc quốc gia —
     -- CHỈ SELECT, TO service_role).
-    -- 136 → 137 (26/11/2026): thuoc_nho_kho (20261126200000, "Nhờ kho thêm thuốc" —
-    -- CHỈ SELECT cho authenticated theo phòng khám).
+    -- 136 → 137 (26/11/2026): drug_catalog_da_xoa (20261126200100, bản lưu thuốc đã
+    -- xoá để khôi phục — CHỈ SELECT cho authenticated theo phòng khám).
     IF scoped_count <> 137 THEN
         RAISE EXCEPTION 'expected 137 tenant-scoped read policies, found %', scoped_count;
     END IF;

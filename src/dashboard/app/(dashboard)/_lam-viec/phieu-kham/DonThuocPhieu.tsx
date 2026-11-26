@@ -13,12 +13,9 @@
 // (`drug_catalog_id` trống) thì nói ra — chưa thu tiền, chưa cấp được — chứ
 // không tự dò tên để gắn.
 //
-// Mỗi thuốc có ĐƠN GIÁ của kho (máy chủ trả — `don_gia`) + thành tiền DỰ TÍNH (chỉ
-// hiển thị; quầy thu mới tính tiền); ĐVT là CHỮ khi kho có ĐVT.
-//
-// 26/11/2026 (kế hoạch đơn vị mẹ/con mục 12, 13): KHÔNG còn dòng gõ tự do — chỉ chọn
-// thuốc trong danh mục. Máy chủ trả sẵn tồn của cơ sở ("còn 3 hộp" / "hết hàng"),
-// thuốc còn hàng xếp trước, thuốc chưa có giá không chọn được. Tên lạ → `GoiYThuocLa`.
+// 27/09/2026 (bản giao diện mẫu, mục 9): mỗi thuốc có ĐƠN GIÁ của kho (máy chủ
+// trả — `don_gia`) + thành tiền DỰ TÍNH (chỉ hiển thị; quầy thu mới tính tiền);
+// ĐVT là CHỮ khi kho có ĐVT; nút "+ Thuốc ngoài danh mục" thêm dòng gõ tự do.
 
 import { useMemo, useState } from "react";
 
@@ -26,8 +23,8 @@ import Button from "@/components/ui/Button";
 import Chip from "@/components/ui/Chip";
 import { INPUT } from "../../form-ui";
 import ODonVi from "../../ODonVi";
-import GoiYThuocLa from "./GoiYThuocLa";
 import {
+  dongNgoaiDanhMuc,
   dongTuMau,
   locMauThuoc,
   thanhTienDong,
@@ -51,6 +48,31 @@ const NHAN = "block text-meta text-ink-muted";
 
 const bo = (x: string) => x.trim().toLowerCase();
 
+/**
+ * Tên thuốc GÕ TỰ DO: chỉ báo lên khi rời ô / Enter. Máy chủ tạo mục kho "chờ
+ * duyệt" cho mỗi tên lạ (một kho thuốc, 24/09) — báo từng nhịp gõ thì mỗi lần
+ * ngừng tay 1,5 giây đẻ một mục kho rác ("Vita", "Vitam"…).
+ */
+function OTenTuDo({ ten, disabled, onChot }: { ten: string; disabled: boolean; onChot: (v: string) => void }) {
+  const [chu, setChu] = useState(ten);
+  const chot = () => {
+    if (chu.trim() !== ten.trim()) onChot(chu);
+  };
+  return (
+    <input
+      value={chu}
+      disabled={disabled}
+      placeholder="Tên thuốc"
+      onChange={(e) => setChu(e.target.value)}
+      onBlur={chot}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") chot();
+      }}
+      className={INPUT}
+    />
+  );
+}
+
 export default function DonThuocPhieu({
   dong,
   mauThuoc,
@@ -62,7 +84,7 @@ export default function DonThuocPhieu({
   mauThuoc: MauThuoc[];
   /** Không truyền = chỉ đọc (hồ sơ đã chốt, hoặc chưa nối đường ghi đơn). */
   onDoi?: (dong: DongThuoc[]) => void;
-  /** Quầy thu tắt (false): ĐVT luôn chọn được — khách đòi mua hộp thì đổi được. */
+  /** Cho thêm dòng gõ tự do. Quầy thu tắt: đơn bán chỉ nhận thuốc có trong kho. */
   ngoaiDanhMuc?: boolean;
   /** Mở sẵn danh mục với từ khoá này (quầy bán lẻ: chọn thuốc kho thay cho dòng đơn
    *  cũ chưa gắn thuốc kho). Đổi từ khoá = dựng lại component bằng `key`. */
@@ -112,6 +134,16 @@ export default function DonThuocPhieu({
             >
               Danh mục thuốc ({mauThuoc.length})
             </Button>
+            {ngoaiDanhMuc ? (
+              <Button
+                type="button"
+                size="sm"
+                variant="secondary"
+                onClick={() => onDoi?.([...dong, dongNgoaiDanhMuc()])}
+              >
+                + Thuốc ngoài danh mục
+              </Button>
+            ) : null}
           </div>
           {moDanhMuc ? (
             <div className="space-y-2 rounded-card border border-hairline p-3">
@@ -130,37 +162,23 @@ export default function DonThuocPhieu({
                       size="sm"
                       variant="ghost"
                       className="w-full"
-                      // Máy chủ quyết: chưa có giá thì không kê được (quầy không thu được).
-                      disabled={m.chon_duoc === false}
-                      title={m.ly_do_khong_chon ?? undefined}
                       onClick={() => onDoi?.([...dong, dongTuMau(m)])}
                     >
                       <span className="min-w-0 flex-1 truncate text-left font-medium text-ink">
                         {m.nhan_nguon}
                         <span className="ml-2 font-normal text-ink-muted">{m.type}</span>
                       </span>
-                      {/* Tồn của cơ sở + giá kho cạnh tên ("còn 3 hộp · 12.000 đ/hộp"). */}
-                      <span className="shrink-0 text-right tabular-nums text-meta">
-                        {m.ton_chu ? (
-                          <span className={m.con_hang ? "text-success" : "text-ink-faint"}>{m.ton_chu} · </span>
-                        ) : null}
-                        <span className="text-ink-muted">
-                          {m.gia != null ? `${tienVn(m.gia)}${m.unit ? `/${m.unit}` : ""}` : "chưa có giá"}
-                        </span>
+                      {/* Tồn cơ sở + giá kho cạnh tên ("còn 3 hộp · 12.000 đ/hộp", 26/11). */}
+                      <span className="shrink-0 tabular-nums text-ink-muted">
+                        {m.ton_chu ? <span className={m.con_hang ? "text-success" : "text-ink-faint"}>{m.ton_chu} · </span> : null}
+                        {m.drug_catalog_id && m.gia != null
+                          ? `${tienVn(m.gia)}${m.unit ? `/${m.unit}` : ""}`
+                          : "chưa có giá"}
                       </span>
                     </Button>
                   </li>
                 ))}
               </ul>
-              {loc.length === 0 ? (
-                <GoiYThuocLa
-                  ten={tu}
-                  onChon={(ma) => {
-                    const m = mauThuoc.find((x) => x.drug_catalog_id === ma);
-                    if (m) onDoi?.([...dong, dongTuMau(m)]);
-                  }}
-                />
-              ) : null}
             </div>
           ) : null}
         </div>
@@ -173,6 +191,10 @@ export default function DonThuocPhieu({
         <ol className="space-y-2">
           {dong.map((d, i) => {
             const coKho = !!d.drug_catalog_id;
+            // Tên KHOÁ chỉ khi là thuốc kho thật (có giá / ĐVT). Tên gõ tự do đã
+            // lưu thì máy chủ gắn mục kho "chờ duyệt" (không giá) — vẫn sửa được.
+            // Quầy thu (không cho thuốc ngoài danh mục) thì tên kho luôn khoá.
+            const khoaTen = coKho && (!ngoaiDanhMuc || d.don_gia != null || !!d.dvt_kho);
             // ĐVT là CHỮ khi kho có ĐVT và dòng đang dùng đúng ĐVT ấy; đơn cũ
             // ghi ĐVT khác thì vẫn cho sửa (để bác sĩ chữa cho khớp kho).
             const dvtChu = !!d.dvt_kho && (!d.don_vi.trim() || bo(d.don_vi) === bo(d.dvt_kho));
@@ -231,11 +253,33 @@ export default function DonThuocPhieu({
                   ) : null}
                 </div>
                 <div className="grid grid-cols-1 gap-2 sm:grid-cols-12">
-                  {/* Tên là của kho, không gõ lại (đổi thuốc = bỏ dòng, chọn thuốc khác). */}
-                  <div className={`${NHAN} sm:col-span-4`}>
-                    Thuốc
-                    <p className={`${O_CHU} font-medium`}>{d.ten_thuoc}</p>
-                  </div>
+                  {khoaTen ? (
+                    // Thuốc kho: tên là của kho, không gõ lại (đổi thuốc = bỏ
+                    // dòng, chọn thuốc khác).
+                    <div className={`${NHAN} sm:col-span-4`}>
+                      Thuốc
+                      <p className={`${O_CHU} font-medium`}>{d.ten_thuoc}</p>
+                    </div>
+                  ) : (
+                    <label className={`${NHAN} sm:col-span-4`}>
+                      Thuốc
+                      <OTenTuDo
+                        key={d.ten_thuoc}
+                        ten={d.ten_thuoc}
+                        disabled={chiDoc}
+                        // Đổi tên = bỏ mã kho cũ để máy chủ ghép lại theo tên mới.
+                        onChot={(v) =>
+                          onDoi?.(
+                            dong.map((x, j) =>
+                              j === i
+                                ? { ...x, ten_thuoc: v, drug_catalog_id: null, don_gia: null, dvt_kho: null }
+                                : x,
+                            ),
+                          )
+                        }
+                      />
+                    </label>
+                  )}
                   {oNhap(i, d, "duong_dung", "Đường dùng", "sm:col-span-2")}
                   {oNhap(i, d, "so_luong", "Số lượng", "sm:col-span-2")}
                   {chonDv ? (

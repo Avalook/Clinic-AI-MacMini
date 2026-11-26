@@ -37,7 +37,6 @@ MAC_DINH: dict[str, DayNhan] = {
     "pharmacy.stocktake_mismatch": DayNhan(
         ["PHARMACIST", "MANAGEMENT", "TRUONG_CA"], False
     ),
-    "pharmacy.drug_requested": DayNhan(["PHARMACIST", "MANAGEMENT"], False),
     "result_file.uploaded": DayNhan(["CSKH", "TKYK", "NURSE_ULTRASOUND"], True),
     # Tệp đối tác được xác nhận HỢP LỆ (23/09 khuya): bác sĩ chính đọc, CSKH gửi.
     "result_file.confirmed": DayNhan(["CSKH"], True),
@@ -140,38 +139,6 @@ async def _dich_vu_doi_tac(
     return str(ten) if ten else None
 
 
-def _chuong_kho(s: SuKienDaNhan) -> tuple[str, str, str, str, str] | None:
-    """Chuông khu KHO (theo vai): tiêu đề, nội dung, nguồn, mã nguồn, màn mở ra."""
-    p = s.payload
-    if s.event_type == "pharmacy.expiry_checked":
-        return (
-            "Hạn dùng lô thuốc",
-            f"{p['sap_het_han']} lô sắp hết hạn; {p['het_han']} lô đã hết hạn còn tồn.",
-            "lo_thuoc_han",
-            str(p["ngay"]),
-            "/pharmacy/inventory",
-        )
-    if s.event_type == "pharmacy.stocktake_mismatch":
-        return (
-            "Kiểm kê thuốc có lệch",
-            f"Phiếu kiểm {p['loai']} ca {p['ca']} ({p['ngay']}): "
-            f"{p['so_dong_lech']} dòng lệch, tồn đã cập nhật theo số đếm.",
-            "kiem_ke_ca",
-            str(s.aggregate_id),
-            "/pharmacy/inventory",
-        )
-    if s.event_type == "pharmacy.drug_requested":
-        return (
-            "Nhờ kho thêm thuốc",
-            f"Kê đơn cần “{p['ten_go']}” — chưa có trong danh mục. Thêm thuốc (có"
-            " giá) ở Danh mục rồi bấm Xong ở yêu cầu.",
-            "thuoc_nho_kho",
-            str(s.aggregate_id),
-            "/pharmacy/inventory?tab=danh-muc",
-        )
-    return None
-
-
 async def bao_chuong(conn: asyncpg.Connection, su_kien: SuKienDaNhan) -> None:
     if su_kien.la_phat_lai:
         return
@@ -185,22 +152,36 @@ async def bao_chuong(conn: asyncpg.Connection, su_kien: SuKienDaNhan) -> None:
     day = await day_nhan(conn, su_kien.clinic_id, su_kien.event_type)
     if day is None or not day.bat:
         return
-    kho = _chuong_kho(su_kien)
-    # Hạn lô do máy kiểm (không người gọi); hai chuông kho kia cần người gây ra.
-    may = kho is not None and kho[2] == "lo_thuoc_han"
-    if kho is not None and (may or su_kien.actor_staff_id):
-        tieu_de, noi_dung, nguon, nguon_id, duong = kho
+    if su_kien.event_type == "pharmacy.expiry_checked":
         for vai in day.vai:
             await ghi_chuong_vai(
                 conn,
                 clinic_id=su_kien.clinic_id,
                 vai=vai,
-                tieu_de=tieu_de,
-                noi_dung=noi_dung,
-                nguon=nguon,
-                nguon_id=nguon_id,
-                duong_dan=duong,
-                nguoi_goi=None if may else su_kien.actor_staff_id,
+                tieu_de="Hạn dùng lô thuốc",
+                noi_dung=f"{su_kien.payload['sap_het_han']} lô sắp hết hạn; "
+                f"{su_kien.payload['het_han']} lô đã hết hạn còn tồn.",
+                nguon="lo_thuoc_han",
+                nguon_id=str(su_kien.payload["ngay"]),
+                duong_dan="/pharmacy/inventory",
+                nguoi_goi=None,
+            )
+        return
+    if su_kien.event_type == "pharmacy.stocktake_mismatch" and su_kien.actor_staff_id:
+        for vai in day.vai:
+            await ghi_chuong_vai(
+                conn,
+                clinic_id=su_kien.clinic_id,
+                vai=vai,
+                tieu_de="Kiểm kê thuốc có lệch",
+                noi_dung=f"Phiếu kiểm {su_kien.payload['loai']} ca "
+                f"{su_kien.payload['ca']} ({su_kien.payload['ngay']}): "
+                f"{su_kien.payload['so_dong_lech']} dòng lệch, tồn đã cập nhật theo "
+                "số đếm.",
+                nguon="kiem_ke_ca",
+                nguon_id=str(su_kien.aggregate_id),
+                duong_dan="/pharmacy/inventory",
+                nguoi_goi=su_kien.actor_staff_id,
             )
         return
     # `thong_bao.nguoi_goi_staff_id` bắt buộc: người gây ra sự kiện (người tải
