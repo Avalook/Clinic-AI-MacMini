@@ -41,6 +41,15 @@ def chu_ton_ke_don(bang: BangDonVi, ton_theo_don_vi: list[dict[str, Any]]) -> st
     return "còn " + " · ".join(phan) if phan else "hết hàng"
 
 
+def chu_quy_cach(r: dict[str, Any]) -> str:
+    """Khối đơn vị con của Danh mục → " (1 hộp = 60 viên)"; chưa khai → "" (Tuyền
+    26/11: đơn vị thống nhất là "hộp", hiện kèm số viên cho người kê biết)."""
+    so, con, me = r.get("so_con"), r.get("don_vi_con"), r.get("don_vi_ban")
+    if not (so and con and me) or Decimal(str(so)) <= 1:
+        return ""
+    return f" (1 {me} = {so_dep(Decimal(str(so)))} {con})"
+
+
 def sap_xep_ke_don(
     mau: list[dict[str, Any]],
     ton: dict[str, list[dict[str, Any]]],
@@ -73,7 +82,20 @@ async def gan_ton_ke_don(
     ton = {str(r["id"]): list(r.get("ton_theo_don_vi") or []) for r in dm}
     async with pool.acquire() as conn:  # cách dùng mặc định có cấu trúc (PR E)
         await gan_mac_dinh_ke_don(conn, identity.clinic_id, mau)
-    return sap_xep_ke_don(mau, ton, bang)
+        qc = {
+            str(r["id"]): chu_quy_cach(dict(r))
+            for r in await conn.fetch(
+                "SELECT id::text, don_vi_ban, don_vi_con,"
+                " so_lieu_moi_don_vi_goc AS so_con FROM public.drug_catalog"
+                " WHERE clinic_id = $1::uuid AND don_vi_con IS NOT NULL",
+                identity.clinic_id,
+            )
+        }
+    ra = sap_xep_ke_don(mau, ton, bang)
+    for m in ra:
+        if m["con_hang"] and qc.get(str(m.get("drug_catalog_id"))):
+            m["ton_chu"] += qc[str(m["drug_catalog_id"])]
+    return ra
 
 
-__all__ = ["chu_ton_ke_don", "gan_ton_ke_don", "sap_xep_ke_don"]
+__all__ = ["chu_quy_cach", "chu_ton_ke_don", "gan_ton_ke_don", "sap_xep_ke_don"]
