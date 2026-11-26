@@ -101,4 +101,36 @@ async def ngay_het_thuoc_cua_luot(
     ]
 
 
-__all__ = ["cach_dung_cua_dong", "ngay_het_thuoc_cua_luot", "tach_so_luong"]
+async def ngay_het_tung_dong(
+    pool: asyncpg.Pool,
+    *,
+    identity: StaffIdentity,
+    visit_id: str,
+    dong: list[dict[str, Any]],
+) -> dict[str, dict[str, Any]]:
+    """Quầy gửi dòng đang bán (số quầy nhập / số kê, đơn vị đang chọn, chữ cách dùng)
+    → {id dòng: {so_ngay, ngay_het}}, chỉ dòng tính được. Người gọi đã gác quyền."""
+    if not dong:
+        return {}
+    kq = await cach_dung_db.tinh_don(
+        pool,
+        identity=identity,
+        visit_id=visit_id,
+        dong=[{**d, "chu": cach_dung_cua_dong(d.get("chu"))} for d in dong],
+        kinh_lan_cuoi=None,
+        chu_ky=None,
+        da_gac_quyen=True,
+    )
+    return {
+        str(d["id"]): {"so_ngay": k["so_ngay"], "ngay_het": k["ngay_het"]}
+        for d, k in zip(dong, kq["dong"], strict=True)
+        if k["tinh_duoc"] and k["ngay_het"] is not None
+    }
+
+
+__all__ = [
+    "cach_dung_cua_dong",
+    "ngay_het_thuoc_cua_luot",
+    "ngay_het_tung_dong",
+    "tach_so_luong",
+]

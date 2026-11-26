@@ -28,7 +28,6 @@ import ChinhDonQuay from "./ChinhDonQuay";
 import ChonDichVu, { type ChoKhachQuyet } from "./ChonDichVu";
 import XepPhongDaThu, { type DaTraChoPhong } from "./XepPhongDaThu";
 import NutInPhieu from "@/components/ui/NutInPhieu";
-import NgayHetThuoc from "@/components/NgayHetThuoc";
 import ChonDichVuKham from "../_lam-viec/ChonDichVuKham";
 import VatTuQuay from "./VatTuQuay";
 import LieuTrinhQuay from "./LieuTrinhQuay";
@@ -980,7 +979,6 @@ export default function QuayThuNgan({
                 }}
               />
             ) : null}
-            {quay !== "dich_vu" && l.drugs.length > 0 ? <NgayHetThuoc visitId={l.visit_id} /> : null}
           </article>
         ))}
         </div>

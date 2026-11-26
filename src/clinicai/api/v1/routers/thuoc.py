@@ -221,6 +221,40 @@ async def cua_ngay_het_thuoc(
     return DanhSachNgayHet.model_validate({"items": ds})
 
 
+class DongQuayTinh(BaseModel):
+    id: str = Field(max_length=64)
+    drug_catalog_id: UUID | None = None
+    so_luong: str = Field(default="", max_length=40)
+    don_vi: str = Field(default="", max_length=40)
+    chu: str = Field(default="", max_length=2000)
+
+
+class TinhDongQuay(BaseModel):
+    visit_id: UUID
+    dong: list[DongQuayTinh] = Field(max_length=200)
+
+
+class NgayHetDong(BaseModel):
+    so_ngay: int
+    ngay_het: date
+
+
+@router.post("/thuoc/het-thuoc/dong", response_model=dict[str, NgayHetDong])
+async def cua_ngay_het_tung_dong(
+    body: TinhDongQuay,
+    identity: StaffIdentity = Depends(_HET),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> dict[str, NgayHetDong]:
+    """Quầy thu thuốc: ngày hết thuốc theo SỐ ĐANG BÁN của từng dòng (Tuyền 26/11)."""
+    kq = await het_thuoc.ngay_het_tung_dong(
+        pool,
+        identity=identity,
+        visit_id=str(body.visit_id),
+        dong=[d.model_dump(mode="json") for d in body.dong],
+    )
+    return {k: NgayHetDong.model_validate(v) for k, v in kq.items()}
+
+
 class DonViCon(BaseModel):
     id: str
     don_vi_me: str

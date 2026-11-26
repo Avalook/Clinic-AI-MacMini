@@ -11,6 +11,7 @@ from clinicai.services.phieu_kham_service import PhieuKhamService, kiem_quyen_co
 from clinicai.services.thuoc.het_thuoc import (
     cach_dung_cua_dong,
     ngay_het_thuoc_cua_luot,
+    ngay_het_tung_dong,
     tach_so_luong,
 )
 from tests.services.test_phieu_kham_db import _luot, _nguoi, pool  # noqa: F401
@@ -56,3 +57,21 @@ async def test_ngay_het_thuoc_cua_luot(pool: asyncpg.Pool) -> None:  # noqa: F81
     )
     ds = await ngay_het_thuoc_cua_luot(pool, identity=bs, visit_id=luot["visit"])
     assert [(d["so_ngay"], d["ngay_het"]) for d in ds] == [(30, date(2026, 12, 25))]
+
+    # Quầy bán 2 hộp (khác số kê) → theo số ĐANG BÁN: 60 ngày.
+    theo_dong = await ngay_het_tung_dong(
+        pool,
+        identity=bs,
+        visit_id=luot["visit"],
+        dong=[
+            {
+                "id": "a",
+                "drug_catalog_id": t,
+                "so_luong": "2",
+                "don_vi": "hộp",
+                "chu": "Uống — Ngày uống 2 lần, mỗi lần 1 viên",
+            },
+            {"id": "b", "drug_catalog_id": t, "so_luong": "", "don_vi": "", "chu": ""},
+        ],
+    )
+    assert theo_dong == {"a": {"so_ngay": 60, "ngay_het": date(2027, 1, 24)}}

@@ -61,6 +61,10 @@ export async function POST(request: Request, { params }: { params: Promise<{ act
     const { ct, so_lieu_moi_don_vi_goc } = body;
     return proxyJsonToBackend("PUT", `/api/v1/thuoc/${id}/cach-dung`, { ct, so_lieu_moi_don_vi_goc });
   }
+  // Quầy thu thuốc: ngày hết thuốc theo số đang bán từng dòng (Tuyền 26/11).
+  if (action === "het-thuoc-dong" && typeof body.visit_id === "string" && UUID_RE.test(body.visit_id)) {
+    return proxyJsonToBackend("POST", "/api/v1/thuoc/het-thuoc/dong", { visit_id: body.visit_id, dong: body.dong });
+  }
   // Đơn vị con + số con / mẹ + giá con (Tuyền 26/11).
   if (action === "luu-don-vi-con" && UUID_RE.test(id)) {
     const { don_vi_con, so_con, gia_con } = body;

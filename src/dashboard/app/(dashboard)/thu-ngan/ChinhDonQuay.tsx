@@ -12,6 +12,7 @@ import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "
 
 import Button from "@/components/ui/Button";
 import Chip from "@/components/ui/Chip";
+import { useNgayHetDong } from "@/components/NgayHetThuoc";
 import { donTuDong, tienVn, type MauThuoc } from "@/lib/phieu-kham";
 import { taoMotLuot } from "@/lib/mot-luot";
 import { khoNhapLayThem, NHAP_RONG } from "@/lib/nhap-lay-them";
@@ -110,6 +111,7 @@ export default function ChinhDonQuay({
   const loiTaiCho = nhap.loi;
   const setLoiTaiCho = (loi: string | null) => khoNhapLayThem.ghi(visitId, { loi });
   const [soNhap, setSoNhap] = useState<Record<string, string>>({});
+  const het = useNgayHetDong(visitId, (dong ?? []).map((d) => ({ id: d.id, drug_catalog_id: d.mua ? d.drug_catalog_id : null, so_luong: soNhap[d.id] ?? d.so_mua ?? d.so_ke ?? "", don_vi: d.don_vi ?? d.don_vi_goi_y ?? "", chu: d.cach_dung ?? "" }))); // ngày hết thuốc theo số đang bán (26/11)
   const [dang, setDang] = useState(false);
   const khungThem = useRef<HTMLDivElement>(null);
   const lanGoiY = goiYThuoc?.lan;
@@ -309,6 +311,7 @@ export default function ChinhDonQuay({
                 <Chip tone={d.nguon === "QUAY" ? "brand" : "neutral"}>
                   {d.nguon === "QUAY" ? "Quầy thêm" : "Bác sĩ kê"}
                 </Chip>
+                {het[d.id] ? <Chip tone="success">Dự kiến hết thuốc: {het[d.id]}</Chip> : null}
                 <span className="text-meta text-ink-muted">
                   {d.gia !== null ? tienVn(d.gia) : "chưa có giá"}
                 </span>
@@ -378,10 +381,7 @@ export default function ChinhDonQuay({
               {d.nguon === "QUAY" ? (
                 <DongQuaySua d={d} dang={dang} onLuu={suaDongQuay} />
               ) : d.cach_dung || d.luu_y ? (
-                <p className="pl-6 text-meta text-ink-muted">
-                  {d.cach_dung}
-                  {d.luu_y ? ` · Lưu ý: ${d.luu_y}` : ""}
-                </p>
+                <p className="pl-6 text-body text-ink"><b className="font-semibold">Cách dùng:</b> {d.cach_dung || "—"}{d.luu_y ? <span className="block text-meta text-ink-muted">Lưu ý: {d.luu_y}</span> : null}</p>
               ) : null}
             </li>
           );
