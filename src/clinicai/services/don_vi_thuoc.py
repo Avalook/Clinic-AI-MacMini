@@ -70,29 +70,29 @@ class DonViBan:
 
 
 @dataclass(frozen=True)
-class GiaDonVi:
-    """Giá của một dòng theo đơn vị của nó — để `bill_service` khỏi tự suy luật."""
-
-    #: Tiền lấy từ bảng đơn vị (None = đường giá gốc như cũ).
-    gia: Decimal | None = None
-    he_so: Decimal | None = None
-    #: Chặn thu: đơn vị có trong bảng nhưng chưa có giá.
-    van_de: str | None = None
-    #: Không chặn: đơn vị chưa khai, đang tính giá gốc.
-    canh_bao: str | None = None
-
-
-@dataclass(frozen=True)
 class BangDonVi:
-    """Đơn vị gốc + các đơn vị khai thêm của MỘT thuốc."""
+    """Đơn vị gốc + các đơn vị khai thêm của MỘT thuốc. Giá dòng: `thuoc.gia_dong`."""
 
     goc: str = ""
     gia_goc: Decimal | None = None
     dong: Mapping[str, DonViBan] = field(default_factory=dict)
+    #: Khoá (trong `dong`) của đơn vị MẸ = đơn vị kê mặc định; "" = mẹ là gốc.
+    me: str = ""
 
     @property
     def co_goc(self) -> bool:
         return bool(chuan(self.goc))
+
+    def don_vi_dong(self, don_vi: str | None) -> str:
+        """Đơn vị của dòng đơn: chữ đã ghi; TRỐNG = đơn vị MẸ (26/11/2026). Chưa khai mẹ
+        thì vẫn rỗng — mọi chỗ hiểu trống như cũ (= gốc). Bản SQL: `he_so_don_vi`."""
+        chu = (don_vi or "").strip()
+        return chu or (self.dong[self.me].don_vi if self.me in self.dong else "")
+
+    @property
+    def don_vi_ke(self) -> str:
+        """Đơn vị điền sẵn khi kê / khi quầy điền số: mẹ, không có thì gốc."""
+        return self.don_vi_dong(None) or self.goc
 
     def _khop(self, don_vi: str | None) -> str | None:
         """Khoá đơn vị đã khai ứng với chữ `don_vi`; None = nhận không ra.
@@ -135,27 +135,6 @@ class BangDonVi:
         if k is None:
             return None
         return self.goc if k == chuan(self.goc) else self.dong[k].don_vi
-
-    def gia_dong(self, don_vi: str | None) -> GiaDonVi:
-        if not chuan(don_vi) or not self.co_goc or self.la_goc(don_vi):
-            return GiaDonVi()
-        k = self._khop(don_vi)
-        d = self.dong[k] if k else None
-        if d is None:
-            gia = "" if self.gia_goc is None else f" {tien(self.gia_goc)}"
-            return GiaDonVi(
-                canh_bao=f"đơn vị “{don_vi}” chưa khai ở Danh mục — đang tính giá gốc"
-                f"{gia}/{self.goc}. Thêm đơn vị ở Danh mục kho để tính đúng giá."
-            )
-        # Tắt bán chỉ bỏ đơn vị khỏi ô chọn: dòng đang chờ thu giữ giá đã lưu, không
-        # hỏng. Chỉ dòng chưa từng có giá (đơn vị nhập đã nhớ) mới chặn thu.
-        if d.gia is None:
-            return GiaDonVi(
-                he_so=d.he_so,
-                van_de=f"đơn vị “{don_vi}” chưa có giá bán — thêm giá ở Danh mục kho "
-                "hoặc đổi đơn vị của dòng",
-            )
-        return GiaDonVi(gia=d.gia, he_so=d.he_so)
 
     def lua_chon(self) -> list[dict[str, Any]]:
         """Đơn vị quầy chọn được: gốc trước, rồi các đơn vị đang bán."""
@@ -349,13 +328,14 @@ async def doc_bang(
     )
     dong = await conn.fetch(
         "SELECT drug_catalog_id::text AS id, don_vi, he_so, gia, dang_ban,"
-        "       cap_nhat_luc::text AS phien"
+        "       cap_nhat_luc::text AS phien, mac_dinh_ke"
         "  FROM public.thuoc_quy_doi"
         " WHERE clinic_id = $1::uuid AND drug_catalog_id = ANY($2::uuid[])",
         clinic_id,
         ids,
     )
     theo: dict[str, dict[str, DonViBan]] = {}
+    me = {r["id"]: chuan(r["don_vi"]) for r in dong if r["mac_dinh_ke"]}
     for r in dong:
         theo.setdefault(r["id"], {})[chuan(r["don_vi"])] = DonViBan(
             don_vi=r["don_vi"],
@@ -371,6 +351,7 @@ async def doc_bang(
             if r["unit_price"] is not None
             else None,
             dong=theo.get(r["id"], {}),
+            me=me.get(r["id"], ""),
         )
         for r in goc
     }
@@ -385,13 +366,15 @@ async def quy_doi_cua_dong(
     prescription_id: str,
 ) -> QuyDoiDong:
     """Hệ số của một dòng đã bán: lấy HỆ SỐ LÚC THU (ảnh chụp) nếu có — sửa danh
-    mục sau đó không làm sai dòng đã thu; không có thì đọc bảng hiện tại."""
+    mục sau đó không làm sai dòng đã thu; không có thì đọc bảng hiện tại. Dòng trống
+    đơn vị hiểu theo đơn vị mẹ (`BangDonVi.don_vi_dong`)."""
     if not thuoc:  # chưa rõ thuốc kho thì không có gì để đổi
         return QuyDoiDong((don_vi or "").strip(), None, BangDonVi())
     bang = (await doc_bang(conn, clinic_id, [thuoc])).get(str(thuoc), BangDonVi())
     chup = await he_so_da_chup(conn, clinic_id, [prescription_id])
-    hs = chup.get(prescription_id) or bang.he_so(don_vi)
-    return QuyDoiDong(don_vi=(don_vi or "").strip(), he_so_dong=hs, bang=bang)
+    dv = bang.don_vi_dong(don_vi)
+    hs = chup.get(prescription_id) or bang.he_so(dv)
+    return QuyDoiDong(don_vi=dv, he_so_dong=hs, bang=bang)
 
 
 async def he_so_da_chup(

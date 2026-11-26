@@ -723,8 +723,8 @@ async def man_nha_thuoc(
             b_dv = bang_dv.get(r["drug_catalog_id"] or "", BangDonVi())
             them = {
                 "doi": QuyDoiDong(
-                    don_vi=(r["unit"] or "").strip() or b_dv.goc,
-                    he_so_dong=chup_dv.get(r["id"]) or b_dv.he_so(r["unit"]),
+                    don_vi=(dv := b_dv.don_vi_dong(r["unit"])) or b_dv.goc,  # trống=mẹ
+                    he_so_dong=chup_dv.get(r["id"]) or b_dv.he_so(dv),
                     bang=b_dv,
                 ),
                 "xuat": xuat_theo_dong.get(r["id"], []),
@@ -809,13 +809,13 @@ def _chu_don_vi(r: Any, doi: QuyDoiDong, da_giao: Decimal) -> dict[str, Any]:
     """Chữ đơn vị của dòng cho màn Nhà thuốc: "1 hộp = 30 gói", "0,5 hộp (15 gói)",
     và đơn vị gõ được ở ô Giao. Bán đúng đơn vị gốc thì rỗng."""
     b = doi.bang
-    if not r["unit"] or not doi.he_so_dong or b.la_goc(r["unit"]):
+    if not doi.don_vi or not doi.he_so_dong or b.la_goc(doi.don_vi):  # trống = mẹ
         return {"quy_doi": None, "da_giao_goc": None, "don_vi_giao": []}
     hs = doi.he_so_dong
     return {
-        "quy_doi": f"1 {r['unit']} = {so_dep(hs)} {b.goc}",
+        "quy_doi": f"1 {doi.don_vi} = {so_dep(hs)} {b.goc}",
         "da_giao_goc": f"{so_dep(da_giao * hs)} {b.goc}" if da_giao > 0 else None,
-        "don_vi_giao": [r["unit"], b.goc],
+        "don_vi_giao": [doi.don_vi, b.goc],
     }
 
 

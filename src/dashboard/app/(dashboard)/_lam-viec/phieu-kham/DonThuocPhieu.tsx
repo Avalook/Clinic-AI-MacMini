@@ -13,9 +13,9 @@
 // (`drug_catalog_id` trống) thì nói ra — chưa thu tiền, chưa cấp được — chứ
 // không tự dò tên để gắn.
 //
-// 27/09/2026 (bản giao diện mẫu, mục 9): mỗi thuốc có ĐƠN GIÁ của kho (máy chủ
-// trả — `don_gia`) + thành tiền DỰ TÍNH (chỉ hiển thị; quầy thu mới tính tiền);
-// ĐVT là CHỮ khi kho có ĐVT; nút "+ Thuốc ngoài danh mục" thêm dòng gõ tự do.
+// Mỗi thuốc có ĐƠN GIÁ + THÀNH TIỀN do máy chủ trả (`don_gia`, `thanh_tien` — cùng
+// hàm với hoá đơn); ĐVT là CHỮ khi kho có ĐVT (đơn vị mẹ, chưa khai mẹ thì gốc); nút
+// "+ Thuốc ngoài danh mục" thêm dòng gõ tự do.
 
 import { useMemo, useState } from "react";
 
@@ -27,11 +27,11 @@ import {
   dongNgoaiDanhMuc,
   dongTuMau,
   locMauThuoc,
-  thanhTienDong,
   tienVn,
   type DongThuoc,
   type MauThuoc,
 } from "@/lib/phieu-kham";
+import { boTienCu } from "@/lib/tien-dong-thuoc";
 
 // CÁCH DÙNG CẦN CHỖ (Tuyền 27/09/2026: "cho thêm không gian cho cách dùng
 // thuốc"). Bảng sáu cột chia đều cắt "Uống 1 viên sau ăn sáng, 1 viên sau ăn
@@ -96,7 +96,7 @@ export default function DonThuocPhieu({
   const chiDoc = !onDoi;
 
   const sua = (i: number, ma: keyof DongThuoc, v: string) =>
-    onDoi?.(dong.map((d, j) => (j === i ? { ...d, [ma]: v } : d)));
+    onDoi?.(dong.map((d, j) => (j === i ? boTienCu({ ...d, [ma]: v }, ma) : d)));
 
   const oNhap = (i: number, d: DongThuoc, ma: keyof DongThuoc, ten: string, lop: string, dai = false) => (
     <label key={ma} className={`${NHAN} ${lop}`}>
@@ -198,15 +198,15 @@ export default function DonThuocPhieu({
             // ghi ĐVT khác thì vẫn cho sửa (để bác sĩ chữa cho khớp kho).
             const dvtChu = !!d.dvt_kho && (!d.don_vi.trim() || bo(d.don_vi) === bo(d.dvt_kho));
             // Thuốc nhiều đơn vị bán: chọn đơn vị ngay ở dòng, giá theo đơn vị đó (máy
-            // chủ trả sẵn trong danh mục; tiền thật vẫn do quầy thu tính). Quầy luôn
-            // được chọn: khách đòi mua hộp thì gõ được.
+            // chủ trả sẵn trong danh mục). Thành tiền: máy chủ tính cho dòng đã lưu
+            // (`thanh_tien`) — màn không nhân giá. Quầy luôn chọn được đơn vị.
             const cacDv = coKho
               ? (mauThuoc.find((m) => m.drug_catalog_id === d.drug_catalog_id)?.cac_don_vi ?? [])
               : [];
             const chonDv = !chiDoc && coKho && (cacDv.length > 1 || !ngoaiDanhMuc);
             const dv = cacDv.find((x) => bo(x.don_vi) === bo(d.don_vi));
-            const giaDv = dv ? dv.gia : d.don_gia;
-            const tien = thanhTienDong(dv ? { ...d, don_gia: dv.gia, dvt_kho: dv.don_vi } : d);
+            const giaDv = d.thanh_tien != null ? d.don_gia : (dv?.gia ?? d.don_gia);
+            const tien = d.thanh_tien ?? null;
             return (
               <li
                 key={`${d.mau_ma ?? "tu-do"}-${i}`}

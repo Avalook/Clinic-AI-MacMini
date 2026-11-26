@@ -73,6 +73,7 @@ from clinicai.services.hoan_tac_giao_service import (
 )
 from clinicai.services.moc_kham_xong import kham_xong_sql
 from clinicai.services.phan_lo_service import chua_giao_cua_dong, khoa_lo, so
+from clinicai.services.thuoc.gia_dong import don_vi_ke_mac_dinh, don_vi_me
 from clinicai.services.vat_tu_trung_ma import thuoc_la_vat_tu
 
 logger = structlog.get_logger()
@@ -1230,15 +1231,8 @@ class PharmacyService:
         _kiem_khong_giao_qua_so_mua(don, luong)
         thuoc = don.get("drug_catalog_id")
         don_vi = _don_vi(don.get("unit"))
-        if thuoc and not don_vi:
-            don_vi = _don_vi(
-                await conn.fetchval(
-                    "SELECT don_vi_ban FROM public.drug_catalog"
-                    " WHERE id = $1::uuid AND clinic_id = $2::uuid",
-                    thuoc,
-                    identity.clinic_id,
-                )
-            )
+        if thuoc and not don_vi:  # trống = đơn vị mẹ (chưa khai mẹ thì gốc)
+            don_vi = _don_vi(await don_vi_ke_mac_dinh(conn, identity.clinic_id, thuoc))
         lo_da_tru: list[dict[str, Any]] = []
         con = luong
         if thuoc and don_vi:
@@ -1286,7 +1280,8 @@ class PharmacyService:
             ]
             cho_gan = sum(
                 (
-                    doi.so_dong(Decimal(str(r["so"])), r["unit"]) or Decimal(0)
+                    doi.so_dong(Decimal(str(r["so"])), doi.bang.don_vi_dong(r["unit"]))
+                    or Decimal(0)
                     for r in await conn.fetch(
                         "SELECT p.unit, sum(g.so_luong) AS so"
                         "  FROM public.thuoc_giao_chua_gan_lo g"
@@ -1525,8 +1520,8 @@ class PharmacyService:
         ra = []
         for r in dong:
             b_thuoc = bang.get(r["drug_catalog_id"] or "", BangDonVi())
-            # Dòng không ghi đơn vị: hiểu theo đơn vị gốc đã khai (như lúc giao).
-            don_vi = (r["unit"] or "").strip() or b_thuoc.goc
+            # Dòng không ghi đơn vị: hiểu theo đơn vị mẹ, rồi gốc (như lúc giao).
+            don_vi = b_thuoc.don_vi_dong(r["unit"]) or b_thuoc.goc
             dv = _don_vi(don_vi)
             co_so = r["co_so_id"] or identity.location_id
             giao = Decimal(str(r["so_luong"]))
@@ -1651,7 +1646,7 @@ class PharmacyService:
                 don_vi=g["unit"],
                 prescription_id=g["rx"],
             )
-            if not chuan(g["unit"]) and doi.bang.co_goc:
+            if not chuan(doi.don_vi) and doi.bang.co_goc:  # trống, chưa khai mẹ
                 doi = replace(doi, don_vi=doi.bang.goc, he_so_dong=Decimal(1))
             dv = _don_vi(doi.don_vi)
             quy_ra = doi.so_lo(luong_ban, lo["unit"]) if dv else luong_ban
@@ -1769,7 +1764,10 @@ class PharmacyService:
         if lo["noi_chua"] != "QUAY":
             raise ConflictError(NOI_KHO_DANG_O)
 
-        don_vi_ke = _don_vi(don.get("unit"))
+        # Dòng trống đơn vị = đơn vị mẹ nếu thuốc có khai; không thì như cũ (= lô).
+        don_vi_ke = _don_vi(don.get("unit")) or _don_vi(
+            await don_vi_me(conn, identity.clinic_id, don.get("drug_catalog_id"))
+        )
         don_vi_lo = _don_vi(lo.get("unit"))
         tru_lo = luong
         if don_vi_ke and don_vi_ke != don_vi_lo:
@@ -4161,20 +4159,20 @@ async def _phan_tra_theo_don_vi_ban(
 
     Hoàn nốt phần cuối thì lấy đúng số còn lại: 30 lần trả 1 gói của dòng 1 hộp
     cộng lại phải đúng 1 hộp, không dư một số lẻ không ai hoàn được."""
-    dv = _don_vi(don.get("unit"))
-    if not dv or dv == _don_vi(don_vi_lo):
-        return None
-    doi = await quy_doi_cua_dong(
+    doi = await quy_doi_cua_dong(  # dòng trống đơn vị → đơn vị mẹ, nếu có
         conn,
         identity.clinic_id,
         thuoc=don.get("drug_catalog_id"),
         don_vi=don.get("unit"),
         prescription_id=prescription_id,
     )
+    dv = _don_vi(doi.don_vi)
+    if not dv or dv == _don_vi(don_vi_lo):
+        return None
     ty_le = doi.ty_le(don_vi_lo)
     if not ty_le:
         raise ConflictError(
-            f"Dòng này bán theo “{don['unit']}”, lô theo “{don_vi_lo}” mà chưa có hệ "
+            f"Dòng này bán theo “{doi.don_vi}”, lô theo “{don_vi_lo}” mà chưa có hệ "
             "số đổi — thêm đơn vị ở Danh mục kho rồi ghi nhận khách trả."
         )
     so_ban = (luong / ty_le).quantize(Decimal("0.000000001"), rounding=ROUND_HALF_UP)

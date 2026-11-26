@@ -30,12 +30,14 @@ from clinicai.core.clock import CLINIC_TZ
 from clinicai.phieu_kham.mang_sang import chan_doan_tu_phieu
 from clinicai.ports.don_thuoc_quoc_gia import BacSiKe, DongThuoc, GoiDon, NguoiBenh
 from clinicai.services.bac_si_ky import sql_join_bac_si_ky_luot
+from clinicai.services.don_vi_thuoc import BangDonVi, doc_bang
 
 _GIOI_TINH = {"Nam": "NAM", "Nữ": "NU"}
 
 _DONG_SQL = """
 SELECT p.visit_id::text AS visit_id, p.drug_name_raw, p.quantity, p.quantity_num,
        p.unit, p.dosage_instructions, p.caution,
+       p.drug_catalog_id::text AS drug_catalog_id,
        c.biet_duoc, c.name_base, c.ma_hang, c.don_vi_ban
   FROM public.prescription p
   LEFT JOIN public.drug_catalog c
@@ -80,7 +82,7 @@ async def _chan_doan(
     return ra
 
 
-def _dong_thuoc(r: asyncpg.Record) -> DongThuoc:
+def _dong_thuoc(r: asyncpg.Record, bang: BangDonVi) -> DongThuoc:
     sl = r["quantity_num"]
     return DongThuoc(
         ten_thuoc=(r["drug_name_raw"] or r["name_base"] or "").strip(),
@@ -88,7 +90,8 @@ def _dong_thuoc(r: asyncpg.Record) -> DongThuoc:
         hoat_chat=(r["biet_duoc"] or "").strip() or None,
         so_luong=(r["quantity"] or "").strip() or None,
         so_luong_so=float(sl) if sl is not None else None,
-        don_vi=(r["unit"] or r["don_vi_ban"] or "").strip() or None,
+        # Ô đơn vị trống = đơn vị mẹ (cùng luật hoá đơn, kho); chưa khai mẹ thì gốc.
+        don_vi=(bang.don_vi_dong(r["unit"]) or r["don_vi_ban"] or "").strip() or None,
         cach_dung=(r["dosage_instructions"] or "").strip() or None,
         luu_y=(r["caution"] or "").strip() or None,
     )
@@ -137,6 +140,9 @@ async def doc_goi_don(
     dong: dict[str, list[asyncpg.Record]] = {}
     for r in await conn.fetch(_DONG_SQL, clinic_id, ids):
         dong.setdefault(r["visit_id"], []).append(r)
+    bang = await doc_bang(
+        conn, clinic_id, [r["drug_catalog_id"] for ds in dong.values() for r in ds]
+    )
     chan_doan = await _chan_doan(conn, clinic_id, ids)
     ra: dict[str, GoiDon] = {}
     for vid, lv in luot.items():
@@ -150,7 +156,10 @@ async def doc_goi_don(
             bac_si=_bac_si_dung_ten_don(lv, ma_lien_thong),
             nguoi_benh=_nguoi_benh(lv),
             chan_doan=chan_doan.get(vid),
-            thuoc=[_dong_thuoc(d) for d in dong.get(vid, [])],
+            thuoc=[
+                _dong_thuoc(d, bang.get(d["drug_catalog_id"] or "", BangDonVi()))
+                for d in dong.get(vid, [])
+            ],
         )
     return ra
 
