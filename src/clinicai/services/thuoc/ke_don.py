@@ -41,13 +41,14 @@ def chu_ton_ke_don(bang: BangDonVi, ton_theo_don_vi: list[dict[str, Any]]) -> st
     return "còn " + " · ".join(phan) if phan else "hết hàng"
 
 
-def chu_quy_cach(r: dict[str, Any]) -> str:
-    """Khối đơn vị con của Danh mục → " (1 hộp = 60 viên)"; chưa khai → "" (Tuyền
-    26/11: đơn vị thống nhất là "hộp", hiện kèm số viên cho người kê biết)."""
-    so, con, me = r.get("so_con"), r.get("don_vi_con"), r.get("don_vi_ban")
-    if not (so and con and me) or Decimal(str(so)) <= 1:
-        return ""
-    return f" (1 {me} = {so_dep(Decimal(str(so)))} {con})"
+def chu_quy_cach(r: dict[str, Any]) -> str | None:
+    """Khối đơn vị con của Danh mục → "60 viên" (màn ghi "hộp (60 viên)" ở cột ĐVT);
+    chưa khai / 1 con → None (Tuyền 26/11: đơn vị thống nhất là "hộp", hiện kèm số
+    viên cho người kê biết)."""
+    so, con = r.get("so_con"), r.get("don_vi_con")
+    if not (so and con) or Decimal(str(so)) <= 1:
+        return None
+    return f"{so_dep(Decimal(str(so)))} {con}"
 
 
 def sap_xep_ke_don(
@@ -80,21 +81,25 @@ async def gan_ton_ke_don(
     """Một dòng gọi từ `phieu_kham_service.tham_chieu_that`."""
     dm = await PharmacyService(pool).danh_muc(identity=identity)
     ton = {str(r["id"]): list(r.get("ton_theo_don_vi") or []) for r in dm}
+    ten = {str(r["id"]): str(r["ten"]) for r in dm}
     async with pool.acquire() as conn:  # cách dùng mặc định có cấu trúc (PR E)
         await gan_mac_dinh_ke_don(conn, identity.clinic_id, mau)
         qc = {
             str(r["id"]): chu_quy_cach(dict(r))
             for r in await conn.fetch(
-                "SELECT id::text, don_vi_ban, don_vi_con,"
-                " so_lieu_moi_don_vi_goc AS so_con FROM public.drug_catalog"
+                "SELECT id::text, don_vi_con, so_lieu_moi_don_vi_goc AS so_con"
+                " FROM public.drug_catalog"
                 " WHERE clinic_id = $1::uuid AND don_vi_con IS NOT NULL",
                 identity.clinic_id,
             )
         }
     ra = sap_xep_ke_don(mau, ton, bang)
     for m in ra:
-        if m["con_hang"] and qc.get(str(m.get("drug_catalog_id"))):
-            m["ton_chu"] += qc[str(m["drug_catalog_id"])]
+        # Tên như ở Kho thuốc (Tuyền 26/11: nhãn phiếu "Canxi" cho Ecanix D3 làm
+        # người tìm "ecanix" không thấy, tưởng kho lỗi). Nhãn phiếu vẫn tìm được.
+        ma = str(m.get("drug_catalog_id") or "")
+        m["ten_kho"] = ten.get(ma)
+        m["quy_cach"] = qc.get(ma)
     return ra
 
 

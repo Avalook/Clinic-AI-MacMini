@@ -563,7 +563,7 @@ export interface MauThuoc {
   unit: string;
   /** null = chưa gắn thuốc kho. `ton_chu`/`con_hang`: tồn cơ sở, máy chủ soạn (26/11). */
   drug_catalog_id: string | null;
-  gia?: number | null; ton_chu?: string | null; con_hang?: boolean;
+  gia?: number | null; ton_chu?: string | null; con_hang?: boolean; ten_kho?: string | null; quy_cach?: string | null; // tên Kho + "60 viên" (26/11)
   /** Đơn vị bán của thuốc, gốc trước — máy chủ trả (31/10/2026). */
   cac_don_vi?: { don_vi: string; he_so: string; gia: number | null; goc: boolean }[];
   cach_dung_ct?: CachDungCT | null; // mặc định có cấu trúc của danh mục (PR E)
@@ -650,7 +650,7 @@ export function dongTuMau(m: MauThuoc): DongThuoc {
   const dvtKho = m.drug_catalog_id ? m.unit.trim() || null : null;
   return {
     drug_catalog_id: m.drug_catalog_id,
-    ten_thuoc: m.nhan_nguon,
+    ten_thuoc: m.ten_kho || m.nhan_nguon, // tên như ở Kho thuốc (Tuyền 26/11)
     duong_dung: m.type,
     so_luong: "",
     don_vi: m.unit,
@@ -881,7 +881,7 @@ export function locMauThuoc(ds: readonly MauThuoc[], tu: string): MauThuoc[] {
     s.normalize("NFD").replace(/\p{Diacritic}/gu, "").replace(/đ/gi, "d").toLowerCase();
   const q = bo(tu.trim());
   if (!q) return [...ds];
-  return ds.filter((m) => bo(`${m.nhan_nguon} ${m.brand} ${m.type}`).includes(q));
+  return ds.filter((m) => bo(`${m.ten_kho ?? ""} ${m.nhan_nguon} ${m.brand} ${m.type}`).includes(q));
 }
 
 // ---------------------------------------------------------------------------

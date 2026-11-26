@@ -191,7 +191,7 @@ export default function DonThuocPhieu({
                       onClick={() => onDoi?.([...dong, dongTuMau(m)])}
                     >
                       <span className="min-w-0 flex-1 truncate text-left font-medium text-ink">
-                        {m.nhan_nguon}
+                        {m.ten_kho || m.nhan_nguon}
                         <span className="ml-2 font-normal text-ink-muted">{m.type}</span>
                       </span>
                       {/* Tồn cơ sở + giá kho cạnh tên ("còn 3 hộp · 12.000 đ/hộp", 26/11). */}
@@ -227,9 +227,10 @@ export default function DonThuocPhieu({
             // Thuốc nhiều đơn vị bán: chọn đơn vị ngay ở dòng, giá theo đơn vị đó (máy
             // chủ trả sẵn trong danh mục). Thành tiền: máy chủ tính cho dòng đã lưu
             // (`thanh_tien`) — màn không nhân giá. Quầy luôn chọn được đơn vị.
-            const cacDv = coKho
-              ? (mauThuoc.find((m) => m.drug_catalog_id === d.drug_catalog_id)?.cac_don_vi ?? [])
-              : [];
+            const mauKho = coKho ? mauThuoc.find((m) => m.drug_catalog_id === d.drug_catalog_id) : undefined;
+            const cacDv = mauKho?.cac_don_vi ?? [];
+            // "hộp (60 viên)": quy cách từ khối đơn vị con của Danh mục (Tuyền 26/11).
+            const qc = mauKho?.quy_cach ? ` (${mauKho.quy_cach})` : "";
             const chonDv = !chiDoc && coKho && (cacDv.length > 1 || !ngoaiDanhMuc);
             const dv = cacDv.find((x) => bo(x.don_vi) === bo(d.don_vi));
             const giaDv = d.thanh_tien != null ? d.don_gia : (dv?.gia ?? d.don_gia);
@@ -317,11 +318,17 @@ export default function DonThuocPhieu({
                         cuaThuoc={cacDv.map((x) => x.don_vi)}
                         ariaLabel={`Đơn vị ${d.ten_thuoc}`}
                       />
+                      {qc && bo(d.don_vi || d.dvt_kho || "") === bo(d.dvt_kho || "") ? (
+                        <span className="text-meta text-ink-muted">1 {d.dvt_kho}{qc.replace(/[()]/g, " = ")}</span>
+                      ) : null}
                     </div>
                   ) : dvtChu ? (
                     <div className={`${NHAN} sm:col-span-2`}>
                       ĐVT
-                      <p className={O_CHU}>{d.dvt_kho}</p>
+                      <p className={O_CHU}>
+                        {d.dvt_kho}
+                        {qc}
+                      </p>
                     </div>
                   ) : (
                     oNhap(i, d, "don_vi", d.dvt_kho ? `ĐVT (kho: ${d.dvt_kho})` : "ĐVT", "sm:col-span-2")
