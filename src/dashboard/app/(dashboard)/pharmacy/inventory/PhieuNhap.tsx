@@ -345,7 +345,7 @@ export default function PhieuNhap({ thuoc, ghiDuoc }: { thuoc: ThuocKho[]; ghiDu
                     </Button>
                   ) : null}
                 </div>
-                <div className="col-span-2 empty:hidden lg:col-span-7">
+                <div className="col-span-full empty:hidden">
                   <QuyDoiNhap
                     ma={`pn-${d.k}`}
                     idThuoc={dangDung.find((t) => t.ten === d.ten)?.id}

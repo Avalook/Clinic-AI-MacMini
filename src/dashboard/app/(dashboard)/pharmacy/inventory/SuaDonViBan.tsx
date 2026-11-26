@@ -77,7 +77,13 @@ export default function SuaDonViBan({
         <fieldset className="flex flex-wrap items-center gap-x-4 gap-y-1 text-body text-ink">
           <legend className={LABEL}>Bác sĩ kê không ghi đơn vị thì hiểu là</legend>
           <label className="flex min-h-10 items-center gap-2">
-            <input type="radio" name="mac-dinh-ke" checked={macDinh < 0} onChange={() => datMacDinh(-1)} />
+            <input
+              type="radio"
+              name="mac-dinh-ke"
+              aria-label={`Mặc định khi kê: ${goc}`}
+              checked={macDinh < 0}
+              onChange={() => datMacDinh(-1)}
+            />
             {goc} (đơn vị gốc)
           </label>
           {dong.map((d, i) => (
@@ -85,6 +91,7 @@ export default function SuaDonViBan({
               <input
                 type="radio"
                 name="mac-dinh-ke"
+                aria-label={`Mặc định khi kê: ${d.don_vi.trim() || `dòng ${i + 1}`}`}
                 checked={macDinh === i}
                 disabled={!d.dang_ban || !d.don_vi.trim()}
                 onChange={() => datMacDinh(i)}

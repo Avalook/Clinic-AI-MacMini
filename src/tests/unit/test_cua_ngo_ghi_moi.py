@@ -87,6 +87,7 @@ class _Conn:
 
 
 _LAN_THU_CU = {"payment_cycle_id": "c1", "legacy": True}
+_CHUA_KHAI: tuple[Any, ...] = ([], [])  # doc_bang 2 câu: thuốc chưa khai đơn vị
 
 
 class _Suot:
@@ -579,14 +580,12 @@ class TestNhapLoVaoKho:
             "unit": "viên",
             "so_luong": "100",
         }
-        tham_so.update(ghi_de)
-        return PharmacyService(pool).nhap_lo(**tham_so)
+        return PharmacyService(pool).nhap_lo(**{**tham_so, **ghi_de})
 
     @pytest.mark.asyncio
     async def test_lo_moi_thi_tao_roi_ghi_so(self) -> None:
         conn = _Conn(
-            [],  # thuốc chưa khai đơn vị (doc_bang: dòng thuốc) → không quy đổi
-            [],  # doc_bang: các đơn vị khai thêm
+            *_CHUA_KHAI,
             {"id": "c1", "name_base": "Paracetamol"},  # thuốc có trong danh mục
             False,  # cơ sở chưa bật tách kho / quầy (G7)
             [],  # chưa có lô này
@@ -602,8 +601,7 @@ class TestNhapLoVaoKho:
     @pytest.mark.asyncio
     async def test_lo_da_co_dung_thuoc_dung_han_thi_nhap_them(self) -> None:
         conn = _Conn(
-            [],  # thuốc chưa khai đơn vị (doc_bang: dòng thuốc) → không quy đổi
-            [],  # doc_bang: các đơn vị khai thêm
+            *_CHUA_KHAI,
             {"id": "c1", "name_base": "Paracetamol"},
             False,
             [_hang_lo("b-cu", "c1", date(2027, 1, 31))],
@@ -615,8 +613,7 @@ class TestNhapLoVaoKho:
     @pytest.mark.asyncio
     async def test_so_lo_da_dung_cho_thuoc_khac_thi_chan(self) -> None:
         conn = _Conn(
-            [],  # thuốc chưa khai đơn vị (doc_bang: dòng thuốc) → không quy đổi
-            [],  # doc_bang: các đơn vị khai thêm
+            *_CHUA_KHAI,
             {"id": "c1", "name_base": "Paracetamol"},
             False,
             [_hang_lo("b-cu", "c-khac", date(2027, 1, 31))],
@@ -628,8 +625,7 @@ class TestNhapLoVaoKho:
     @pytest.mark.asyncio
     async def test_cung_so_lo_khac_han_dung_thi_chan(self) -> None:
         conn = _Conn(
-            [],  # thuốc chưa khai đơn vị (doc_bang: dòng thuốc) → không quy đổi
-            [],  # doc_bang: các đơn vị khai thêm
+            *_CHUA_KHAI,
             {"id": "c1", "name_base": "Paracetamol"},
             False,
             [_hang_lo("b-cu", "c1", date(2026, 5, 1))],

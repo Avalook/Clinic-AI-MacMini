@@ -92,7 +92,7 @@ export default function ChonDonViNhap({
         </span>
       ) : idThuoc && ds ? (
         <span className="mt-1 block text-meta text-ink-muted">
-          Không có đơn vị cần nhập? Thêm ở Danh mục thuốc → Sửa → Đơn vị bán thêm.
+          Thiếu đơn vị? Khai ở Danh mục.
         </span>
       ) : null}
     </>
