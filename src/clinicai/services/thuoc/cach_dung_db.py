@@ -155,7 +155,7 @@ async def tinh_don(
         chu = str(d.get("chu") or "")
         # Bác sĩ không khai cấu trúc (Tuyền 26/11): đọc chữ cách dùng của dòng (mặc định
         # = chữ danh mục); đọc không ra thì lấy cấu trúc kho khai ở Danh mục.
-        ct: CachDung | None = de_xuat_cach_dung(chu)
+        ct: CachDung = de_xuat_cach_dung(chu)
         if ct.kieu == "chu" and ma in danh_muc:
             ct = doc_ct(danh_muc[ma]["cach_dung_ct"]) or ct
         cau = chu
