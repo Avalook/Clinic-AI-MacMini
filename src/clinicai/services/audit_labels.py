@@ -35,13 +35,10 @@ EVENT_LABELS: dict[str, str] = {
     "appointment.confirmed": "Xác nhận lịch hẹn",
     "appointment.cskh_confirmed": "CSKH xác nhận lịch",
     "appointment.rescheduled": "Dời lịch hẹn",
-    # Menu ⋯ dòng lịch hẹn (V5, 30/09/2026) — đổi loại khám của lịch (và của
-    # lượt khám nếu đã check-in mà bác sĩ chưa bắt đầu).
+    # Menu ⋯ dòng lịch hẹn — đổi loại khám của lịch (và lượt nếu chưa khám).
     "appointment.service_switched": "Đổi dịch vụ khám",
-    # Quản lý gỡ ca trực khám của một bác sĩ ⇒ lịch hẹn ngày ấy bỏ bác sĩ, rơi
-    # về hàng "Chờ xếp bác sĩ" (14/08/2026). Không phải người bấm vào lịch hẹn,
-    # nên nhãn nói RÕ nguyên nhân — đọc lại sáu tháng sau vẫn hiểu vì sao một
-    # lịch tự nhiên mất bác sĩ.
+    # Quản lý gỡ ca trực khám của bác sĩ ⇒ lịch ngày ấy về "Chờ xếp bác sĩ".
+    # Không phải người bấm vào lịch hẹn, nên nhãn nói RÕ nguyên nhân.
     "patient.phone_added": "Thêm số điện thoại cho khách",
     "patient.phone_removed": "Xoá số điện thoại của khách",
     "appointment.doctor_removed": "Gỡ bác sĩ khỏi lịch (ca trực bị xoá)",
@@ -103,10 +100,8 @@ EVENT_LABELS: dict[str, str] = {
     "dispatch.moved": "Chuyển sang bước khác",
     "dispatch.transfer_room": "Đổi phòng",
     "dispatch.route_applied": "Áp tuyến khám",
-    # `visit.closed_incomplete` THIẾU NHÃN TỪ LÚC ĐƯỢC THÊM. Bài kiểm chống
-    # lệch ở cạnh không bắt được vì mã này đi vào event_log như một BIỂU THỨC
-    # ba ngôi ở cuối lời gọi, ngoài tầm quét. Người vận hành mở Lịch sử thao
-    # tác thấy chuỗi thô — đúng cái vòng lặp bài kiểm ấy được viết ra để chặn.
+    # `visit.closed_incomplete` đi vào event_log như một BIỂU THỨC ba ngôi ở cuối
+    # lời gọi — bài kiểm chống lệch không quét tới, nhãn phải thêm bằng tay.
     "visit.closed_incomplete": "Đóng lượt khi chưa khám xong",
     "dispatch.alert_called": "Trưởng ca gọi bộ phận",
     # Hai mã dưới đi vào event_log như THAM SỐ của thong_bao_service (bảng
@@ -152,6 +147,8 @@ EVENT_LABELS: dict[str, str] = {
     "pharmacy.tach_kho_quay_doi": "Bật / tắt tách kho và quầy",
     "pharmacy.sale_units_changed": "Đổi đơn vị bán của thuốc",
     "pharmacy.price_changed": "Đổi giá bán thuốc",
+    "pharmacy.drug_deleted": "Xoá thuốc chưa từng dùng khỏi danh mục",
+    "pharmacy.drug_restored": "Khôi phục thuốc đã xoá khỏi danh mục",
     "pharmacy.kiem_ke_ca_sua_so_dem": "Sửa số đếm kiểm kê ca (giữ bản đã chốt)",
     "pharmacy.kiem_ke_ca_mo": "Mở phiếu kiểm kê ca ở quầy thuốc",
     "pharmacy.kiem_ke_ca_chot": "Chốt phiếu kiểm kê ca ở quầy thuốc",

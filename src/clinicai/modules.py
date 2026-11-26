@@ -897,7 +897,7 @@ MODULE: dict[str, Module] = {
                 "medicine.returned",
                 "pharmacy.stocktake_mismatch",
             ],
-            bang=["prescription_allocation", "inventory_txn"],
+            bang=["prescription_allocation", "inventory_txn", "drug_catalog_da_xoa"],
             quyen=["pharmacy.dispense", "pharmacy.view", "price.medicine.manage"],
         ),
         # 21 lego (Tuyền 25/09/2026): hai module chỉ-đọc cho lego Báo cáo /

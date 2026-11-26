@@ -1,9 +1,7 @@
 "use client";
 
-// Danh mục thuốc kho — MỘT nguồn tên, giá bán, đơn vị, hướng dẫn sử dụng
-// (Tuyền 25/09/2026). Nạp sẵn theo KiotViet + hướng dẫn phiếu v5 (migration
-// 20260925000014); dược sĩ thêm / sửa / tắt ở đây. Màn kê đơn của bác sĩ và
-// quầy thu đọc thẳng danh mục này — sửa ở đây là hai nơi kia đổi theo.
+// Danh mục thuốc kho — MỘT nguồn tên, giá bán, đơn vị, hướng dẫn sử dụng. Dược sĩ
+// thêm / sửa / tắt / xoá (chưa từng dùng) ở đây; màn kê đơn và quầy thu đọc thẳng.
 
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
@@ -14,6 +12,7 @@ import { INPUT, LABEL, TBL_DIV, TBL_HEAD, TBL_WRAP } from "../../form-ui";
 import ODonVi from "../../ODonVi";
 import { guiKho, soKho, tienVnd, tonTheoDonVi } from "./gui-kho";
 import SuaDonViBan, { type DongDonVi } from "./SuaDonViBan";
+import XoaThuoc from "./XoaThuoc";
 
 export interface ThuocKho {
   id: string;
@@ -151,7 +150,7 @@ export default function DanhMucKho({
     setBao(null);
   };
 
-  const luu = async () => {
+  const luu = async (tat = false) => {
     setDang(true);
     setLoi(null);
     const kq = await guiKho("luu-thuoc", {
@@ -166,7 +165,7 @@ export default function DanhMucKho({
       luu_y: form.luu_y,
       // Rỗng = bỏ canh; máy chủ đọc số, từ chối số âm.
       ton_toi_thieu: form.ton_toi_thieu.trim() === "" ? null : form.ton_toi_thieu.trim(),
-      dang_dung: form.dang_dung,
+      dang_dung: tat ? false : form.dang_dung,
       // Máy chủ đọc số, tự lưu giá gợi ý khi để trống, chặn trùng / rác.
       cac_don_vi: donVi,
     });
@@ -175,7 +174,7 @@ export default function DanhMucKho({
       setLoi(kq.loi);
       return;
     }
-    setBao(`Đã lưu “${form.ten.trim()}”.`);
+    setBao(tat ? `Đã tắt “${form.ten.trim()}”.` : `Đã lưu “${form.ten.trim()}”.`);
     setSua(null);
     router.refresh();
   };
@@ -289,6 +288,8 @@ export default function DanhMucKho({
             <Button type="button" variant="ghost" onClick={() => setSua(null)}>
               Thôi
             </Button>
+            {sua ? <XoaThuoc thuocId={sua} ten={form.ten} dangDung={form.dang_dung} onTat={() => void luu(true)}
+              onDaXoa={() => { setBao(`Đã xoá “${form.ten.trim()}”.`); setSua(null); router.refresh(); }} /> : null}
             {loi ? (
               <p role="alert" className="text-meta text-danger">
                 {loi}

@@ -22,7 +22,8 @@ pytestmark = [pytest.mark.db, pytest.mark.asyncio]
 
 
 def _ai() -> Any:
-    return SimpleNamespace(clinic_id=CLINIC_A)
+    # location_id: màn kê đơn đọc tồn theo cơ sở (PR B); None = không lô nào.
+    return SimpleNamespace(clinic_id=CLINIC_A, location_id=None)
 
 
 async def _dong(pool: asyncpg.Pool, code: str) -> asyncpg.Record | None:  # noqa: F811

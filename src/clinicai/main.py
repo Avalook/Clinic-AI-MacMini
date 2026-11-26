@@ -79,6 +79,7 @@ from clinicai.api.v1.routers.theo_doi_thu_thuat import (
     router as theo_doi_thu_thuat_router,
 )
 from clinicai.api.v1.routers.thu_ky import router as thu_ky_router
+from clinicai.api.v1.routers.thuoc import router as thuoc_router
 from clinicai.api.v1.routers.ultrasound import router as ultrasound_router
 from clinicai.api.v1.routers.vat_tu_kho import router as vat_tu_kho_router
 from clinicai.api.v1.routers.vat_tu_nhap_duyet import (
@@ -324,7 +325,6 @@ app.include_router(
     work_items_router, prefix="/api/v1", tags=["work-items"], dependencies=_GUARDED
 )
 # Luồng khám lát 1 (sinh hiệu → bác sĩ → chỉ định → dịch vụ → đọc lại).
-# Chạy song song với luồng điều phối cũ; xem migration 20260911000001.
 app.include_router(
     luot_kham_router, prefix="/api/v1", tags=["luot-kham"], dependencies=_GUARDED
 )
@@ -338,8 +338,7 @@ app.include_router(
 app.include_router(
     phieu_router, prefix="/api/v1", tags=["phieu"], dependencies=_GUARDED
 )
-# Bảy phiếu khám — chỉ đường ĐỌC; quyền mặc định CHẶN TẤT cho tới khi hệ phân
-# quyền của CORE nối vào (`phieu_kham.lay_kiem_quyen`).
+# Bảy phiếu khám — quyền qua hệ phân quyền CORE (`phieu_kham.lay_kiem_quyen`).
 app.include_router(
     phieu_kham_router, prefix="/api/v1", tags=["phieu-kham"], dependencies=_GUARDED
 )
@@ -428,6 +427,7 @@ app.include_router(
     dependencies=_GUARDED,
 )
 app.include_router(voice_router, prefix="/api/v1", dependencies=_GUARDED)
+app.include_router(thuoc_router, prefix="/api/v1", dependencies=_GUARDED)
 app.include_router(display_router, prefix="/api/v1", tags=["display"])
 
 

@@ -168,8 +168,9 @@ export default function DonThuocPhieu({
                         {m.nhan_nguon}
                         <span className="ml-2 font-normal text-ink-muted">{m.type}</span>
                       </span>
-                      {/* Giá kho cạnh tên (bản mẫu: "12.000 đ/viên"). */}
+                      {/* Tồn cơ sở + giá kho cạnh tên ("còn 3 hộp · 12.000 đ/hộp", 26/11). */}
                       <span className="shrink-0 tabular-nums text-ink-muted">
+                        {m.ton_chu ? <span className={m.con_hang ? "text-success" : "text-ink-faint"}>{m.ton_chu} · </span> : null}
                         {m.drug_catalog_id && m.gia != null
                           ? `${tienVn(m.gia)}${m.unit ? `/${m.unit}` : ""}`
                           : "chưa có giá"}

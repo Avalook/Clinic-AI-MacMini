@@ -50,7 +50,7 @@ def _quyen_theo_nhom_mau(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def _ai() -> Any:
-    return SimpleNamespace(clinic_id=CLINIC, staff_id=None)
+    return SimpleNamespace(clinic_id=CLINIC, staff_id=None, location_id=None)
 
 
 async def _cho_qua(*_a: Any, **_k: Any) -> None:

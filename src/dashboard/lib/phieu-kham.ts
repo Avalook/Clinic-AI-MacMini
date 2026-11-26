@@ -560,9 +560,9 @@ export interface MauThuoc {
   dosage: string;
   note: string;
   unit: string;
-  /** null = chưa gắn thuốc kho → chưa thu tiền, chưa cấp được. */
+  /** null = chưa gắn thuốc kho. `ton_chu`/`con_hang`: tồn cơ sở, máy chủ soạn (26/11). */
   drug_catalog_id: string | null;
-  gia?: number | null;
+  gia?: number | null; ton_chu?: string | null; con_hang?: boolean;
   /** Đơn vị bán của thuốc, gốc trước — máy chủ trả (31/10/2026). */
   cac_don_vi?: { don_vi: string; he_so: string; gia: number | null; goc: boolean }[];
 }

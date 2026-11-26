@@ -17,6 +17,7 @@ import PhieuNhap from "./PhieuNhap";
 import TheoDoiThuoc, { type ChonThuoc } from "./TheoDoiThuoc";
 import ThuocTraChoKiem, { type DongTraChoKiem } from "./ThuocTraChoKiem";
 import XuatNhapTon from "./XuatNhapTon";
+import ThuocDaXoa from "./ThuocDaXoa";
 
 type Khu = "kho" | "quay";
 type Tab =
@@ -179,7 +180,11 @@ export default function KhoThuoc({
           : <ThanhTab nhan="Quầy thuốc" chon={tab} onChon={setTab} muc={mucQuay} />}
       >
       {tab === "danh_muc" ? (
-        <DanhMucKho thuoc={thuoc} ghiDuoc={ghiDuoc} suaGiaDuoc={suaGiaDuoc} onXemThe={xemThe} />
+        <div className="space-y-3">
+          <DanhMucKho thuoc={thuoc} ghiDuoc={ghiDuoc} suaGiaDuoc={suaGiaDuoc} onXemThe={xemThe} />
+          {/* Thuốc đã xoá: bản lưu trước khi xoá, khôi phục được (26/11/2026). */}
+          <ThuocDaXoa ghiDuoc={ghiDuoc} />
+        </div>
       ) : tab === "chuyen_kho" ? (
         <ChuyenKho batches={batches} tachKhoQuay={tachKhoQuay} suaTachDuoc={suaTachDuoc} ghiDuoc={ghiDuoc} />
       ) : tab === "cho_gan_lo" ? (

@@ -193,17 +193,16 @@ class BangDonVi:
                 )
         return ra
 
+    def ton_goc(self, ton_theo_don_vi: Iterable[Mapping[str, Any]]) -> Decimal:
+        """Tồn cộng về đơn vị gốc — chỉ phần đổi được (màn kê đơn, `chu_ton`)."""
+        cap = [(x.get("ton"), self.he_so(x.get("don_vi"))) for x in ton_theo_don_vi]
+        return sum((Decimal(str(t or 0)) * h for t, h in cap if h), Decimal(0))
+
     def chu_ton(self, ton_theo_don_vi: Iterable[Mapping[str, Any]]) -> str | None:
-        """Tồn cộng về đơn vị gốc (chỉ phần đổi được), đọc thêm theo đơn vị lớn
-        nhất: "= 280 viên · 9 hộp 10 viên". Không có gì để nói thì None."""
-        tong = Decimal(0)
-        co_lo_khac_goc = False
-        for x in ton_theo_don_vi:
-            hs = self.he_so(x.get("don_vi"))
-            if hs is None:
-                continue
-            co_lo_khac_goc = co_lo_khac_goc or hs != 1
-            tong += Decimal(str(x.get("ton") or 0)) * hs
+        """Tồn về gốc, đọc thêm theo đơn vị lớn nhất: "= 280 viên · 9 hộp 10 viên"."""
+        ds = list(ton_theo_don_vi)
+        tong = self.ton_goc(ds)
+        co_lo_khac_goc = any(self.he_so(x.get("don_vi")) not in (None, 1) for x in ds)
         if not self.co_goc or tong <= 0:
             return None
         # Lô tính hộp ghi 3 số lẻ: 9,333 × 30 = 279,99 đọc là 280 viên.
