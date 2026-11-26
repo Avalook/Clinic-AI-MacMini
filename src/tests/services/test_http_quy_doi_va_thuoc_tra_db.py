@@ -267,6 +267,13 @@ async def test_xem_truoc_quy_doi_qua_http_rac_khong_500(q: Quay) -> None:
     await q.pool.execute(
         "UPDATE drug_catalog SET don_vi_ban = 'viên' WHERE id = $1::uuid", thuoc
     )
+    # Nhập chỉ theo đơn vị đã khai (PR C 26/11): khai "hộp" chỉ để nhập.
+    await q.pool.execute(
+        "INSERT INTO thuoc_quy_doi (clinic_id, drug_catalog_id, don_vi, he_so,"
+        " dang_ban) VALUES ($1::uuid, $2::uuid, 'hộp', 10, false)",
+        CLINIC,
+        thuoc,
+    )
     try:
         async with AsyncClient(
             transport=ASGITransport(app=app), base_url="http://test"

@@ -10,8 +10,8 @@ import { useState } from "react";
 
 import Button from "@/components/ui/Button";
 import { INPUT, LABEL } from "../../form-ui";
-import ODonVi from "../../ODonVi";
-import { donViCuaThuoc, type ThuocKho } from "./DanhMucKho";
+import ChonDonViNhap from "./ChonDonViNhap";
+import { type ThuocKho } from "./DanhMucKho";
 import { guiKho } from "./gui-kho";
 import OQuetMa, { type KetQuaQuet } from "./OQuetMa";
 import QuyDoiNhap from "./QuyDoiNhap";
@@ -31,7 +31,7 @@ export default function NhapLo({
   const [f, setF] = useState(TRONG);
   const [dang, setDang] = useState(false);
   const [loi, setLoi] = useState<string | null>(null);
-  // Nhập khác đơn vị bán: 1 <đơn vị nhập> = heSo đơn vị bán (xem QuyDoiNhap).
+  // 1 <đơn vị nhập> có heSo đơn vị gốc; trống = theo Danh mục (xem QuyDoiNhap).
   const [heSo, setHeSo] = useState("");
   const [xacNhanHeSo, setXacNhanHeSo] = useState(false);
 
@@ -144,10 +144,10 @@ export default function NhapLo({
         {o("so_luong", "Số lượng nhập")}
         <div className="block">
           <span className={LABEL}>Đơn vị</span>
-          <ODonVi
+          <ChonDonViNhap
+            idThuoc={chon?.id}
             value={f.don_vi}
             onChange={(v) => setF((cu) => ({ ...cu, don_vi: v }))}
-            cuaThuoc={donViCuaThuoc(chon)}
           />
           {chon?.chua_khai_don_vi ? (
             <span role="status" className="mt-1 block text-meta text-warning">

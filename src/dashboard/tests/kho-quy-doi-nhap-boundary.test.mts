@@ -22,12 +22,15 @@ test("Nhập lô và Phiếu nhập đều gắn ô quy đổi và gửi hệ s�
 test("ô quy đổi chỉ hỏi máy chủ và vẽ lại câu trả lời, không tự tính hệ số", () => {
   const s = doc(`${kho}/QuyDoiNhap.tsx`);
   assert.ok(s.includes('docKho<XemQuyDoi>("quy-doi"'));
-  assert.ok(s.includes("so_luong_quy_doi"), "số '= N' do máy chủ trả");
+  // 26/11 (PR C): câu "1 hộp có bao nhiêu viên?" và "47 hộp = 1.410 viên" do máy chủ viết.
+  assert.ok(s.includes("{xem.cau_hoi}"), "câu hỏi do máy chủ trả");
+  assert.ok(s.includes("{xem.ket_qua}"), "kết quả hai chiều do máy chủ trả");
+  assert.ok(!s.includes("= ? {ban}"), "bỏ câu kiểu máy “1 hộp = ? hộp 30 viên”");
   assert.ok(s.includes("can_xac_nhan"), "hệ số lạ do máy chủ quyết");
   assert.ok(!/\*\s*Number\(/.test(s), "không nhân số lượng × hệ số ở TSX");
-  // Máy chủ báo lỗi (hệ số rác) → không hiện "= N", "đã nhớ", ô xác nhận của lần xem trước.
-  assert.ok(s.includes("{!loi && xem?.so_luong_quy_doi != null ?"));
-  assert.ok(s.includes("{!loi && nho != null && heSo.trim()"));
+  // Máy chủ báo lỗi (hệ số rác, đơn vị chưa khai) → không hiện câu hỏi/kết quả/ô xác
+  // nhận của lần xem trước.
+  assert.ok(s.includes("{!loi && xem?.cau_hoi ?"));
   assert.ok(s.includes("{!loi && xem?.can_xac_nhan ?"));
   // Đổi thuốc/đơn vị thì hệ số gõ dở bị bỏ (thuộc về đơn vị cũ).
   assert.match(s, /onHeSo\(""\);\s*onXacNhan\(false\);/);

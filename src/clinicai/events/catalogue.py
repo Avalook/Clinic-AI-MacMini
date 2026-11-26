@@ -377,6 +377,30 @@ class ThuocKhachTra(PayloadSuKien):
     refund_id: str | None = None
 
 
+class DonViGocDaDoiTen(PayloadSuKien):
+    """`drug_unit.base_renamed` / `drug_unit.base_rename_undone` — đổi TÊN đơn vị gốc
+    (kho đếm) của một thuốc, số tồn giữ nguyên nghĩa: "hộp 60 viên" → "viên" + đơn vị
+    mẹ "hộp" = 60 (services/thuoc/doi_ten_goc.py). Đủ để hoàn tác: chữ cũ của từng lô,
+    trạng thái dòng mẹ trước đó, giá gốc cũ."""
+
+    drug_catalog_id: str
+    ten_cu: str
+    ten_moi: str
+    don_vi_me: str
+    he_so_me: str
+    gia_goc_cu: int | None = None
+    gia_goc_moi: int | None = None
+    #: Dòng `thuoc_quy_doi` của đơn vị mẹ TRƯỚC khi đổi; None = dòng mới tạo.
+    me_truoc: dict[str, str | int | bool | None] | None = None
+    #: Đơn vị đang là mặc định kê trước khi đổi ("" = gốc).
+    me_cu: str = ""
+    #: Đã thêm chữ cũ làm tên gọi khác của đơn vị mẹ (dòng đơn cũ vẫn khớp).
+    bi_danh: bool = False
+    #: id lô → chữ đơn vị cũ của lô.
+    don_vi_lo: dict[str, str] = {}
+    ly_do: str | None = None
+
+
 # ── kết quả: tệp, xem, duyệt, gửi khách (nhóm 3) ──────────────────────────
 
 
@@ -2405,6 +2429,24 @@ DANH_MUC: dict[str, SuKien] = {
             is_public=False,
         ),
         SuKien(
+            ten="drug_unit.base_renamed",
+            version=1,
+            aggregate_type="drug_catalog",
+            source_module="pharmacy",
+            payload=DonViGocDaDoiTen,
+            nhan="Đổi tên đơn vị gốc của thuốc",
+            is_public=False,
+        ),
+        SuKien(
+            ten="drug_unit.base_rename_undone",
+            version=1,
+            aggregate_type="drug_catalog",
+            source_module="pharmacy",
+            payload=DonViGocDaDoiTen,
+            nhan="Hoàn tác đổi tên đơn vị gốc",
+            is_public=False,
+        ),
+        SuKien(
             # Tiền là chuyện nội bộ: AI/Zalo/đối tác không nghe sự kiện này.
             ten="payment.service_collected",
             version=1,
@@ -2555,90 +2597,3 @@ def moi_consumer() -> frozenset[str]:
     return frozenset(
         consumer for su_kien in DANH_MUC.values() for consumer in su_kien.consumers
     )
-
-
-__all__ = [
-    "CONG_NO",
-    "DIEU_TRI_SINH_CHI_DINH",
-    "LIEU_TRINH_SAP_HET",
-    "CongNoDaGhi",
-    "CongNoDaHuy",
-    "CongNoDaThu",
-    "DANH_MUC",
-    "HANH_TRINH",
-    "ChiDinhDaHuy",
-    "ChiDinhDatLai",
-    "DichVuHoanTacXong",
-    "KetQuaThuHoiDuyet",
-    "LuotMoLai",
-    "PhienKhamMoLai",
-    "ChiDinhMangSang",
-    "DaXepDuongDi",
-    "DaChonBacSiLam",
-    "DaXepPhong",
-    "DichVuDaChuyenPhong",
-    "HuongDanPhong",
-    "KhachRoiPhong",
-    "NhaPhongDaHoanTac",
-    "NhanVaoPhongDaHoanTac",
-    "PhienKhamTiepTuc",
-    "TienDichVuDaThu",
-    "TienThuocDaThu",
-    "CHUONG",
-    "CHUONG_NHAN_CHEO",
-    "TepKetQuaDaVe",
-    "TepKetQuaDaXacNhan",
-    "TepKetQuaDaXem",
-    "KetQuaDaGuiKhach",
-    "KetQuaDaDuyet",
-    "PhieuKetQuaDaXem",
-    "KetQuaXetNghiemVe",
-    "LichDaDat",
-    "LichDaDoi",
-    "LichDaHuy",
-    "KhachKhongDen",
-    "LichDaDoiDichVu",
-    "CskhDaGoiXacNhan",
-    "KhachDaVe",
-    "LamTruocThuSauDaBat",
-    "LamTruocThuSauDaBo",
-    "KhachBoVeGiuaChung",
-    "DaHoanTien",
-    "HinhThucThuDaDoi",
-    "DaHenTaiKham",
-    "CskhDaLienHe",
-    "DoiTacDaLayMau",
-    "DoiTacDaNhanMau",
-    "ThuocDaGiao",
-    "KhamXong",
-    "PhienKhamBatDau",
-    "TuVanXong",
-    "KetQuaDaSua",
-    "SinhHieuBatDau",
-    "XepPhongDaHuy",
-    "KetQuaSanSang",
-    "DONG_THOI_GIAN_LUOT",
-    "TRACH_NHIEM_DICH_VU",
-    "DONG_TU_CAM",
-    "LuotDaKhamXong",
-    "TepKetQuaDaThuHoi",
-    "VONG_DOC",
-    "ChiDinhDaDat",
-    "KhachDaToi",
-    "SinhHieuDaDo",
-    "DichVuDaBatDau",
-    "DichVuDaXong",
-    "DichVuGianDoan",
-    "DichVuKhongLam",
-    "DichVuSanSangLamLai",
-    "KhachDaChuyenPhong",
-    "DichVuDaHuyBatDau",
-    "KhoiQuyenDaCap",
-    "PhieuDaHoanTat",
-    "KhoiQuyenDaThu",
-    "NgoaiLeCaTruc",
-    "PayloadSuKien",
-    "SuKien",
-    "moi_consumer",
-    "tra",
-]

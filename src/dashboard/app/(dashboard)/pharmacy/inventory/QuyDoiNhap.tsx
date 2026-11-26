@@ -1,10 +1,11 @@
 "use client";
 
-// Quy đổi đơn vị lúc nhập (17/10/2026): thuốc bán theo "viên" mà nhập theo "hộp"
-// thì kho PHẢI ghi theo viên — nếu không giao thuốc ghi tiền mà không trừ được kho.
-// Máy chủ quyết có phải đổi không, hệ số nào, kết quả bao nhiêu, hệ số lạ hay
-// không (`GET /api/pharmacy/quy-doi`); ở đây chỉ hỏi máy chủ và vẽ câu trả lời.
-// Ô hệ số chỉ hiện khi đơn vị nhập khác đơn vị bán; đã nhớ hệ số thì khỏi gõ.
+// Quy đổi lúc nhập: nhập theo hộp mà kho đếm theo viên thì kho ghi số viên. Từ
+// 26/11/2026 (PR C) câu nói bằng lời người — "1 hộp có bao nhiêu viên?" và
+// "47 hộp = 1.410 viên" — trước đây "1 hộp = ? hộp 30 viên" làm người nhập trả lời
+// nhầm số viên. Mọi câu chữ, hệ số, kết quả do máy chủ soạn (`GET /api/pharmacy/
+// quy-doi`); ở đây chỉ hỏi máy chủ và vẽ. Ô số điền sẵn hệ số đã khai ở Danh mục;
+// gõ số khác khi hộp lần này khác.
 
 import { useEffect, useState } from "react";
 
@@ -13,11 +14,11 @@ import { docKho, soKho } from "./gui-kho";
 
 interface XemQuyDoi {
   can_doi: boolean;
-  don_vi_ban: string | null;
   he_so_da_nho: number | string | null;
-  he_so: number | string | null;
   can_xac_nhan: boolean;
-  so_luong_quy_doi: number | string | null;
+  cau_hoi: string | null;
+  ket_qua: string | null;
+  loi: string | null;
 }
 
 export default function QuyDoiNhap({
@@ -63,7 +64,7 @@ export default function QuyDoiNhap({
       if (huy) return;
       if (kq.ok) {
         setXem(kq.data);
-        setLoi(null);
+        setLoi(kq.data.loi);
       } else {
         setLoi(kq.loi);
       }
@@ -77,7 +78,6 @@ export default function QuyDoiNhap({
   // Chưa chọn thuốc / đơn vị: kết quả cũ (của thuốc trước) không được hiện.
   const coDauVao = Boolean(idThuoc) && donVi.trim() !== "";
   if (!coDauVao || (!xem?.can_doi && !loi)) return null;
-  const ban = xem?.don_vi_ban ?? "";
   const nho = xem?.he_so_da_nho;
 
   return (
@@ -85,40 +85,33 @@ export default function QuyDoiNhap({
       role="status"
       className="space-y-2 rounded-control border border-line bg-surface p-3 text-body text-ink-soft"
     >
-      <p>
-        Thuốc này bán theo “{ban}”, bạn nhập theo “{donVi.trim()}” — kho chỉ giữ “{ban}”, nên
-        phải đổi.
-      </p>
-      <div className="flex flex-wrap items-end gap-2">
-        <label className="block">
-          <span className={LABEL}>
-            1 {donVi.trim()} = ? {ban}
-          </span>
-          <input
-            id={`qd-he-so-${ma}`}
-            value={heSo}
-            inputMode="decimal"
-            placeholder={nho != null ? soKho(nho) : "vd 10"}
-            onChange={(e) => {
-              onHeSo(e.target.value);
-              onXacNhan(false);
-            }}
-            className={`${INPUT} w-32`}
-          />
-        </label>
-        {/* Máy chủ vừa báo lỗi (hệ số rác…) thì kết quả của lần xem TRƯỚC không được
-            hiện cạnh câu báo — "= 10 gói" kế bên "hệ số phải là một con số" là nói dối. */}
-        {!loi && xem?.so_luong_quy_doi != null ? (
-          <p className="pb-2 font-semibold text-ink tabular-nums">
-            = {soKho(xem.so_luong_quy_doi)} {ban}
-          </p>
-        ) : null}
-        {!loi && nho != null && heSo.trim() === "" ? (
-          <p className="pb-2 text-meta text-ink-muted">
-            Đã nhớ lần trước: 1 {donVi.trim()} = {soKho(nho)} {ban}.
-          </p>
-        ) : null}
-      </div>
+      {!loi && xem?.cau_hoi ? (
+        <div className="flex flex-wrap items-end gap-2">
+          <label className="block">
+            <span className={LABEL}>{xem.cau_hoi}</span>
+            <input
+              id={`qd-he-so-${ma}`}
+              value={heSo}
+              inputMode="decimal"
+              placeholder={nho != null ? soKho(nho) : "vd 30"}
+              onChange={(e) => {
+                onHeSo(e.target.value);
+                onXacNhan(false);
+              }}
+              className={`${INPUT} w-32`}
+            />
+          </label>
+          {/* Máy chủ báo lỗi thì kết quả của lần xem TRƯỚC không được hiện cạnh câu báo. */}
+          {xem.ket_qua ? (
+            <p className="pb-2 font-semibold text-ink tabular-nums">{xem.ket_qua}</p>
+          ) : null}
+          {nho != null && heSo.trim() === "" ? (
+            <p className="pb-2 text-meta text-ink-muted">
+              Theo Danh mục: {soKho(nho)}. Lần này khác thì gõ số khác.
+            </p>
+          ) : null}
+        </div>
+      ) : null}
       {!loi && xem?.can_xac_nhan ? (
         <label className="flex items-center gap-2 text-warning">
           <input
@@ -126,7 +119,7 @@ export default function QuyDoiNhap({
             checked={xacNhan}
             onChange={(e) => onXacNhan(e.target.checked)}
           />
-          Hệ số này lệch hơn 10 lần so với lần trước — đúng, hệ số này.
+          Số này lệch hơn 10 lần so với Danh mục — đúng, hệ số này.
         </label>
       ) : null}
       {loi ? (

@@ -18,9 +18,9 @@ import {
   parsePositiveQuantity,
 } from "@/lib/validation";
 import { INPUT, LABEL } from "../../form-ui";
-import ODonVi from "../../ODonVi";
+import ChonDonViNhap from "./ChonDonViNhap";
 import DanhSachPhieu from "./DanhSachPhieu";
-import { donViCuaThuoc, type ThuocKho } from "./DanhMucKho";
+import { type ThuocKho } from "./DanhMucKho";
 import { guiKho, tienVnd } from "./gui-kho";
 import OQuetMa, { type KetQuaQuet } from "./OQuetMa";
 import QuyDoiNhap from "./QuyDoiNhap";
@@ -33,7 +33,7 @@ interface Dong {
   so_luong: string;
   don_vi: string;
   gia_nhap: string;
-  /** Nhập khác đơn vị bán: 1 <đơn vị> = he_so đơn vị bán (xem QuyDoiNhap). */
+  /** 1 <đơn vị nhập> có he_so đơn vị gốc; trống = theo Danh mục (QuyDoiNhap). */
   he_so: string;
   xac_nhan_he_so: boolean;
 }
@@ -299,10 +299,10 @@ export default function PhieuNhap({ thuoc, ghiDuoc }: { thuoc: ThuocKho[]; ghiDu
                 </label>
                 <div className="block">
                   <span className={LABEL}>Đơn vị</span>
-                  <ODonVi
+                  <ChonDonViNhap
+                    idThuoc={dangDung.find((t) => t.ten === d.ten)?.id}
                     value={d.don_vi}
                     onChange={(v) => suaDong(d.k, { don_vi: v })}
-                    cuaThuoc={donViCuaThuoc(dangDung.find((t) => t.ten === d.ten))}
                     ariaLabel={`Đơn vị dòng ${i + 1}`}
                   />
                   {dangDung.find((t) => t.ten === d.ten)?.chua_khai_don_vi ? (
@@ -345,7 +345,7 @@ export default function PhieuNhap({ thuoc, ghiDuoc }: { thuoc: ThuocKho[]; ghiDu
                     </Button>
                   ) : null}
                 </div>
-                <div className="col-span-2 empty:hidden lg:col-span-7">
+                <div className="col-span-full empty:hidden">
                   <QuyDoiNhap
                     ma={`pn-${d.k}`}
                     idThuoc={dangDung.find((t) => t.ten === d.ten)?.id}

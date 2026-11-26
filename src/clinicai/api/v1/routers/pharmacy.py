@@ -24,6 +24,7 @@ from clinicai.api.idempotency import (
     tra_khoa_neu_bi_tu_choi,
 )
 from clinicai.api.identity import StaffIdentity
+from clinicai.api.v1.routers.thuoc_don_vi import router as thuoc_don_vi_router
 from clinicai.core.clock import doc_ngay, hom_nay_vn
 from clinicai.core.database import get_db_pool
 from clinicai.permissions.can import can
@@ -45,13 +46,14 @@ from clinicai.services.pharmacy_service import (
     PharmacyService,
     tach_kho_quay_bat,
 )
+from clinicai.services.thuoc.don_vi_nhap import xem_truoc_quy_doi
 
 router = APIRouter()
+router.include_router(thuoc_don_vi_router)
 
 # ĐỌC mở rộng hơn GHI. Thu ngân thuốc cần thấy đơn để thu tiền, Trưởng ca và
 # Quản lý cần thấy tồn để biết sắp hết gì — nhưng chỉ người giữ khối "Nhà thuốc"
-# mới được chạm vào kho. Hỏi QUYỀN, không hỏi vai (24/09/2026, migration
-# 20260924000013): cấp khối trên màn Phân quyền là có hiệu lực ngay.
+# mới được chạm vào kho. Hỏi QUYỀN, không hỏi vai: cấp khối là có hiệu lực ngay.
 _DOC = cua_quyen("pharmacy.view", "pharmacy.dispense")
 _GHI = cua_quyen("pharmacy.dispense")
 
@@ -675,8 +677,7 @@ class DongPhieuNhap(BaseModel):
     so_luong: Any = None
     unit: str | None = Field(default=None, max_length=50)
     gia_nhap: Any = None
-    # Nhập khác đơn vị bán: 1 <unit> = he_so đơn vị bán. Bỏ trống = dùng hệ số
-    # đã nhớ; chưa nhớ thì máy chủ hỏi (xem `quy_doi_dong_nhap`).
+    # 1 <unit> có he_so đơn vị gốc; trống = hệ số đã khai (`thuoc.don_vi_nhap`).
     he_so: Any = None
     xac_nhan_he_so: bool = False
 
@@ -1207,10 +1208,9 @@ async def xem_quy_doi_nhap(
     identity: StaffIdentity = Depends(_DOC),
     pool: asyncpg.Pool = Depends(get_db_pool),
 ) -> dict[str, Any]:
-    """Xem trước một dòng nhập: có phải đổi về đơn vị bán không, hệ số nào (đã nhớ
-    hoặc vừa gõ), kết quả "= N <đơn vị bán>", và có cần xác nhận hệ số lạ không."""
+    """Xem trước một dòng nhập: đơn vị chọn được, "47 hộp = 1.410 viên"."""
     kq: dict[str, Any] = jsonable_encoder(
-        await kho_thuoc_service.xem_truoc_quy_doi(
+        await xem_truoc_quy_doi(
             pool,
             identity=identity,
             drug_catalog_id=str(drug_catalog_id),
