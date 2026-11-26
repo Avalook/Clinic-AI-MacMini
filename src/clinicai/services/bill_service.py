@@ -1392,7 +1392,7 @@ def ap_giam_gia(hoa_don: HoaDon, loai: str, gia_tri: Decimal) -> tuple[int, int,
     if duoc <= 0:
         raise ValidationError(
             "Hoá đơn này không có khoản nào giảm giá được "
-            "(liệu trình trả trước không giảm)."
+            "(liệu trình trả trước, thuốc lẻ tự chia giá không giảm)."
         )
     if loai == GIAM_PERCENT:
         if gia_tri > 100:

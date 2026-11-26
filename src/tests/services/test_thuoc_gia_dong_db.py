@@ -145,6 +145,23 @@ async def test_trong_don_vi_co_co_me_la_hop_o_hoa_don_quay_kho_quoc_gia(
     assert kq["chua_tru_kho"] == 0
 
 
+async def test_cho_gan_lo_cua_dong_trong_tinh_theo_me_khi_giao_dong_khac(
+    q: Quay,
+) -> None:
+    """Dòng trống (= 1 hộp = 30 gói) đã giao khi kho hết → chờ gán 30 gói. Lô về 40
+    gói, giao dòng 20 gói: chỉ trừ được 10 (30 gói đã rời kệ), không trừ đủ 20."""
+    drug = await _thuoc_goi(q)
+    await _dat_me(q, drug, "hộp")
+    rx_trong = await _ke(q, drug, "1")
+    rx_goi = await _ke(q, drug, "20 gói")
+    await _thu(q)
+    await _giao(q, rx_trong, 1)
+    lo = await _lo(q, drug, 40)
+    kq = await _giao(q, rx_goi, 20)
+    assert await _ton(q, lo) == 30, "chờ gán 30 gói của dòng trống được tính"
+    assert kq["chua_tru_kho"] == 10
+
+
 async def test_sql_he_so_don_vi_chu_rong_theo_co_me(q: Quay) -> None:
     drug = await _thuoc_goi(q)
     sql = "SELECT public.he_so_don_vi($1::uuid, $2::uuid, NULL)"
@@ -193,6 +210,39 @@ async def test_ecanix_vien_tu_chia_tu_gia_hop_quay_bang_hoa_don(
     assert r["line_total"] == tien
     await _giao(q, rx, Decimal(chu.split()[0]))
     assert await _ton(q, lo) == 120 - tru
+
+
+async def test_giam_gia_hoa_don_hon_hop_chi_dong_chan_nhan_giam_thu_duoc(
+    q: Quay,
+) -> None:
+    """Dòng tự chia (9.166,67đ/viên) lưu đơn giá 9.167đ: CHECK `giam_khop` không
+    khớp nếu nhận giảm → không chia giảm vào dòng đó; dòng giá chẵn nhận hết."""
+    ecanix = await _ecanix(q)
+    goi = await _thuoc_goi(q)
+    rx_le = await _ke(q, ecanix, "10 viên")
+    rx_chan = await _ke(q, goi, "2")
+    hd = await _hd(q)
+    assert hd.tong == 91_667 + 170_000 and tong_giam_duoc(hd) == 170_000
+    await _thu(
+        q,
+        bill_revision=hd.revision,
+        discount_type="PERCENT",
+        discount_value=10,
+        discount_reason="khách quen",
+    )
+    dong = {
+        r["source_id"]: r
+        for r in await q.pool.fetch(
+            "SELECT source_id, line_total, discount_allocated FROM payment_bill_line"
+            " WHERE source_id = ANY($1::text[])",
+            [rx_le, rx_chan],
+        )
+    }
+    assert (dong[rx_le]["line_total"], dong[rx_le]["discount_allocated"]) == (91_667, 0)
+    assert (dong[rx_chan]["line_total"], dong[rx_chan]["discount_allocated"]) == (
+        153_000,
+        17_000,
+    )
 
 
 async def test_hai_bang_gia_lech_quay_cung_khong_hien_gia_nhu_hoa_don(q: Quay) -> None:

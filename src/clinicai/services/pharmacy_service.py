@@ -1280,7 +1280,8 @@ class PharmacyService:
             ]
             cho_gan = sum(
                 (
-                    doi.so_dong(Decimal(str(r["so"])), r["unit"]) or Decimal(0)
+                    doi.so_dong(Decimal(str(r["so"])), doi.bang.don_vi_dong(r["unit"]))
+                    or Decimal(0)
                     for r in await conn.fetch(
                         "SELECT p.unit, sum(g.so_luong) AS so"
                         "  FROM public.thuoc_giao_chua_gan_lo g"
