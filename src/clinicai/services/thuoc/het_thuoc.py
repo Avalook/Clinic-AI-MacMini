@@ -90,15 +90,23 @@ async def ngay_het_thuoc_cua_luot(
         da_gac_quyen=True,
     )
     return [
-        {
-            "ten": r["ten"],
-            "so_luong": str(r["quantity"] or ""),
-            "so_ngay": k["so_ngay"],
-            "ngay_het": k["ngay_het"],
-        }
+        {"ten": r["ten"], "so_luong": str(r["quantity"] or ""), **n}
         for r, k in zip(rows, kq["dong"], strict=True)
-        if k["tinh_duoc"] and k["ngay_het"] is not None
+        if (n := _ngay_dung_cua_dong(k)) is not None
     ]
+
+
+def _ngay_dung_cua_dong(k: dict[str, Any]) -> dict[str, Any] | None:
+    """Kết quả một dòng → {so_ngay, ngay_het, bat_dau?}. Thuốc theo chu kỳ kinh lấy
+    ngày ước tính (cần kinh lần cuối trên phiếu); chưa tính được thì None."""
+    if not k["tinh_duoc"]:
+        return None
+    if k.get("uoc_tinh"):
+        u = k["uoc_tinh"]
+        return {"so_ngay": k["so_ngay"], "ngay_het": u["het"], "bat_dau": u["bat_dau"]}
+    if k["ngay_het"] is None:
+        return None
+    return {"so_ngay": k["so_ngay"], "ngay_het": k["ngay_het"], "bat_dau": None}
 
 
 async def ngay_het_tung_dong(
@@ -122,9 +130,9 @@ async def ngay_het_tung_dong(
         da_gac_quyen=True,
     )
     return {
-        str(d["id"]): {"so_ngay": k["so_ngay"], "ngay_het": k["ngay_het"]}
+        str(d["id"]): n
         for d, k in zip(dong, kq["dong"], strict=True)
-        if k["tinh_duoc"] and k["ngay_het"] is not None
+        if (n := _ngay_dung_cua_dong(k)) is not None
     }
 
 

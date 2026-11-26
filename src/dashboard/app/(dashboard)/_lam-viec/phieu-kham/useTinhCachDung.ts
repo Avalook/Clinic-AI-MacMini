@@ -13,6 +13,8 @@ export function useTinhCachDung(
   visitId: string | undefined,
   dong: DongThuoc[],
   kinh: { kinh_lan_cuoi: string; chu_ky: string },
+  /** Mốc chu kỳ bác sĩ sửa tay theo vị trí dòng (khung "Tính ngày uống theo kỳ kinh"). */
+  moc: Record<number, { tu_ngay: number; den_ngay: number }> = {},
 ): KetQuaTinh | null {
   const [traLoi, setTraLoi] = useState<{ goi: string; kq: KetQuaTinh } | null>(null);
   const goi = useMemo(
@@ -21,15 +23,16 @@ export function useTinhCachDung(
         visit_id: visitId,
         kinh_lan_cuoi: kinh.kinh_lan_cuoi || null,
         chu_ky: kinh.chu_ky || null,
-        dong: dong.map((d) => ({
+        dong: dong.map((d, i) => ({
           drug_catalog_id: d.drug_catalog_id,
           so_luong: d.so_luong,
           don_vi: d.don_vi,
           ct: d.drug_catalog_id ? (d.cach_dung_ct ?? null) : null,
           chu: d.cach_dung,
+          ...(moc[i] ?? {}),
         })),
       }),
-    [visitId, dong, kinh.kinh_lan_cuoi, kinh.chu_ky],
+    [visitId, dong, kinh.kinh_lan_cuoi, kinh.chu_ky, moc],
   );
   useEffect(() => {
     if (!visitId || dong.length === 0) return;

@@ -28,6 +28,11 @@ export interface KetQuaCachDung {
   so_lieu_can: string | null;
   goi_y_so_luong: number | null;
   uoc_tinh: { kinh_toi: string; bat_dau: string; het: string } | null;
+  /** Thuốc dùng theo chu kỳ kinh — màn hiện khung "Tính ngày uống theo kỳ kinh". */
+  theo_chu_ky?: boolean;
+  /** Mốc "uống từ ngày thứ … đến ngày thứ …" đang dùng (câu cách dùng hoặc bác sĩ sửa). */
+  tu_ngay?: number | null;
+  den_ngay?: number | null;
 }
 
 export interface KetQuaTinh {
@@ -72,8 +77,8 @@ export function dongKetQua(k: KetQuaCachDung): string {
   if (!k.tinh_duoc) return k.ly_do ?? "";
   if (k.uoc_tinh) {
     const u = k.uoc_tinh;
-    return `${k.so_ngay} ngày (cần ${k.so_lieu_can}). Ước tính: kinh tới ~${ngayVn(u.kinh_toi)} → bắt đầu ~${ngayVn(u.bat_dau)}, hết ~${ngayVn(u.het)}.`;
+    return `Uống từ ${ngayVn(u.bat_dau)} đến ${ngayVn(u.het)} (${k.so_ngay} ngày, kỳ kinh tính từ ${ngayVn(u.kinh_toi)})`;
   }
-  if (!k.ngay_het) return `${k.so_ngay} ngày theo chu kỳ kinh (cần ${k.so_lieu_can}) — chưa có kinh lần cuối + chu kỳ để ước tính ngày.`;
+  if (!k.ngay_het) return `${k.so_ngay} ngày theo chu kỳ kinh — nhập ngày bắt đầu kỳ kinh để ra ngày uống cụ thể.`;
   return `${k.so_ngay} ngày → hết ${ngayVn(k.ngay_het)}`;
 }

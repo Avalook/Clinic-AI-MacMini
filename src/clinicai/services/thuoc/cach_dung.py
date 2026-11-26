@@ -187,8 +187,11 @@ def doc_chu_ky(chu: Any) -> int | None:
 def uoc_tinh_chu_ky(
     lmp: date, chu_ky: int, tu_ngay: int, den_ngay: int, ngay_ke: date
 ) -> dict[str, date]:
-    """Kinh tới = kinh lần cuối + k×chu kỳ (lần đầu không trước ngày kê)."""
-    k = max(0, math.ceil((ngay_ke - lmp).days / chu_ky))
+    """Ngày 1 của chu kỳ = ngày đầu ra máu kinh (Cleveland Clinic, Merck). Dùng ngay kỳ
+    HIỆN TẠI nếu ngày bắt đầu uống chưa qua; không thì kỳ kế tiếp (+k×chu kỳ)."""
+    k = max(0, (ngay_ke - lmp).days // chu_ky)
+    if lmp + timedelta(days=k * chu_ky + tu_ngay - 1) < ngay_ke:
+        k += 1
     toi = lmp + timedelta(days=k * chu_ky)
     return {
         "kinh_toi": toi,
@@ -203,6 +206,34 @@ def moc_chu_ky(ct: CachDung) -> tuple[int, int] | None:
     if tu_ngay is None or den_ngay is None or tu_ngay > den_ngay:
         return None
     return tu_ngay, den_ngay
+
+
+def _tinh_chu_ky(
+    ct: CachDung,
+    kq: dict[str, Any],
+    he_so: Fraction | None,
+    lieu_moi_kho: Fraction | None,
+    ngay_ke: date,
+    kinh: tuple[date, int] | None,
+) -> dict[str, Any]:
+    """Thuốc theo chu kỳ kinh: ngày uống KHÔNG phụ thuộc liều — tính ngày trước (có kinh
+    lần cuối thì ra ngày cụ thể), liều có khoảng ("2–4 viên") chỉ bỏ phần số lượng."""
+    kq = {**kq, "theo_chu_ky": True}  # màn hiện ô "Ngày bắt đầu kỳ kinh gần nhất"
+    moc = moc_chu_ky(ct)
+    if moc is None:
+        return {**kq, "ly_do": LY_DO_THIEU_MOC_CHU_KY}
+    tu_ngay, den_ngay = moc
+    so = den_ngay - tu_ngay + 1
+    kq.update(tinh_duoc=True, so_ngay=so, tu_ngay=tu_ngay, den_ngay=den_ngay)
+    if kinh is not None:
+        kq["uoc_tinh"] = uoc_tinh_chu_ky(kinh[0], kinh[1], tu_ngay, den_ngay, ngay_ke)
+    lieu = None if chua_chon_khoang(ct) else lieu_ngay(ct)
+    if lieu is None or lieu <= 0:
+        return kq
+    kq.update(lieu_ngay=_so_lieu_chu(lieu), so_lieu_can=_so_lieu_chu(lieu * so))
+    if he_so is not None and lieu_moi_kho is not None:
+        kq["goi_y_so_luong"] = goi_y_so_luong(lieu, so, lieu_moi_kho, he_so)
+    return kq
 
 
 def tinh_dong(
@@ -231,28 +262,14 @@ def tinh_dong(
     }
     if ct is None or ct.kieu == "chu":
         return {**kq, "ly_do": LY_DO_CHU}
+    if ct.kieu == "chu_ky":
+        return _tinh_chu_ky(ct, kq, he_so, lieu_moi_kho, ngay_ke, kinh)
     if chua_chon_khoang(ct):
         return {**kq, "ly_do": LY_DO_KHOANG}
     lieu = lieu_ngay(ct)
     if lieu is None or lieu <= 0:
         return {**kq, "ly_do": LY_DO_THIEU_LIEU}
     kq["lieu_ngay"] = _so_lieu_chu(lieu)
-    du_quy_doi = he_so is not None and lieu_moi_kho is not None
-    if ct.kieu == "chu_ky":
-        moc = moc_chu_ky(ct)
-        if moc is None:
-            return {**kq, "ly_do": LY_DO_THIEU_MOC_CHU_KY}
-        tu_ngay, den_ngay = moc
-        so = den_ngay - tu_ngay + 1
-        kq.update(tinh_duoc=True, so_ngay=so, so_lieu_can=_so_lieu_chu(lieu * so))
-        if du_quy_doi:
-            assert he_so is not None and lieu_moi_kho is not None
-            kq["goi_y_so_luong"] = goi_y_so_luong(lieu, so, lieu_moi_kho, he_so)
-        if kinh is not None:
-            kq["uoc_tinh"] = uoc_tinh_chu_ky(
-                kinh[0], kinh[1], tu_ngay, den_ngay, ngay_ke
-            )
-        return kq
     if lieu_moi_kho is None:
         return {
             **kq,

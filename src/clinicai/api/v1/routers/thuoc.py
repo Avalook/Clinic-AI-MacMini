@@ -76,6 +76,9 @@ class TinhDong(BaseModel):
     ct: CachDung | None = None
     #: Chữ cách dùng hiện có (kiểu "chỉ chữ" giữ nguyên chữ này).
     chu: str = Field(default="", max_length=2000)
+    #: Bác sĩ sửa tay "uống từ ngày thứ … đến ngày thứ … của chu kỳ" (Tuyền 26/11).
+    tu_ngay: int | None = Field(default=None, ge=1, le=60)
+    den_ngay: int | None = Field(default=None, ge=1, le=60)
 
 
 class TinhRequest(BaseModel):
@@ -102,6 +105,10 @@ class KetQuaDong(BaseModel):
     so_lieu_can: str | None = None
     goi_y_so_luong: int | None = None
     uoc_tinh: UocTinh | None = None
+    #: Thuốc theo chu kỳ kinh + mốc đang dùng (từ câu cách dùng hoặc bác sĩ sửa).
+    theo_chu_ky: bool = False
+    tu_ngay: int | None = None
+    den_ngay: int | None = None
 
 
 class KinhCuaLuot(BaseModel):
@@ -153,6 +160,8 @@ async def cua_tinh_cach_dung(
                 "don_vi": d.don_vi,
                 "ct": d.ct,
                 "chu": d.chu,
+                "tu_ngay": d.tu_ngay,
+                "den_ngay": d.den_ngay,
             }
             for d in body.dong
         ],
@@ -196,6 +205,8 @@ class NgayHetThuoc(BaseModel):
     so_luong: str
     so_ngay: int
     ngay_het: date
+    #: Thuốc theo chu kỳ kinh: ngày bắt đầu uống (ước tính từ kinh lần cuối).
+    bat_dau: date | None = None
 
 
 class DanhSachNgayHet(BaseModel):
@@ -237,6 +248,7 @@ class TinhDongQuay(BaseModel):
 class NgayHetDong(BaseModel):
     so_ngay: int
     ngay_het: date
+    bat_dau: date | None = None
 
 
 @router.post("/thuoc/het-thuoc/dong", response_model=dict[str, NgayHetDong])

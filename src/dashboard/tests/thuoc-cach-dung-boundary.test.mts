@@ -38,6 +38,9 @@ test("bàn khám không bắt bác sĩ khai cách dùng theo ô — chỉ hiện
   assert.doesNotMatch(man, /CachDungDong|KinhCuoiCung|Kiểu dùng/);
   assert.match(man, /oNhap\(i, d, "cach_dung", "Cách dùng"/);
   assert.match(man, /Đủ dùng \{dongKetQua\(/);
+  // Thuốc theo chu kỳ kinh: khung bật/tắt; đóng thì không gửi kỳ kinh, không hiện ngày.
+  assert.match(man, /moKy \? kinh : KINH_TU_PHIEU, moKy \? moc : \{\}/);
+  assert.match(man, /ketQua=\{moKy && kqDong\?\.\[i\]\?\.uoc_tinh/);
   // Đơn từ bàn khám không gửi cấu trúc → máy chủ không viết đè chữ bác sĩ.
   assert.doesNotMatch(lib, /cach_dung_ct: d\.cach_dung_ct/);
 });

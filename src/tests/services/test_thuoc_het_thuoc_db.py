@@ -74,4 +74,6 @@ async def test_ngay_het_thuoc_cua_luot(pool: asyncpg.Pool) -> None:  # noqa: F81
             {"id": "b", "drug_catalog_id": t, "so_luong": "", "don_vi": "", "chu": ""},
         ],
     )
-    assert theo_dong == {"a": {"so_ngay": 60, "ngay_het": date(2027, 1, 24)}}
+    assert theo_dong == {
+        "a": {"so_ngay": 60, "ngay_het": date(2027, 1, 24), "bat_dau": None}
+    }

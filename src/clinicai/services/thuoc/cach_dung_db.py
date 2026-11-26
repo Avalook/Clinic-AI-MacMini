@@ -44,6 +44,9 @@ O_KINH = (
     ("hmvs_w_lmp", "hmvs_w_cycle"),
 )
 NOI = " — "
+#: Chu kỳ kinh trung bình (Cleveland Clinic: 28 ngày, bình thường 21–35) — dùng khi
+#: có ngày bắt đầu kỳ kinh mà để trống chu kỳ.
+CHU_KY_MAC_DINH = 28
 
 
 def _gia_tri_o_phieu(o: Any) -> Any:
@@ -74,6 +77,15 @@ def lieu_moi_don_vi_kho(ct: CachDung, goc: str, so_lieu: Any) -> Fraction | None
     if so_lieu is not None:
         return Fraction(str(so_lieu))
     return so_con_trong_ten(goc, ct.don_vi_lieu)
+
+
+def _ghi_de_moc_chu_ky(ct: CachDung, tu: Any, den: Any) -> CachDung:
+    """Bác sĩ sửa tay "uống từ ngày thứ … đến ngày thứ … của chu kỳ" (Tuyền 26/11: không
+    fix cứng theo câu danh mục). Câu không đọc ra chu kỳ vẫn tính được ngày theo mốc."""
+    if not tu or not den or int(tu) > int(den):
+        return ct
+    goc = ct if ct.kieu == "chu_ky" else CachDung(kieu="chu_ky")
+    return goc.model_copy(update={"tu_ngay": int(tu), "den_ngay": int(den)})
 
 
 def he_so_dong(bang: BangDonVi, don_vi: str | None) -> Fraction | None:
@@ -168,7 +180,7 @@ async def tinh_don(
         {"kinh_lan_cuoi": kinh_lan_cuoi, "chu_ky": chu_ky} if go_tay else tu_phieu
     )
     lmp = doc_ngay_kinh(kinh_chu["kinh_lan_cuoi"], ngay_ke)
-    ck = doc_chu_ky(kinh_chu["chu_ky"])
+    ck = doc_chu_ky(kinh_chu["chu_ky"]) or (CHU_KY_MAC_DINH if lmp else None)
     kinh = (lmp, ck) if lmp is not None and ck is not None else None
 
     ra = []
@@ -180,6 +192,7 @@ async def tinh_don(
         ct: CachDung = de_xuat_cach_dung(chu)
         if ct.kieu == "chu" and ma in danh_muc:
             ct = doc_ct(danh_muc[ma]["cach_dung_ct"]) or ct
+        ct = _ghi_de_moc_chu_ky(ct, d.get("tu_ngay"), d.get("den_ngay"))
         cau = chu
         if not ma or ma not in bang:
             kq = tinh_dong(

@@ -24,6 +24,7 @@ import Chip from "@/components/ui/Chip";
 import { INPUT } from "../../form-ui";
 import ODonVi from "../../ODonVi";
 import { useTinhCachDung } from "./useTinhCachDung";
+import KyKinh, { type Kinh, type Moc } from "./KyKinh";
 import { dongKetQua, type CachDungCT } from "@/lib/cach-dung";
 import {
   dongNgoaiDanhMuc,
@@ -109,8 +110,19 @@ export default function DonThuocPhieu({
     onDoi?.(dong.map((d, j) => (j === i ? boTienCu({ ...d, [ma]: v }, ma) : d)));
   // Số ngày dùng / ngày hết: máy chủ tính từ cách dùng của danh mục × số lượng bán
   // (Tuyền 26/11: bác sĩ không khai thêm gì). Lệch số dòng = chờ lượt hỏi sau.
-  const tinh = useTinhCachDung(visitId, dong, KINH_TU_PHIEU);
+  // Thuốc theo chu kỳ kinh: khung "Tính ngày uống theo kỳ kinh" (Tuyền 26/11). Đóng = không
+  // gửi kỳ kinh, không hiện ngày (không bịa); mở = bác sĩ nhập/sửa kỳ kinh + mốc từng dòng.
+  const [moKy, setMoKy] = useState(false);
+  const [kinh, setKinh] = useState<Kinh>(KINH_TU_PHIEU);
+  const [moc, setMoc] = useState<Record<number, Moc>>({});
+  const tinh = useTinhCachDung(visitId, dong, moKy ? kinh : KINH_TU_PHIEU, moKy ? moc : {});
   const kqDong = tinh && tinh.dong.length === dong.length ? tinh.dong : null;
+  const moKhungKy = (mo: boolean) => {
+    if (mo && !kinh.kinh_lan_cuoi && tinh?.kinh.kinh_lan_cuoi) {
+      setKinh({ kinh_lan_cuoi: tinh.kinh.kinh_lan_cuoi, chu_ky: tinh.kinh.chu_ky ?? "" });
+    }
+    setMoKy(mo);
+  };
 
   const oNhap = (i: number, d: DongThuoc, ma: keyof DongThuoc, ten: string, lop: string, dai = false) => (
     <label key={ma} className={`${NHAN} ${lop}`}>
@@ -331,7 +343,19 @@ export default function DonThuocPhieu({
                   </div>
                   {oNhap(i, d, "cach_dung", "Cách dùng", "sm:col-span-8", true)}
                   {oNhap(i, d, "luu_y", "Lưu ý", "sm:col-span-4", true)}
-                  {visitId && coKho && kqDong?.[i]?.tinh_duoc ? (
+                  {visitId && coKho && (kqDong?.[i]?.theo_chu_ky || /kinh/i.test(d.cach_dung)) ? (
+                    <KyKinh
+                      mo={moKy}
+                      onMo={moKhungKy}
+                      kinh={kinh}
+                      onKinh={setKinh}
+                      moc={moc[i] ?? (kqDong?.[i]?.tu_ngay ? { tu_ngay: kqDong[i].tu_ngay!, den_ngay: kqDong[i].den_ngay! } : null)}
+                      onMoc={(m) => setMoc({ ...moc, [i]: m })}
+                      ngayKe={tinh?.ngay_ke ?? null}
+                      ketQua={moKy && kqDong?.[i]?.uoc_tinh ? dongKetQua(kqDong[i]) : null}
+                      chiDoc={chiDoc}
+                    />
+                  ) : visitId && coKho && kqDong?.[i]?.tinh_duoc ? (
                     <p className="text-meta text-success sm:col-span-12" role="status">
                       Đủ dùng {dongKetQua(kqDong[i])}
                     </p>
