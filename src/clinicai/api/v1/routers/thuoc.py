@@ -17,12 +17,20 @@ from pydantic import BaseModel, Field
 from clinicai.api.identity import StaffIdentity, get_current_identity
 from clinicai.core.database import get_db_pool
 from clinicai.permissions.cua_quyen import cua_quyen
-from clinicai.services.thuoc import cach_dung_db, don_vi_con, khoi_phuc_thuoc, xoa_thuoc
+from clinicai.services.thuoc import (
+    cach_dung_db,
+    don_vi_con,
+    het_thuoc,
+    khoi_phuc_thuoc,
+    xoa_thuoc,
+)
 from clinicai.services.thuoc.cach_dung import CachDung
 
 router = APIRouter()
 _DOC = cua_quyen("pharmacy.view", "pharmacy.dispense")
 _GHI = cua_quyen("pharmacy.dispense")
+#: Quầy thu thuốc + nhà thuốc xem ngày dự tính dùng hết thuốc (Tuyền 26/11).
+_HET = cua_quyen("payment.medicine.collect", "pharmacy.view", "pharmacy.dispense")
 
 
 class ChoDungThuoc(BaseModel):
@@ -181,6 +189,36 @@ async def cua_luu_cach_dung(
         so_lieu=body.so_lieu_moi_don_vi_goc,
     )
     return CachDungMacDinh.model_validate(kq)
+
+
+class NgayHetThuoc(BaseModel):
+    ten: str | None = None
+    so_luong: str
+    so_ngay: int
+    ngay_het: date
+
+
+class DanhSachNgayHet(BaseModel):
+    items: list[NgayHetThuoc]
+
+
+@router.get("/thuoc/het-thuoc", response_model=DanhSachNgayHet)
+async def cua_ngay_het_thuoc(
+    visit_id: UUID | None = None,
+    phieu_id: UUID | None = None,
+    identity: StaffIdentity = Depends(_HET),
+    pool: asyncpg.Pool = Depends(get_db_pool),
+) -> DanhSachNgayHet:
+    """Ngày dự tính dùng hết thuốc của lượt (theo mã lượt hoặc mã phiếu thu thuốc)."""
+    if visit_id is None and phieu_id is None:
+        return DanhSachNgayHet(items=[])
+    ds = await het_thuoc.ngay_het_thuoc_cua_luot(
+        pool,
+        identity=identity,
+        visit_id=str(visit_id) if visit_id else None,
+        phieu_id=str(phieu_id) if phieu_id else None,
+    )
+    return DanhSachNgayHet.model_validate({"items": ds})
 
 
 class DonViCon(BaseModel):

@@ -5,13 +5,12 @@
 // phải là cỡ A4"). Một trang cho cả thu tiền DỊCH VỤ lẫn tiền THUỐC (`kind`),
 // và phiếu hoàn. Phiếu khám, kết quả dùng `KieuInA4`.
 //
-// PHIẾU HƯỚNG DẪN (`loai=huong_dan`, Tuyền 30/09/2026): khách làm trước, thu
-// sau — chưa có tiền nhưng vẫn cần tờ giấy ghi đi phòng nào. Cùng khổ, cùng
-// trang; `id` là mã LƯỢT, không có dòng tiền.
+// PHIẾU HƯỚNG DẪN (`loai=huong_dan`, 30/09/2026): làm trước thu sau — `id` là mã LƯỢT.
 
 import { useEffect, useState } from "react";
 
 import Button from "@/components/ui/Button";
+import NgayHetThuoc from "@/components/NgayHetThuoc";
 import { tenHinhThuc, type PhanThu } from "@/lib/hinh-thuc-thu";
 
 import DoiPhong from "../../../(dashboard)/_lam-viec/DoiPhong";
@@ -266,6 +265,7 @@ export function PhieuThuGiay({ p }: { p: Phieu }) {
           ))}
         </tbody>
       </table>
+      {p.kind === "thuoc" && p.loai === "thu" ? <NgayHetThuoc phieuId={p.id} choIn /> : null}
       {p.giam_gia ? (
         <dl className="mt-3 grid grid-cols-[auto_1fr] gap-x-4 gap-y-0.5 text-meta">
           <dt className="text-ink-muted">Tổng trước giảm</dt>

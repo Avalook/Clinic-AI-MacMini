@@ -28,6 +28,7 @@ import ChinhDonQuay from "./ChinhDonQuay";
 import ChonDichVu, { type ChoKhachQuyet } from "./ChonDichVu";
 import XepPhongDaThu, { type DaTraChoPhong } from "./XepPhongDaThu";
 import NutInPhieu from "@/components/ui/NutInPhieu";
+import NgayHetThuoc from "@/components/NgayHetThuoc";
 import ChonDichVuKham from "../_lam-viec/ChonDichVuKham";
 import VatTuQuay from "./VatTuQuay";
 import LieuTrinhQuay from "./LieuTrinhQuay";
@@ -938,9 +939,8 @@ export default function QuayThuNgan({
               />
             ) : null}
 
-            {/* CHỈNH ĐƠN BÁN trước khi thu (Tuyền 24/09/2026): tích / bỏ tick,
-                số lượng, lấy thêm thuốc. Thu rồi (hoặc đang chờ xác minh) thì
-                khoá — huỷ phiếu thu trước rồi mới chỉnh. */}
+            {/* CHỈNH ĐƠN BÁN trước khi thu (Tuyền 24/09/2026): tích / bỏ tick, số lượng, lấy
+                thêm thuốc. Thu rồi (hoặc chờ xác minh) thì khoá — huỷ phiếu thu rồi mới chỉnh. */}
             {quay !== "dich_vu" &&
             l.drugs.length > 0 &&
             !daThuCua(l.visit_id, "thuoc") &&
@@ -951,8 +951,7 @@ export default function QuayThuNgan({
                 onDoi={async (cau, loiMoi) => {
                   setXong(cau);
                   setLoi(loiMoi);
-                  // Nạp lại CẢ /api/cashier (chậm khi đông) vì chưa có API hoá đơn
-                  // một lượt cho quầy; đúng số nhờ `tai` đi qua taoMotLuot.
+                  // Nạp lại CẢ /api/cashier (chưa có API hoá đơn một lượt); `tai` qua taoMotLuot.
                   try {
                     await tai();
                   } finally {
@@ -981,6 +980,7 @@ export default function QuayThuNgan({
                 }}
               />
             ) : null}
+            {quay !== "dich_vu" && l.drugs.length > 0 ? <NgayHetThuoc visitId={l.visit_id} /> : null}
           </article>
         ))}
         </div>

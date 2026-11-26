@@ -134,13 +134,17 @@ async def tinh_don(
     dong: list[dict[str, Any]],
     kinh_lan_cuoi: str | None,
     chu_ky: str | None,
+    da_gac_quyen: bool = False,
 ) -> dict[str, Any]:
+    """`da_gac_quyen`: người gọi đã gác quyền riêng (quầy thu thuốc xem ngày hết thuốc
+    — `het_thuoc`), không đòi quyền đọc phiếu khám."""
     from clinicai.services.phieu_kham_service import kiem_quyen_core
 
     cid = identity.clinic_id
     async with pool.acquire() as conn:
         # Đọc phiếu của lượt (kinh lần cuối) = quyền xem phiếu khám.
-        await kiem_quyen_core(conn, identity, "doc_phieu")
+        if not da_gac_quyen:
+            await kiem_quyen_core(conn, identity, "doc_phieu")
         ngay_ke = await _ngay_ke(conn, cid, visit_id)
         tu_phieu = (
             await _kinh_cua_luot(conn, cid, visit_id)

@@ -30,6 +30,12 @@ export async function GET(request: Request, { params }: { params: Promise<{ acti
   if (action === "don-vi-con" && UUID_RE.test(id)) {
     return proxyJsonToBackend("GET", `/api/v1/thuoc/${id}/don-vi-con`, undefined);
   }
+  // Ngày dự tính dùng hết thuốc của lượt (quầy thu thuốc, hoá đơn in — 26/11).
+  const phieu = new URL(request.url).searchParams.get("phieu") ?? "";
+  if (action === "het-thuoc" && (UUID_RE.test(id) || UUID_RE.test(phieu))) {
+    const q = UUID_RE.test(id) ? `visit_id=${id}` : `phieu_id=${phieu}`;
+    return proxyJsonToBackend("GET", `/api/v1/thuoc/het-thuoc?${q}`, undefined);
+  }
   return NextResponse.json({ error: `Không đọc được: ${action}` }, { status: 400 });
 }
 
