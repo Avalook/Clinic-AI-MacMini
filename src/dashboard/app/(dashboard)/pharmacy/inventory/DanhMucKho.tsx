@@ -3,13 +3,13 @@
 // Danh mục thuốc kho — MỘT nguồn tên, giá, đơn vị, cách dùng; màn kê đơn / quầy đọc thẳng.
 
 import { useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 
 import Button from "@/components/ui/Button";
 import Chip from "@/components/ui/Chip";
 import { INPUT, LABEL, TBL_DIV, TBL_HEAD, TBL_WRAP } from "../../form-ui";
 import ODonVi from "../../ODonVi";
-import DonViCon from "./DonViCon";
+import DonViCon, { type LuuDonViCon } from "./DonViCon";
 import { guiKho, soKho, tienVnd, tonTheoDonVi } from "./gui-kho";
 import { type DongDonVi } from "./SuaDonViBan";
 import XoaThuoc from "./XoaThuoc";
@@ -118,6 +118,7 @@ export default function DanhMucKho({
   const [dang, setDang] = useState(false);
   const [loi, setLoi] = useState<string | null>(null);
   const [bao, setBao] = useState<string | null>(null);
+  const luuCon = useRef<LuuDonViCon | null>(null); // khối đơn vị con đăng ký hàm lưu
 
   const dem = useMemo(
     () => ({
@@ -153,6 +154,8 @@ export default function DanhMucKho({
   const luu = async (tat = false) => {
     setDang(true);
     setLoi(null);
+    const loiCon = sua && !tat && luuCon.current ? await luuCon.current() : null; // một nút lưu cả đơn vị con
+    if (loiCon) return (setDang(false), setLoi(loiCon));
     const kq = await guiKho("luu-thuoc", {
       drug_catalog_id: sua || null,
       ten: form.ten,
@@ -163,11 +166,9 @@ export default function DanhMucKho({
       biet_duoc: form.biet_duoc,
       cach_dung: form.cach_dung,
       luu_y: form.luu_y,
-      // Rỗng = bỏ canh; máy chủ đọc số, từ chối số âm.
-      ton_toi_thieu: form.ton_toi_thieu.trim() === "" ? null : form.ton_toi_thieu.trim(),
+      ton_toi_thieu: form.ton_toi_thieu.trim() === "" ? null : form.ton_toi_thieu.trim(), // rỗng = bỏ canh
       dang_dung: tat ? false : form.dang_dung,
-      // Máy chủ đọc số, tự lưu giá gợi ý khi để trống, chặn trùng / rác.
-      cac_don_vi: donVi,
+      cac_don_vi: donVi, // giữ nguyên đơn vị đã khai trước đây (form không sửa nữa)
     });
     setDang(false);
     if (!kq.ok) {
@@ -266,7 +267,7 @@ export default function DanhMucKho({
             {o("luu_y", "Lưu ý", true)}
             {o("ton_toi_thieu", "Tồn tối thiểu (để trống = không cảnh báo)")}
           </div>
-          {sua ? <DonViCon thuocId={sua} ghiDuoc={ghiDuoc} /> : <p className="text-meta text-ink-muted">Lưu thuốc trước, rồi mở lại để khai đơn vị con.</p>}
+          {sua ? <DonViCon key={sua} thuocId={sua} ghiDuoc={ghiDuoc} dangKy={(f) => void (luuCon.current = f)} /> :<p className="text-meta text-ink-muted">Lưu thuốc trước, rồi mở lại để khai đơn vị con.</p>}
           <label className="flex min-h-10 items-center gap-2 text-body text-ink">
             <input
               type="checkbox"

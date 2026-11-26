@@ -2,12 +2,12 @@
 
 // Khối "Đơn vị con và tính số ngày dùng hết thuốc" của Danh mục & giá (Tuyền 26/11).
 // Chỉ ba câu: đơn vị con của [mẹ] là [viên ▼] · 1 [mẹ] có bao nhiêu [con] · giá 1 [con]
-// (trống = máy chia giá mẹ). Cách dùng gõ chữ ở ô "Cách dùng" phía trên — dòng "máy hiểu"
-// dưới đây đọc từ máy chủ để kho thấy câu gõ đã được hiểu đúng chưa.
+// (trống = máy chia giá mẹ). KHÔNG có nút lưu riêng (Tuyền: "bấm Lưu thuốc thôi"): form
+// Danh mục gọi hàm lưu đã đăng ký qua `dangKy` trước khi lưu thuốc. Cách dùng gõ chữ ở
+// ô "Cách dùng" phía trên — dòng "máy hiểu" đọc từ máy chủ.
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
-import Button from "@/components/ui/Button";
 import ONhap from "@/components/ui/ONhap";
 import { goiThuoc } from "@/lib/goi-thuoc";
 import { LABEL } from "../../form-ui";
@@ -34,12 +34,26 @@ const tuMayChu = (d: DonViConMayChu): Form => ({
 
 const tienVn = (n: number) => `${n.toLocaleString("vi-VN")} đ`;
 
-export default function DonViCon({ thuocId, ghiDuoc }: { thuocId: string; ghiDuoc: boolean }) {
+/** Hàm lưu khối đơn vị con: null = ổn (hoặc không đổi gì), chuỗi = câu lỗi. */
+export type LuuDonViCon = () => Promise<string | null>;
+
+export default function DonViCon({
+  thuocId,
+  ghiDuoc,
+  dangKy,
+}: {
+  thuocId: string;
+  ghiDuoc: boolean;
+  dangKy: (luu: LuuDonViCon | null) => void;
+}) {
   const [d, setD] = useState<DonViConMayChu | null>(null);
   const [f, setF] = useState<Form>({ con: "", so: "", gia: "" });
   const [loi, setLoi] = useState<string | null>(null);
-  const [bao, setBao] = useState<string | null>(null);
-  const [dang, setDang] = useState(false);
+  // Bản mới nhất cho hàm lưu (form cha gọi lúc bấm "Lưu thuốc").
+  const hienTai = useRef<{ d: DonViConMayChu | null; f: Form }>({ d: null, f });
+  useEffect(() => {
+    hienTai.current = { d, f };
+  }, [d, f]);
 
   useEffect(() => {
     let bo = false;
@@ -55,31 +69,36 @@ export default function DonViCon({ thuocId, ghiDuoc }: { thuocId: string; ghiDuo
     };
   }, [thuocId]);
 
+  useEffect(() => {
+    if (!ghiDuoc) return dangKy(null);
+    dangKy(async () => {
+      const { d: goc, f: moi } = hienTai.current;
+      if (!goc) return null;
+      const cu = tuMayChu(goc);
+      if (cu.con === moi.con.trim() && cu.so === moi.so.trim() && cu.gia === moi.gia.trim()) return null;
+      const r = await goiThuoc<DonViConMayChu>("luu-don-vi-con", {
+        body: {
+          id: thuocId,
+          don_vi_con: moi.con.trim() || null,
+          so_con: moi.so.trim() === "" ? null : moi.so.trim().replace(",", "."),
+          gia_con: moi.gia.trim() === "" ? null : moi.gia.replace(/\D/g, ""),
+        },
+      });
+      if (!r.ok) {
+        setLoi(r.loi);
+        return `Đơn vị con: ${r.loi}`;
+      }
+      return null;
+    });
+    return () => dangKy(null);
+  }, [thuocId, ghiDuoc, dangKy]);
+
   if (!d || d.id !== thuocId) return loi ? <p className="text-meta text-danger">{loi}</p> : null;
 
   const me = d.don_vi_me || "đơn vị tính";
   const con = f.con.trim() || "viên";
   const soCon = Number(f.so.replace(",", "."));
   const giaTuChia = d.gia_me != null && soCon > 0 ? Math.round(d.gia_me / soCon) : null;
-
-  const luu = async () => {
-    setDang(true);
-    setLoi(null);
-    setBao(null);
-    const r = await goiThuoc<DonViConMayChu>("luu-don-vi-con", {
-      body: {
-        id: thuocId,
-        don_vi_con: f.con.trim() || null,
-        so_con: f.so.trim() === "" ? null : f.so.trim().replace(",", "."),
-        gia_con: f.gia.trim() === "" ? null : f.gia.replace(/\D/g, ""),
-      },
-    });
-    setDang(false);
-    if (!r.ok) return setLoi(r.loi);
-    setD(r.data);
-    setF(tuMayChu(r.data));
-    setBao("Đã lưu đơn vị con.");
-  };
 
   return (
     <section aria-label="Đơn vị con" className="space-y-2 rounded-card border border-hairline p-3">
@@ -129,12 +148,6 @@ export default function DonViCon({ thuocId, ghiDuoc }: { thuocId: string; ghiDuo
       <p className="text-meta text-ink-muted" role="status">
         Máy hiểu cách dùng: {d.xem_truoc}
       </p>
-      {ghiDuoc ? (
-        <Button type="button" size="sm" variant="secondary" disabled={dang} onClick={() => void luu()}>
-          {dang ? "Đang lưu…" : "Lưu đơn vị con"}
-        </Button>
-      ) : null}
-      {bao ? <p className="text-meta text-success">{bao}</p> : null}
       {loi ? (
         <p role="alert" className="text-meta text-danger">
           {loi}
