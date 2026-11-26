@@ -128,7 +128,8 @@ async def _doc_dong_don(
 ) -> asyncpg.Record:
     return await conn.fetchrow(
         "SELECT id, visit_id, nguon, drug_catalog_id, drug_name_raw, unit"
-        "  FROM public.prescription WHERE id = $1::uuid AND clinic_id = $2::uuid",
+        "  FROM public.prescription WHERE id = $1::uuid AND clinic_id = $2::uuid"
+        "   AND removed_at IS NULL",
         rx,
         clinic_id,
     )
