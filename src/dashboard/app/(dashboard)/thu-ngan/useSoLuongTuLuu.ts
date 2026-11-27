@@ -52,14 +52,17 @@ export function useSoLuongTuLuu<D extends DongSo>({
   });
   const henGio = useRef(new Map<string, ReturnType<typeof setTimeout>>());
   const dangGui = useRef(new Set<string>());
-  const guiLai = useRef(new Set<string>());
+  // Dòng gõ tiếp trong lúc đang lưu → gửi lại sau; giá trị = có lần rời ô nào chưa.
+  const guiLai = useRef(new Map<string, boolean>());
 
+  // `tuRoiO`: gọi từ rời ô / Enter. Chỉ khi đó ô trống mới được hiểu là bỏ tick —
+  // hẹn giờ và lần gửi lại (người còn đứng trong ô) thì giữ nháp trống.
   const doiSo = useCallback(
-    async function chay(id: string): Promise<void> {
+    async function chay(id: string, tuRoiO = false): Promise<void> {
       clearTimeout(henGio.current.get(id));
       henGio.current.delete(id);
       if (dangGui.current.has(id)) {
-        guiLai.current.add(id);
+        guiLai.current.set(id, (guiLai.current.get(id) ?? false) || tuRoiO);
         return;
       }
       const d = dongMoi.current?.find((x) => x.id === id);
@@ -72,6 +75,7 @@ export function useSoLuongTuLuu<D extends DongSo>({
         khoSoDangGo.boNeuBang(visitId, id, v);
         return;
       }
+      if ("boTick" in kq && !tuRoiO) return;
       if ("loi" in kq) {
         goi.current.baoLoi(kq.loi);
         return;
@@ -86,7 +90,11 @@ export function useSoLuongTuLuu<D extends DongSo>({
         khoSoDangGo.boNeuBang(visitId, id, v);
         dangGui.current.delete(id);
       }
-      if (guiLai.current.delete(id)) void chay(id);
+      const lai = guiLai.current.get(id);
+      if (lai !== undefined) {
+        guiLai.current.delete(id);
+        void chay(id, lai);
+      }
     },
     [visitId],
   );

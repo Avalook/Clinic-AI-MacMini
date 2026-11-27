@@ -324,9 +324,9 @@ export default function ChinhDonQuay({
                     disabled={!d.mua || d.da_chot}
                     onChange={(e) => go(d.id, e.target.value)}
                     onKeyDown={(e) => {
-                      if (e.key === "Enter") void doiSo(d.id);
+                      if (e.key === "Enter") void doiSo(d.id, true);
                     }}
-                    onBlur={() => void doiSo(d.id)}
+                    onBlur={() => void doiSo(d.id, true)}
                     className={`${INPUT} w-24`}
                     aria-label={`Số lượng ${d.ten}`}
                   />

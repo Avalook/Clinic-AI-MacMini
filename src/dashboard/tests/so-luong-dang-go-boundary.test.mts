@@ -80,6 +80,15 @@ test("ô trống KHÔNG tự lưu theo giờ (đang xoá để gõ số mới th
   assert.match(hook, /if \(chu\.trim\(\) === ""\) return;/);
 });
 
+// Soát 27/11: gõ tiếp trong lúc đang lưu (rơi vào gửi lại) rồi xoá trống mà CHƯA rời
+// ô thì lần gửi lại không được bỏ tick — chỉ rời ô / Enter mới được.
+test("chỉ rời ô / Enter mới được bỏ tick; hẹn giờ và lần gửi lại thì giữ nháp trống", () => {
+  assert.match(hook, /if \("boTick" in kq && !tuRoiO\) return;/);
+  assert.match(chinh, /onBlur=\{\(\) => void doiSo\(d\.id, true\)\}/);
+  assert.match(chinh, /if \(e\.key === "Enter"\) void doiSo\(d\.id, true\);/);
+  assert.match(hook, /guiLai\.current\.set\(id, \(guiLai\.current\.get\(id\) \?\? false\) \|\| tuRoiO\)/);
+});
+
 test("xoá trống + rời ô gọi đúng lệnh bỏ tick của khung", () => {
   assert.match(hook, /if \("boTick" in kq\) \{[^}]*goi\.current\.boChon\(d\)/);
   assert.match(chinh, /boChon: \(d\) => chon\(d, false\)/);
@@ -123,7 +132,7 @@ test("ô Số lượng: tự lưu khi ngừng gõ, lưu khi Enter, lưu khi rờ
   );
   assert.match(chinh, /onChange=\{\(e\) => go\(d\.id, e\.target\.value\)\}/);
   assert.match(chinh, /e\.key === "Enter"/);
-  assert.match(chinh, /onBlur=\{\(\) => void doiSo\(d\.id\)\}/);
+  assert.match(chinh, /onBlur=\{\(\) => void doiSo\(d\.id, true\)\}/);
 });
 
 test("lệnh số lượng đi qua batDau/xong như mọi lệnh khác (màn cha che Tổng)", () => {
