@@ -27,12 +27,15 @@ export function useSoLuongTuLuu<D extends DongSo>({
   visitId,
   dong,
   luu,
+  boChon,
   baoLoi,
 }: {
   visitId: string;
   dong: D[] | null;
   /** Gửi số mới của dòng; xong khi đơn (và hoá đơn của màn cha) đã nạp lại. */
   luu: (d: D, so: number) => Promise<void>;
+  /** Xoá trống ô rồi rời ô = khách không lấy dòng này → bỏ tick. */
+  boChon: (d: D) => Promise<void>;
   baoLoi: (cau: string) => void;
 }) {
   const soNhap = useSyncExternalStore(
@@ -42,10 +45,10 @@ export function useSoLuongTuLuu<D extends DongSo>({
   );
   // Hẹn giờ chạy trễ — đọc bản đơn / hàm gửi MỚI NHẤT qua ref, không qua closure cũ.
   const dongMoi = useRef(dong);
-  const goi = useRef({ luu, baoLoi });
+  const goi = useRef({ luu, boChon, baoLoi });
   useEffect(() => {
     dongMoi.current = dong;
-    goi.current = { luu, baoLoi };
+    goi.current = { luu, boChon, baoLoi };
   });
   const henGio = useRef(new Map<string, ReturnType<typeof setTimeout>>());
   const dangGui = useRef(new Set<string>());
@@ -75,7 +78,9 @@ export function useSoLuongTuLuu<D extends DongSo>({
       }
       dangGui.current.add(id);
       try {
-        await goi.current.luu(d, kq.so);
+        if ("boTick" in kq) {
+          await goi.current.boChon(d);
+        } else await goi.current.luu(d, kq.so);
       } finally {
         // Đơn đã nạp lại: ô hiện số máy chủ. Gõ tiếp trong lúc lưu thì nháp ≠ v, giữ.
         khoSoDangGo.boNeuBang(visitId, id, v);
@@ -89,6 +94,9 @@ export function useSoLuongTuLuu<D extends DongSo>({
   const go = (id: string, chu: string) => {
     khoSoDangGo.ghi(visitId, id, chu);
     clearTimeout(henGio.current.get(id));
+    // Ô trống chỉ xử lý khi rời ô / Enter: đang xoá để gõ số mới thì chờ, không
+    // tự bỏ tick hay nhảy về số cũ.
+    if (chu.trim() === "") return;
     henGio.current.set(id, setTimeout(() => void doiSo(id), CHO_GO_MS));
   };
 
@@ -101,8 +109,10 @@ export function useSoLuongTuLuu<D extends DongSo>({
   useEffect(() => {
     if (dong === null || daHenLai.current) return;
     daHenLai.current = true;
-    for (const id of Object.keys(khoSoDangGo.doc(visitId))) {
-      henGio.current.set(id, setTimeout(() => void doiSo(id), CHO_GO_MS));
+    for (const [id, chu] of Object.entries(khoSoDangGo.doc(visitId))) {
+      // Ô trống chưa được xác nhận bằng rời ô → không tự bỏ tick, hiện lại số cũ.
+      if (chu.trim() === "") khoSoDangGo.boNeuBang(visitId, id, chu);
+      else henGio.current.set(id, setTimeout(() => void doiSo(id), CHO_GO_MS));
     }
   }, [dong, visitId, doiSo]);
 

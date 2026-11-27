@@ -53,15 +53,19 @@ export function taoKhoSoDangGo(): KhoSoDangGo {
 /** Kho dùng chung của tab — mọi `ChinhDonQuay` đọc/ghi qua đây. */
 export const khoSoDangGo = taoKhoSoDangGo();
 
-/** Ô số lượng có cần gửi không. `null` = không (ô trống, số không đổi so với
+/** Ô số lượng có cần gửi không. `null` = không (chưa gõ, số không đổi so với
  *  `dangCo` của máy chủ). Gõ chữ ("2 hộp") thì trả câu báo thay vì gửi rỗng —
- *  máy chủ vẫn là nơi quyết số hợp lệ (> 0, ≥ số đã giao…). */
+ *  máy chủ vẫn là nơi quyết số hợp lệ (> 0, ≥ số đã giao…).
+ *  XOÁ TRỐNG dòng đang có số (Tuyền chốt 27/11) = khách không lấy → `boTick`
+ *  (lệnh bỏ tick sẵn có, tick lại là hoàn tác). Chỉ dùng khi RỜI Ô — hẹn giờ không
+ *  bao giờ được gọi với ô trống. Dòng vốn chưa có số mà ô trống: không làm gì. */
 export function soCanGui(
   chu: string | undefined,
   dangCo: string | null,
-): { so: number } | { loi: string } | null {
-  const v = (chu ?? "").trim().replace(",", ".");
-  if (!v) return null;
+): { so: number } | { loi: string } | { boTick: true } | null {
+  if (chu === undefined) return null;
+  const v = chu.trim().replace(",", ".");
+  if (!v) return dangCo === null ? null : { boTick: true };
   const so = Number(v);
   if (!Number.isFinite(so)) {
     return { loi: "Ô số lượng chỉ gõ số (vd 2 hoặc 1,5) — đơn vị chọn ở ô bên cạnh." };

@@ -61,11 +61,28 @@ test("kho: ghi báo người nghe; bỏ hết thì về tham chiếu rỗng", ()
 });
 
 // ── Có gửi không, gửi số nào ────────────────────────────────────────────────
-test("soCanGui: ô trống / số không đổi thì không gửi", () => {
+test("soCanGui: không gõ / số không đổi thì không gửi", () => {
   assert.equal(soCanGui(undefined, "2"), null);
-  assert.equal(soCanGui("   ", "2"), null);
   assert.equal(soCanGui("2", "2"), null);
   assert.equal(soCanGui("2,0", "2"), null);
+});
+
+// Tuyền chốt 27/11 (bấm staging): xoá trống ô số lượng rồi rời ô = khách không lấy
+// dòng đó → bỏ tick (tick lại là hoàn tác). Dòng vốn chưa có số mà ô vẫn trống thì
+// không làm gì (bấm vào rồi bấm ra không được bỏ tick nhầm).
+test("soCanGui: xoá trống dòng đang có số → bỏ tick; dòng chưa có số → không làm gì", () => {
+  assert.deepEqual(soCanGui("", "2"), { boTick: true });
+  assert.deepEqual(soCanGui("   ", "1"), { boTick: true });
+  assert.equal(soCanGui("", null), null);
+});
+
+test("ô trống KHÔNG tự lưu theo giờ (đang xoá để gõ số mới thì không nhảy về số cũ)", () => {
+  assert.match(hook, /if \(chu\.trim\(\) === ""\) return;/);
+});
+
+test("xoá trống + rời ô gọi đúng lệnh bỏ tick của khung", () => {
+  assert.match(hook, /if \("boTick" in kq\) \{[^}]*goi\.current\.boChon\(d\)/);
+  assert.match(chinh, /boChon: \(d\) => chon\(d, false\)/);
 });
 
 test("soCanGui: đổi số thì gửi số (dấu phẩy thập phân được)", () => {
@@ -132,8 +149,9 @@ test("hẹn giờ nổ khi dòng đã bỏ tick / đã chốt thì không gửi"
   assert.match(hook, /if \(kq === null \|\| !d\.mua \|\| d\.da_chot\)/);
 });
 
-test("khung gắn lại mà còn nháp chưa gửi thì tự hẹn gửi lại", () => {
-  assert.match(hook, /Object\.keys\(khoSoDangGo\.doc\(visitId\)\)/);
+test("khung gắn lại mà còn nháp chưa gửi thì tự hẹn gửi lại; nháp trống thì bỏ, không bỏ tick", () => {
+  assert.match(hook, /Object\.entries\(khoSoDangGo\.doc\(visitId\)\)/);
+  assert.match(hook, /if \(chu\.trim\(\) === ""\) khoSoDangGo\.boNeuBang\(visitId, id, chu\);/);
 });
 
 // ── Màn cha che Tổng tới khi lần lưu CUỐI xong ──────────────────────────────

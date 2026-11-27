@@ -117,7 +117,7 @@ export default function ChinhDonQuay({
   const { soNhap, go, doiSo } = useSoLuongTuLuu({
     visitId,
     dong,
-    baoLoi: (c) => setLoiTaiCho(c),
+    baoLoi: setLoiTaiCho, boChon: (d) => chon(d, false),
     luu: (d, so) =>
       lenh({ thao_tac: "so-luong", du_lieu: { prescription_id: d.id, so_luong: so } }, `Đã đổi số lượng “${d.ten}”.`),
   });
