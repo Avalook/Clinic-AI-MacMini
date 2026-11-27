@@ -26,6 +26,7 @@ import { useNgheBang } from "../dung-nghe-bang";
 import ChinhDonQuay, { type TheoDonDong } from "../thu-ngan/ChinhDonQuay";
 import { nhanPhan } from "@/lib/hinh-thuc-thu";
 import { taoMotLuot } from "@/lib/mot-luot";
+import { useDemDangChay } from "@/lib/dem-dang-chay";
 import { taiAnhChuyenKhoan } from "../thu-ngan/AnhChuyenKhoan";
 import type { KetQuaChia } from "../thu-ngan/ChiaHinhThuc";
 import type { GiamGiaResult } from "../thu-ngan/GiamGia";
@@ -65,6 +66,8 @@ export default function BanLeThu({ visitId }: { visitId: string }) {
   // "Chọn thuốc kho" ở dòng đơn cũ → mở danh mục ở giỏ với tên thuốc đó.
   const [goiYThuoc, setGoiYThuoc] = useState<{ ten: string; lan: number } | null>(null);
   const noiDon = useNoiDon(visitId);
+  // Đơn vừa chỉnh, hoá đơn đang nạp lại — che Tổng cũ + khoá thu (như quầy thuốc).
+  const chinh = useDemDangChay();
 
   // MỘT LƯỢT NẠP MỘT LÚC (lib/mot-luot). Mỗi lần tick/bỏ tick có HAI lượt nạp
   // chồng nhau — tin bảng `prescription` (useNgheBang) và `onDoi` của khối chỉnh
@@ -238,11 +241,16 @@ export default function BanLeThu({ visitId }: { visitId: string }) {
           theoDon={donNoi ? theoDon : undefined}
           nhacChung={donNoi ? goiDon?.nhac_chung : undefined}
           goiYThuoc={goiYThuoc}
+          onBatDau={chinh.batDau}
           onDoi={async (cau, loiMoi) => {
             anNoiDon();
             setXong(cau);
             setLoi(loiMoi);
-            await tai();
+            try {
+              await tai();
+            } finally {
+              chinh.xong();
+            }
             router.refresh();
           }}
         />
@@ -255,6 +263,7 @@ export default function BanLeThu({ visitId }: { visitId: string }) {
         daThu={doc.da_thu}
         cho={doc.cho_xac_minh ?? undefined}
         dangThu={dangThu}
+        dangTinhLai={chinh.dang}
         onThu={(hd: HoaDon, chia: KetQuaChia | null, giam?: GiamGiaResult) => {
           // Số xem trước do GiamGia tính; máy chủ tính lại và quyết số thật.
           const discount = giam?.params ?? undefined;

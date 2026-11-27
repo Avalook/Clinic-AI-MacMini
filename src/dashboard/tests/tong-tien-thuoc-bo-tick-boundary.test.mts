@@ -84,12 +84,14 @@ test("bỏ tick nhanh 3 thuốc: đi qua taoMotLuot thì tổng = các dòng cò
 test("Quầy thuốc: vừa chỉnh đơn thì che tổng cũ và khoá Tạo bill tới khi nạp lại xong", () => {
   const quay = doc("app/(dashboard)/thu-ngan/QuayThuNgan.tsx");
   const chinh = doc("app/(dashboard)/thu-ngan/ChinhDonQuay.tsx");
-  assert.match(quay, /onBatDau=\{\(\) => setTinhLai\(l\.visit_id\)\}/);
-  assert.match(quay, /finally \{\s*setTinhLai\(null\);/);
-  assert.match(quay, /dangTinhLai=\{tinhLai === l\.visit_id\}/);
+  // 27/11: ô số lượng tự lưu → đếm số lần chỉnh đang chạy (useDemDangChay); lần
+  // CUỐI xong mới gỡ che. Lỗi giữa chừng vẫn mở lại: `xong` nằm trong finally.
+  assert.match(quay, /onBatDau=\{\(\) => \(chinh\.batDau\(\), setTinhLai\(l\.visit_id\)\)\}/);
+  assert.match(quay, /finally \{\s*chinh\.xong\(\);/);
+  assert.match(quay, /dangTinhLai=\{chinh\.dang && tinhLai === l\.visit_id\}/);
   assert.match(quay, /dangTinhLai \?[\s\S]{0,200}đang tính lại…/);
   assert.match(quay, /disabled=\{\s*dangThu \|\|\s*dangTinhLai \|\|/);
-  // Mọi lệnh chỉnh đơn đi qua batDau (báo cha) — không còn setDang(true) lẻ.
-  assert.match(chinh, /const batDau = \(\) => \{\s*setDang\(true\);\s*onBatDau\?\.\(\);/);
-  assert.equal((chinh.match(/setDang\(true\)/g) ?? []).length, 1);
+  // Mọi lệnh chỉnh đơn đi qua batDau (báo cha) — không còn chỗ tăng bộ đếm lẻ.
+  assert.match(chinh, /const batDau = \(\) => \{\s*chay\.batDau\(\);\s*onBatDau\?\.\(\);/);
+  assert.equal((chinh.match(/chay\.batDau\(\)/g) ?? []).length, 1);
 });

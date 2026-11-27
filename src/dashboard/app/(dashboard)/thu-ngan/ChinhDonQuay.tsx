@@ -16,12 +16,15 @@ import { useNgayHetDong } from "@/components/NgayHetThuoc";
 import { donTuDong, tienVn, type MauThuoc } from "@/lib/phieu-kham";
 import { taoMotLuot } from "@/lib/mot-luot";
 import { khoNhapLayThem, NHAP_RONG } from "@/lib/nhap-lay-them";
+import { useDemDangChay } from "@/lib/dem-dang-chay";
 
 import DonThuocPhieu from "../_lam-viec/phieu-kham/DonThuocPhieu";
 import { INPUT } from "../form-ui";
 import ODonVi from "../ODonVi";
 
+import DongQuaySua from "./DongQuaySua";
 import GoDongLech from "./GoDongLech";
+import { useSoLuongTuLuu } from "./useSoLuongTuLuu";
 
 interface DongBan {
   id: string;
@@ -110,9 +113,21 @@ export default function ChinhDonQuay({
   const them = nhap.dong;
   const loiTaiCho = nhap.loi;
   const setLoiTaiCho = (loi: string | null) => khoNhapLayThem.ghi(visitId, { loi });
-  const [soNhap, setSoNhap] = useState<Record<string, string>>({});
+  // Ô Số lượng tự lưu, số đang gõ sống trong kho theo lượt — `useSoLuongTuLuu`.
+  const { soNhap, go, doiSo } = useSoLuongTuLuu({
+    visitId,
+    dong,
+    baoLoi: (c) => setLoiTaiCho(c),
+    luu: async (d, so) => {
+      batDau();
+      const loi = await gui({ thao_tac: "so-luong", du_lieu: { prescription_id: d.id, so_luong: so } });
+      hetChay();
+      await xong(loi, `Đã đổi số lượng “${d.ten}”.`);
+    },
+  });
   const het = useNgayHetDong(visitId, (dong ?? []).map((d) => ({ id: d.id, drug_catalog_id: d.mua ? d.drug_catalog_id : null, so_luong: soNhap[d.id] ?? d.so_mua ?? d.so_ke ?? "", don_vi: d.don_vi ?? d.don_vi_goi_y ?? "", chu: d.cach_dung ?? "" }))); // ngày hết thuốc theo số đang bán (26/11)
-  const [dang, setDang] = useState(false);
+  const chay = useDemDangChay(); // ô số tự lưu → hai lệnh có thể chen nhau
+  const dang = chay.dang;
   const khungThem = useRef<HTMLDivElement>(null);
   const lanGoiY = goiYThuoc?.lan;
   useEffect(() => {
@@ -128,7 +143,6 @@ export default function ChinhDonQuay({
         const r = await fetch(`/api/quay-thuoc?visit_id=${visitId}`, { cache: "no-store" });
         const d = (await r.json().catch(() => null)) as { dong?: DongBan[] } | null;
         setDong(d?.dong ?? []);
-        setSoNhap({});
       }),
     [motLuot, visitId],
   );
@@ -172,9 +186,10 @@ export default function ChinhDonQuay({
 
   // Báo màn cha ngay khi bấm: tổng của cha còn là số cũ cho tới khi `onDoi` nạp lại.
   const batDau = () => {
-    setDang(true);
+    chay.batDau();
     onBatDau?.();
   };
+  const hetChay = chay.xong;
 
   const xong = async (loi: string | null, cau: string) => {
     setLoiTaiCho(loi);
@@ -185,22 +200,8 @@ export default function ChinhDonQuay({
   const chon = async (d: DongBan, mua: boolean) => {
     batDau();
     const loi = await gui({ thao_tac: "chon", du_lieu: { prescription_id: d.id, mua } });
-    setDang(false);
+    hetChay();
     await xong(loi, mua ? `Đã tích lại “${d.ten}”.` : `Đã bỏ “${d.ten}” — khách không lấy.`);
-  };
-
-  const doiSo = async (d: DongBan) => {
-    const v = (soNhap[d.id] ?? "").trim();
-    if (!v) return;
-    // Rời ô mà số không đổi thì không gọi máy chủ (khỏi ghi vết "10 → 10").
-    if (Number(v.replace(",", ".")) === Number(d.so_mua ?? d.so_ke)) return;
-    batDau();
-    const loi = await gui({
-      thao_tac: "so-luong",
-      du_lieu: { prescription_id: d.id, so_luong: Number(v.replace(",", ".")) },
-    });
-    setDang(false);
-    await xong(loi, `Đã đổi số lượng “${d.ten}”.`);
   };
 
   const doiDonVi = async (d: DongBan, donVi: string) => {
@@ -210,7 +211,7 @@ export default function ChinhDonQuay({
       thao_tac: "don-vi",
       du_lieu: { prescription_id: d.id, don_vi: donVi },
     });
-    setDang(false);
+    hetChay();
     await xong(loi, `Đã đổi đơn vị “${d.ten}”.`);
   };
 
@@ -232,7 +233,7 @@ export default function ChinhDonQuay({
         ],
       },
     });
-    setDang(false);
+    hetChay();
     await xong(loi, `Đã sửa cách dùng “${d.ten}”.`);
   };
 
@@ -253,7 +254,7 @@ export default function ChinhDonQuay({
         }),
       },
     });
-    setDang(false);
+    hetChay();
     // Bị từ chối (vd 422 thiếu số lượng) thì nháp Ở NGUYÊN để sửa rồi bấm lại.
     if (!loi) khoNhapLayThem.bo(visitId);
     await xong(loi, `Đã thêm ${them.length} thuốc vào đơn bán.`);
@@ -322,9 +323,12 @@ export default function ChinhDonQuay({
                   <input
                     inputMode="decimal"
                     value={soNhap[d.id] ?? d.so_mua ?? d.so_ke ?? ""}
-                    disabled={dang || !d.mua || d.da_chot}
-                    onChange={(e) => setSoNhap({ ...soNhap, [d.id]: e.target.value })}
-                    onBlur={() => void doiSo(d)}
+                    disabled={!d.mua || d.da_chot}
+                    onChange={(e) => go(d.id, e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") void doiSo(d.id);
+                    }}
+                    onBlur={() => void doiSo(d.id)}
                     className={`${INPUT} w-24`}
                     aria-label={`Số lượng ${d.ten}`}
                   />
@@ -421,41 +425,6 @@ export default function ChinhDonQuay({
           </Button>
         ) : null}
       </div>
-    </div>
-  );
-}
-
-function DongQuaySua({
-  d,
-  dang,
-  onLuu,
-}: {
-  d: DongBan;
-  dang: boolean;
-  onLuu: (d: DongBan, cachDung: string, luuY: string) => Promise<void>;
-}) {
-  const [cachDung, setCachDung] = useState(d.cach_dung ?? "");
-  const [luuY, setLuuY] = useState(d.luu_y ?? "");
-  return (
-    <div className="grid gap-2 pl-6 sm:grid-cols-2">
-      <input
-        value={cachDung}
-        disabled={dang || !d.mua || d.da_chot}
-        onChange={(e) => setCachDung(e.target.value)}
-        onBlur={() => void onLuu(d, cachDung, luuY)}
-        placeholder="Cách dùng"
-        aria-label={`Cách dùng ${d.ten}`}
-        className={INPUT}
-      />
-      <input
-        value={luuY}
-        disabled={dang || !d.mua || d.da_chot}
-        onChange={(e) => setLuuY(e.target.value)}
-        onBlur={() => void onLuu(d, cachDung, luuY)}
-        placeholder="Lưu ý"
-        aria-label={`Lưu ý ${d.ten}`}
-        className={INPUT}
-      />
     </div>
   );
 }

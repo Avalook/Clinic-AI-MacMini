@@ -33,6 +33,7 @@ import VatTuQuay from "./VatTuQuay";
 import LieuTrinhQuay from "./LieuTrinhQuay";
 import { useNgheBang } from "../dung-nghe-bang";
 import { taoMotLuot } from "@/lib/mot-luot";
+import { useDemDangChay } from "@/lib/dem-dang-chay";
 import HoaDonMot, { type LenhThuMot, type QuayThu } from "./HoaDonMot";
 import Chip, { type ChipTone } from "@/components/ui/Chip";
 import NutHoanTienThua from "../_lam-viec/NutHoanTienThua";
@@ -243,6 +244,7 @@ export default function QuayThuNgan({
   // Lượt vừa chỉnh đơn thuốc, tổng đang chờ nạp lại (đo staging 16/11: ~0,75 s hiện
   // số cũ — thu ngân đọc nhầm tổng khi bỏ tick nhanh).
   const [tinhLai, setTinhLai] = useState<string | null>(null);
+  const chinh = useDemDangChay(); // lần chỉnh CUỐI xong mới hiện lại Tổng
   const [vatTuDangLuu, setVatTuDangLuu] = useState<Set<string>>(() => new Set());
   // `?luot=` — mở quầy từ nút "Thu ngay" của check-out (khách còn nợ,
   // 01/10/2026): chọn sẵn đúng lượt ấy.
@@ -946,7 +948,7 @@ export default function QuayThuNgan({
             !choCua(l.visit_id, "thuoc") ? (
               <ChinhDonQuay
                 visitId={l.visit_id}
-                onBatDau={() => setTinhLai(l.visit_id)}
+                onBatDau={() => (chinh.batDau(), setTinhLai(l.visit_id))}
                 onDoi={async (cau, loiMoi) => {
                   setXong(cau);
                   setLoi(loiMoi);
@@ -954,7 +956,7 @@ export default function QuayThuNgan({
                   try {
                     await tai();
                   } finally {
-                    setTinhLai(null);
+                    chinh.xong();
                   }
                 }}
               />
@@ -970,7 +972,7 @@ export default function QuayThuNgan({
                 daThu={daThuCua(l.visit_id, "thuoc")}
                 cho={choCua(l.visit_id, "thuoc")}
                 dangThu={dangThu === `${l.visit_id}:thuoc`}
-                dangTinhLai={tinhLai === l.visit_id}
+                dangTinhLai={chinh.dang && tinhLai === l.visit_id}
                 onThu={(hd, c, g, ct) => void thu(l, "thuoc", hd, c, g, ct)}
                 onXacMinh={(ma, soNhan) => void xacMinh(l, "thuoc", ma, soNhan)}
                 onDoi={(cau) => {
