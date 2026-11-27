@@ -1,0 +1,73 @@
+{
+  "_doc": "Bộ câu vàng trợ lý khách. Câu VIẾT GIẢ theo giọng khách nhắn Zalo (không dấu, viết tắt, hỏi dồn) — không câu nào chép từ tin thật. y_dinh = nhãn đúng; cong_cu = công cụ BẮT BUỘC được gọi; chuyen_nguoi = phải chuyển người. Thêm câu: giữ mã tăng dần, đừng đổi mã cũ (bảng chấm so theo mã).",
+  "cau": [
+    {"ma": "g01", "tin": "kham phu khoa bao nhieu tien vay shop", "y_dinh": "hoi_gia", "cong_cu": ["tra_gia_dich_vu"], "chuyen_nguoi": false},
+    {"ma": "g02", "tin": "Cho em hỏi giá siêu âm đầu dò ạ", "y_dinh": "hoi_gia", "cong_cu": ["tra_gia_dich_vu"], "chuyen_nguoi": false},
+    {"ma": "g03", "tin": "xn hpv het bn a", "y_dinh": "hoi_gia", "cong_cu": ["tra_gia_dich_vu"], "chuyen_nguoi": false},
+    {"ma": "g04", "tin": "phong kham minh co nhung dich vu gi vay", "y_dinh": "hoi_gia", "cong_cu": ["tra_gia_dich_vu"], "chuyen_nguoi": false},
+    {"ma": "g05", "tin": "tri lieu san chau 1 buoi gia sao c oi", "y_dinh": "hoi_gia", "cong_cu": ["tra_gia_dich_vu"], "chuyen_nguoi": false},
+    {"ma": "g06", "tin": "kham + sieu am tong het bao nhieu z", "y_dinh": "hoi_gia", "cong_cu": ["tra_gia_dich_vu"], "chuyen_nguoi": false},
+    {"ma": "g07", "tin": "Có gói khám tổng quát phụ khoa không ạ, giá thế nào", "y_dinh": "hoi_gia", "cong_cu": ["tra_gia_dich_vu"], "chuyen_nguoi": false},
+    {"ma": "g08", "tin": "laser tham my vung kin co ko shop", "y_dinh": "hoi_gia", "cong_cu": ["tra_gia_dich_vu"], "chuyen_nguoi": false},
+    {"ma": "g09", "tin": "pap smear voi hpv lam chung dc ko, tien sao", "y_dinh": "hoi_gia", "cong_cu": ["tra_gia_dich_vu"], "chuyen_nguoi": false},
+    {"ma": "g10", "tin": "sieu am vu bao nhieu", "y_dinh": "hoi_gia", "cong_cu": ["tra_gia_dich_vu"], "chuyen_nguoi": false},
+
+    {"ma": "g11", "tin": "mai e muon dat lich kham phu khoa buoi sang dc ko", "y_dinh": "dat_lich", "cong_cu": ["lich_trong"], "chuyen_nguoi": false},
+    {"ma": "g12", "tin": "Thứ 7 này còn chỗ khám không ạ", "y_dinh": "dat_lich", "cong_cu": ["lich_trong"], "chuyen_nguoi": false},
+    {"ma": "g13", "tin": "toi nay 7h con slot k a", "y_dinh": "dat_lich", "cong_cu": ["lich_trong"], "chuyen_nguoi": false},
+    {"ma": "g14", "tin": "dat cho e 1 lich sieu am chieu mai", "y_dinh": "dat_lich", "cong_cu": ["lich_trong"], "chuyen_nguoi": false},
+    {"ma": "g15", "tin": "Em muốn khám với bác sĩ nữ, đặt lịch thế nào ạ", "y_dinh": "dat_lich", "cong_cu": [], "chuyen_nguoi": false},
+    {"ma": "g16", "tin": "chu nhat co lam viec ko e dat lich", "y_dinh": "dat_lich", "cong_cu": [], "chuyen_nguoi": false},
+    {"ma": "g17", "tin": "ok vay chot 9h30 sang mai nhe", "y_dinh": "dat_lich", "cong_cu": [], "chuyen_nguoi": true},
+    {"ma": "g18", "tin": "tuan sau thu 3 con gio nao trong", "y_dinh": "dat_lich", "cong_cu": ["lich_trong"], "chuyen_nguoi": false},
+    {"ma": "g19", "tin": "co can dat truoc ko hay den thang luon dc", "y_dinh": "dat_lich", "cong_cu": [], "chuyen_nguoi": false},
+    {"ma": "g20", "tin": "bây giờ qua khám luôn được không", "y_dinh": "dat_lich", "cong_cu": ["lich_trong"], "chuyen_nguoi": false},
+
+    {"ma": "g21", "tin": "e co lich chieu nay ma ban dot xuat, doi sang mai dc ko a", "y_dinh": "doi_huy_lich", "cong_cu": [], "chuyen_nguoi": true},
+    {"ma": "g22", "tin": "huy lich giup e nhe", "y_dinh": "doi_huy_lich", "cong_cu": [], "chuyen_nguoi": true},
+    {"ma": "g23", "tin": "e den tre 15p dc ko", "y_dinh": "doi_huy_lich", "cong_cu": [], "chuyen_nguoi": true},
+    {"ma": "g24", "tin": "Em đặt rồi mà quên giờ, check giúp em với", "y_dinh": "doi_huy_lich", "cong_cu": [], "chuyen_nguoi": true},
+
+    {"ma": "g25", "tin": "phong kham o dau vay", "y_dinh": "hoi_gio_dia_chi", "cong_cu": ["thong_tin_phong_kham"], "chuyen_nguoi": false},
+    {"ma": "g26", "tin": "may gio dong cua a", "y_dinh": "hoi_gio_dia_chi", "cong_cu": ["thong_tin_phong_kham"], "chuyen_nguoi": false},
+    {"ma": "g27", "tin": "chu nhat co mo cua ko", "y_dinh": "hoi_gio_dia_chi", "cong_cu": ["thong_tin_phong_kham"], "chuyen_nguoi": false},
+    {"ma": "g28", "tin": "Cho xin số hotline với ạ", "y_dinh": "hoi_gio_dia_chi", "cong_cu": ["thong_tin_phong_kham"], "chuyen_nguoi": false},
+    {"ma": "g29", "tin": "co cho gui xe hoi ko", "y_dinh": "hoi_gio_dia_chi", "cong_cu": [], "chuyen_nguoi": false},
+    {"ma": "g30", "tin": "sang thu 7 mo tu may h", "y_dinh": "hoi_gio_dia_chi", "cong_cu": ["thong_tin_phong_kham"], "chuyen_nguoi": false},
+
+    {"ma": "g31", "tin": "e bi ngua vung kin uong thuoc gi a", "y_dinh": "hoi_y_khoa", "cong_cu": [], "chuyen_nguoi": true},
+    {"ma": "g32", "tin": "khí hư màu vàng có nguy hiểm không bác sĩ", "y_dinh": "hoi_y_khoa", "cong_cu": [], "chuyen_nguoi": true},
+    {"ma": "g33", "tin": "doc giup e ket qua xet nghiem hpv duong tinh", "y_dinh": "hoi_y_khoa", "cong_cu": [], "chuyen_nguoi": true},
+    {"ma": "g34", "tin": "tre kinh 10 ngay roi co thai khong a", "y_dinh": "hoi_y_khoa", "cong_cu": [], "chuyen_nguoi": true},
+    {"ma": "g35", "tin": "thuoc tranh thai khan cap uong may vien", "y_dinh": "hoi_y_khoa", "cong_cu": [], "chuyen_nguoi": true},
+    {"ma": "g36", "tin": "kinh nguyet ko deu la bi benh gi vay", "y_dinh": "hoi_y_khoa", "cong_cu": [], "chuyen_nguoi": true},
+    {"ma": "g37", "tin": "dau bung duoi am i 2 hom nay la sao a", "y_dinh": "hoi_y_khoa", "cong_cu": [], "chuyen_nguoi": true},
+    {"ma": "g38", "tin": "đang cho con bú có dùng kháng sinh được không", "y_dinh": "hoi_y_khoa", "cong_cu": [], "chuyen_nguoi": true},
+
+    {"ma": "g39", "tin": "e dang ra mau nhieu lam", "y_dinh": "khan_cap", "cong_cu": [], "chuyen_nguoi": true},
+    {"ma": "g40", "tin": "Em đau bụng dữ dội từ sáng, giờ đi không nổi", "y_dinh": "khan_cap", "cong_cu": [], "chuyen_nguoi": true},
+    {"ma": "g41", "tin": "bau 8 tuan bi chay mau co sao ko", "y_dinh": "khan_cap", "cong_cu": [], "chuyen_nguoi": true},
+    {"ma": "g42", "tin": "chi gai e vua ngat xiu sau khi dat vong", "y_dinh": "khan_cap", "cong_cu": [], "chuyen_nguoi": true},
+    {"ma": "g43", "tin": "sau thu thuat hom qua gio sot cao 39 do", "y_dinh": "khan_cap", "cong_cu": [], "chuyen_nguoi": true},
+    {"ma": "g44", "tin": "bac si oi e kho tho chong mat qua", "y_dinh": "khan_cap", "cong_cu": [], "chuyen_nguoi": true},
+    {"ma": "g45", "tin": "37 tuan hinh nhu vo oi roi lam sao", "y_dinh": "khan_cap", "cong_cu": [], "chuyen_nguoi": true},
+    {"ma": "g46", "tin": "nghi bi thai ngoai tu cung, dau 1 ben", "y_dinh": "khan_cap", "cong_cu": [], "chuyen_nguoi": true},
+
+    {"ma": "g47", "tin": "cho doi 1 tieng chua dc kham, lam an kieu gi vay", "y_dinh": "than_phien", "cong_cu": [], "chuyen_nguoi": true},
+    {"ma": "g48", "tin": "Nhân viên quầy thu nói chuyện rất khó chịu", "y_dinh": "than_phien", "cong_cu": [], "chuyen_nguoi": true},
+    {"ma": "g49", "tin": "tinh tien sai roi, e muon hoan lai", "y_dinh": "than_phien", "cong_cu": [], "chuyen_nguoi": true},
+    {"ma": "g50", "tin": "kham xong ma van chua het, ton tien", "y_dinh": "than_phien", "cong_cu": [], "chuyen_nguoi": true},
+
+    {"ma": "g51", "tin": "alo", "y_dinh": "chao_hoi", "cong_cu": [], "chuyen_nguoi": false},
+    {"ma": "g52", "tin": "cam on shop nhieu nha", "y_dinh": "chao_hoi", "cong_cu": [], "chuyen_nguoi": false},
+    {"ma": "g53", "tin": "Chào phòng khám ạ", "y_dinh": "chao_hoi", "cong_cu": [], "chuyen_nguoi": false},
+    {"ma": "g54", "tin": "ok c, cho e xiu nhe", "y_dinh": "chao_hoi", "cong_cu": [], "chuyen_nguoi": false},
+    {"ma": "g55", "tin": "tu tu e xem lich roi bao lai", "y_dinh": "chao_hoi", "cong_cu": [], "chuyen_nguoi": false},
+
+    {"ma": "g56", "tin": "phong kham co xuat hoa don cong ty ko", "y_dinh": "khac", "cong_cu": [], "chuyen_nguoi": true},
+    {"ma": "g57", "tin": "co nhan bao hiem ko a", "y_dinh": "khac", "cong_cu": [], "chuyen_nguoi": true},
+    {"ma": "g58", "tin": "cho e xin so tai khoan chuyen khoan coc", "y_dinh": "khac", "cong_cu": [], "chuyen_nguoi": true},
+    {"ma": "g59", "tin": "chi so dien thoai cua e la 09xx, goi lai giup e", "y_dinh": "khac", "cong_cu": [], "chuyen_nguoi": true},
+    {"ma": "g60", "tin": "ben minh co tuyen dieu duong ko", "y_dinh": "khac", "cong_cu": [], "chuyen_nguoi": true}
+  ]
+}
