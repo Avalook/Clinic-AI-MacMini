@@ -182,7 +182,7 @@
     "src/dashboard/app/(dashboard)/settings/mau-ket-qua/TrinhSuaMau.tsx": 466,
     "src/dashboard/app/(dashboard)/tasks/ClinicalRecordForm.tsx": 1837,
     "src/dashboard/app/(dashboard)/tasks/ServiceFormEngine.tsx": 548,
-    "src/dashboard/app/(dashboard)/thu-ngan/ChinhDonQuay.tsx": 430,
+    "src/dashboard/app/(dashboard)/thu-ngan/ChinhDonQuay.tsx": 428,
     "src/dashboard/app/(dashboard)/thu-ngan/HoaDonMot.tsx": 560,
     "src/dashboard/app/(dashboard)/thu-ngan/QuayThuNgan.tsx": 1449,
     "src/dashboard/app/(dashboard)/thu-ngan/VatTuQuay.tsx": 435,

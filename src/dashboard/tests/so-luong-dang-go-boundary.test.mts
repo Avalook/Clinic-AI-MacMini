@@ -110,9 +110,10 @@ test("ô Số lượng: tự lưu khi ngừng gõ, lưu khi Enter, lưu khi rờ
 });
 
 test("lệnh số lượng đi qua batDau/xong như mọi lệnh khác (màn cha che Tổng)", () => {
+  assert.match(chinh, /luu: \(d, so\) =>\s*lenh\(\{ thao_tac: "so-luong"/);
   assert.match(
     chinh,
-    /luu: async \(d, so\) => \{\s*batDau\(\);[\s*\S]*?thao_tac: "so-luong"[\s\S]*?hetChay\(\);\s*await xong\(/,
+    /const lenh = async \([^)]*\) => \{\s*batDau\(\);\s*const loi = await gui\(than\);\s*hetChay\(\);\s*await xong\(loi, cau\);/,
   );
 });
 
@@ -121,6 +122,14 @@ test("ô Số lượng không bị khoá trong lúc lưu (tự lưu không giậ
   assert.ok(o, "còn ô Số lượng");
   const khoi = chinh.slice(chinh.lastIndexOf("<input", o.index), o.index);
   assert.match(khoi, /disabled=\{!d\.mua \|\| d\.da_chot\}/);
+});
+
+test("nạp lại đứt mạng vẫn báo cha (không kẹt 'đang tính lại…')", () => {
+  assert.match(chinh, /try \{\s*await tai\(\);\s*\} finally \{\s*await onDoi\(/);
+});
+
+test("hẹn giờ nổ khi dòng đã bỏ tick / đã chốt thì không gửi", () => {
+  assert.match(hook, /if \(kq === null \|\| !d\.mua \|\| d\.da_chot\)/);
 });
 
 test("khung gắn lại mà còn nháp chưa gửi thì tự hẹn gửi lại", () => {

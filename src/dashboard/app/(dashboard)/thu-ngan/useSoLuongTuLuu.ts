@@ -19,6 +19,8 @@ interface DongSo {
   ten: string;
   so_mua: string | null;
   so_ke: string | null;
+  mua: boolean;
+  da_chot: boolean;
 }
 
 export function useSoLuongTuLuu<D extends DongSo>({
@@ -61,7 +63,8 @@ export function useSoLuongTuLuu<D extends DongSo>({
       const v = khoSoDangGo.doc(visitId)[id];
       if (!d || v === undefined) return;
       const kq = soCanGui(v, d.so_mua ?? d.so_ke);
-      if (kq === null) {
+      // Hẹn giờ nổ sau khi dòng vừa bỏ tick / đã chốt: không gửi, bỏ nháp.
+      if (kq === null || !d.mua || d.da_chot) {
         // Số không đổi thì không gọi máy chủ (khỏi ghi vết "10 → 10").
         khoSoDangGo.boNeuBang(visitId, id, v);
         return;
