@@ -1,0 +1,183 @@
+"""Đo SĐT trong bản sao lưu prod (CHỈ ĐỌC, chạy cục bộ, KHÔNG in số/tên thật).
+
+Dùng: gunzip -c <dump.sql.gz> | python3 -I do_sdt.py <đường dẫn core/phone.py>
+Đầu ra chỉ gồm số đếm và "dạng" (chữ số -> 9, chữ -> a).
+"""
+
+from __future__ import annotations
+
+import importlib.util
+import re
+import sys
+import unicodedata
+from collections import Counter, defaultdict
+
+spec = importlib.util.spec_from_file_location("phone", sys.argv[1])
+assert spec and spec.loader
+phone = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(phone)
+
+WANT = {
+    "public.patient": ("clinic_patient_id", "full_name", "phone_primary", "phone_secondary", "is_active", "sdt_tim_kiem", "clinic_id", "nationality"),
+    "public.patient_sdt_them": ("clinic_patient_id", "so_dien_thoai"),
+    "public.patient_next_of_kin": ("phone",),
+    "public.staff": ("phone",),
+    "public.cskh_log": ("phone",),
+    "public.clinic_location": ("phone",),
+}
+
+data: dict[str, list[dict[str, str | None]]] = {k: [] for k in WANT}
+cur = None
+cols: list[str] = []
+for line in sys.stdin:
+    if cur is None:
+        if line.startswith("COPY "):
+            m = re.match(r"COPY (\S+) \((.*)\) FROM stdin;", line)
+            if m and m.group(1) in WANT:
+                cur = m.group(1)
+                cols = [c.strip() for c in m.group(2).split(",")]
+        continue
+    if line.startswith("\\."):
+        cur = None
+        continue
+    parts = line.rstrip("\n").split("\t")
+    row = {c: (None if v == "\\N" else v) for c, v in zip(cols, parts)}
+    data[cur].append(row)
+
+
+def shape(s: str | None) -> str:
+    if s is None:
+        return "<NULL>"
+    t = s.strip()
+    if not t:
+        return "<rỗng>"
+    out = re.sub(r"\d", "9", t)
+    out = re.sub(r"[^\W\d_]", "a", out)
+    return re.sub(r"a+", "a", out)
+
+
+def classify(s: str | None) -> str:
+    if s is None or not s.strip():
+        return "0 trống"
+    t = s.strip()
+    n = phone.normalize_vn_phone(t)
+    if n is not None:
+        return "1 chuẩn 0xxxxxxxxx" if t == n else "2 hợp lệ nhưng viết KHÁC dạng chuẩn"
+    if re.fullmatch(r"02\d{8}", t):
+        return "3 số bàn 02xxxxxxxx (cho phép)"
+    d = re.sub(r"\D", "", t)
+    if t.startswith("+") and not t.startswith("+84"):
+        return "5 nước ngoài (+ không phải 84)"
+    if re.search(r"[A-Za-zÀ-ỹ]", t):
+        return "6 có chữ"
+    if re.fullmatch(r"[\d\s.+\-()]+", t) and len(d) in (10, 11, 12) and d.startswith(("84", "0")):
+        return "4 giống số VN nhưng KHÔNG qua được chuẩn hoá (sai đầu số/độ dài)"
+    return "7 rác khác"
+
+
+def report(title: str, values: list[str | None]) -> None:
+    print(f"\n== {title}: {len(values)} dòng")
+    c = Counter(classify(v) for v in values)
+    for k in sorted(c):
+        print(f"   {k}: {c[k]}")
+    sh = Counter(shape(v) for v in values if classify(v)[0] not in "01")
+    for k, v in sh.most_common(12):
+        print(f"     dạng {k!r}: {v}")
+
+
+P = data["public.patient"]
+print(f"patient: {len(P)} dòng, đang dùng (is_active=t): {sum(1 for r in P if r['is_active'] == 't')}")
+report("patient.phone_primary", [r["phone_primary"] for r in P])
+report("patient.phone_secondary", [r["phone_secondary"] for r in P if r["phone_secondary"]])
+report("patient_sdt_them.so_dien_thoai", [r["so_dien_thoai"] for r in data["public.patient_sdt_them"]])
+report("patient_next_of_kin.phone", [r["phone"] for r in data["public.patient_next_of_kin"]])
+report("staff.phone", [r["phone"] for r in data["public.staff"]])
+report("cskh_log.phone", [r["phone"] for r in data["public.cskh_log"]])
+report("clinic_location.phone", [r["phone"] for r in data["public.clinic_location"]])
+
+# nationality
+print("\n== patient.nationality:", Counter((r["nationality"] or "<NULL>") for r in P).most_common(6))
+
+
+def canon(s: str | None) -> str | None:
+    if not s or not s.strip():
+        return None
+    n = phone.normalize_vn_phone(s)
+    if n:
+        return n
+    t = s.strip()
+    return t if re.fullmatch(r"02\d{8}", t) else None
+
+
+# Mỗi khách -> tập số chuẩn (chính + phụ + thêm)
+so_cua: dict[str, set[str]] = defaultdict(set)
+for r in P:
+    for k in ("phone_primary", "phone_secondary"):
+        c = canon(r[k])
+        if c:
+            so_cua[r["clinic_patient_id"]].add(c)
+for r in data["public.patient_sdt_them"]:
+    c = canon(r["so_dien_thoai"])
+    if c:
+        so_cua[r["clinic_patient_id"]].add(c)
+
+co_phone = sum(1 for r in P if so_cua.get(r["clinic_patient_id"]))
+print(f"\nKhách có ít nhất 1 số dùng được: {co_phone}/{len(P)}  (KHÔNG có số: {len(P) - co_phone})")
+
+# Nhóm dùng chung số
+theo_so: dict[str, set[str]] = defaultdict(set)
+for pid, ss in so_cua.items():
+    for s in ss:
+        theo_so[s].add(pid)
+nhom = [v for v in theo_so.values() if len(v) > 1]
+print(f"Số dùng chung >1 hồ sơ: {len(nhom)} số; số hồ sơ liên quan: {len(set().union(*nhom)) if nhom else 0}")
+print("   cỡ nhóm:", Counter(len(v) for v in nhom).most_common(6))
+
+# Trùng ẩn: cùng số chuẩn nhưng chuỗi lưu KHÁC nhau ở phone_primary (so khớp '=' thô sẽ trượt)
+theo_chuoi: dict[str, set[str]] = defaultdict(set)
+for r in P:
+    c = canon(r["phone_primary"])
+    if c and r["phone_primary"]:
+        theo_chuoi[c].add(r["phone_primary"].strip())
+an = sum(1 for v in theo_chuoi.values() if len(v) > 1)
+print(f"Số chuẩn mà phone_primary lưu từ 2 cách viết trở lên (trùng ẩn với '= thô'): {an}")
+
+
+# Trùng tên
+def khong_dau(s: str) -> str:
+    s = unicodedata.normalize("NFD", s.lower().replace("đ", "d"))
+    return " ".join("".join(c for c in s if unicodedata.category(c) != "Mn").split())
+
+
+theo_ten: dict[str, list[str]] = defaultdict(list)
+for r in P:
+    if r["full_name"]:
+        theo_ten[khong_dau(r["full_name"])].append(r["clinic_patient_id"])
+tn = {k: v for k, v in theo_ten.items() if len(v) > 1}
+print(f"\nTên (bỏ dấu) trùng ≥2 hồ sơ: {len(tn)} tên; số hồ sơ nằm trong nhóm trùng tên: {sum(len(v) for v in tn.values())}")
+print("   cỡ nhóm:", Counter(len(v) for v in tn.values()).most_common(8))
+tong = 0
+ko_so = 0
+phan_biet_duoc = 0
+for k, ids in tn.items():
+    for i in ids:
+        tong += 1
+        if not so_cua.get(i):
+            ko_so += 1
+    # trong nhóm, SĐT chính có phân biệt được từng người không?
+    firsts = [tuple(sorted(so_cua.get(i, ()))) for i in ids]
+    if len(set(firsts)) == len(ids) and all(firsts):
+        phan_biet_duoc += 1
+print(f"   hồ sơ trùng tên KHÔNG có số nào: {ko_so}/{tong}")
+print(f"   nhóm trùng tên mà SĐT phân biệt được hết: {phan_biet_duoc}/{len(tn)}")
+
+# sdt_tim_kiem
+bad_search = 0
+for r in P:
+    st = r["sdt_tim_kiem"]
+    for k in ("phone_primary",):
+        v = r[k]
+        c = canon(v)
+        if v and c and c != v.strip() and (st is None or c not in st):
+            bad_search += 1
+print(f"\nKhách mà gõ dạng chuẩn 0xxxxxxxxx KHÔNG ra ở ô tìm (chuỗi lưu khác dạng, sdt_tim_kiem không chứa dạng chuẩn): {bad_search}")
